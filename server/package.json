@@ -1,0 +1,16 @@
+{
+  "name": "websocket-media-server",
+  "version": "1.0.0",
+  "description": "WebSocket server that broadcasts messages to connected clients every 10 seconds",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": ["websocket", "server"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "ws": "^8.14.2"
+  }
+}
+

@@ -1,0 +1,35 @@
+<div class="app-container">
+  <div class="connection-status" [class.connected]="connectionStatus === 'connected'" 
+       [class.connecting]="connectionStatus === 'connecting'">
+    {{ connectionStatus === 'connected' ? 'Connected' : connectionStatus === 'connecting' ? 'Connecting...' : 'Disconnected' }}
+  </div>
+
+  <!-- Text Content -->
+  <div *ngIf="currentContent?.type === 'text'" 
+       class="content-container text-container" 
+       #textContainer>
+    <div class="text-content">{{ text }}</div>
+  </div>
+
+  <!-- Image Content -->
+  <div *ngIf="currentContent?.type === 'image'" 
+       class="content-container image-container" 
+       #imageContainer>
+    <img [src]="imageSrc" alt="Received image" class="display-image" />
+  </div>
+
+  <!-- URL Content (iframe) -->
+  <div *ngIf="currentContent?.type === 'url'" 
+       class="content-container iframe-container">
+    <iframe [src]="safeUrl" 
+            class="display-iframe" 
+            frameborder="0"
+            allowfullscreen></iframe>
+  </div>
+
+  <!-- No content message -->
+  <div *ngIf="!currentContent" class="content-container no-content">
+    <div class="waiting-message">Waiting for content from WebSocket...</div>
+  </div>
+</div>
+

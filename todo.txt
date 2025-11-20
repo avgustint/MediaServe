@@ -1,0 +1,2 @@
+tipkovnica za direktno izbiro
+store last sent value and send it to client on connect

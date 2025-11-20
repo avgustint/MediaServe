@@ -1,0 +1,12 @@
+<div class="app-wrapper">
+  <nav *ngIf="isAuthenticated()" class="navbar">
+    <div class="nav-brand">Media Player Admin</div>
+    <div class="nav-buttons">
+      <button class="nav-btn" (click)="navigateToPlaylist()">Playlist</button>
+      <button class="nav-btn" (click)="navigateToEditor()">Editor</button>
+      <button class="logout-btn" (click)="logout()">Logout</button>
+    </div>
+  </nav>
+  <router-outlet></router-outlet>
+</div>
+
