@@ -1,2 +1,4 @@
 tipkovnica za direktno izbiro
 store last sent value and send it to client on connect
+multi page support
+quick next & previous key
