@@ -1,0 +1,16 @@
+<div class="error-popup-overlay" *ngIf="show" (click)="onClose()">
+  <div class="error-popup-content" (click)="$event.stopPropagation()">
+    <div class="error-popup-header">
+      <h3>Error</h3>
+      <button class="error-popup-close" (click)="onClose()" title="Close">
+        ×
+      </button>
+    </div>
+    <div class="error-popup-body">
+      <p>{{ message }}</p>
+    </div>
+    <div class="error-popup-footer">
+      <button class="error-popup-button" (click)="onClose()">OK</button>
+    </div>
+  </div>
+</div>

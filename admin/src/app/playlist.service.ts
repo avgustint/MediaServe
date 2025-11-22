@@ -1,5 +1,5 @@
 import { Injectable } from "@angular/core";
-import { HttpClient } from "@angular/common/http";
+import { HttpClient, HttpHeaders } from "@angular/common/http";
 import { forkJoin, map, Observable, switchMap, of } from "rxjs";
 
 export interface PlaylistItem {
@@ -18,9 +18,10 @@ export interface LibraryContent {
 export interface LibraryItem {
   name: string;
   type: "text" | "image" | "url";
-  content: string | LibraryContent[];
+  content?: string | LibraryContent[]; // Optional - not returned for playlist items
   guid: number;
   description?: string;
+  pages?: number[]; // For text items in playlists - array of page numbers to display
 }
 
 export interface Playlist {
@@ -30,7 +31,8 @@ export interface Playlist {
   updated?: string;
   items: Array<{
     guid: number;
-    page?: number;
+    page?: number; // Legacy field for backward compatibility
+    pages?: number[]; // Array of pages to use, or undefined for all pages
     description?: string;
   }>;
 }
@@ -50,37 +52,14 @@ export class PlaylistService {
   constructor(private http: HttpClient) {}
 
   getPlaylist(guid?: number): Observable<LibraryItem[]> {
-    // Build URL with optional guid parameter
-    let url = `${this.API_URL}/playlist.json`;
+    // Build URL with optional guid parameter - use optimized endpoint
+    let url = `${this.API_URL}/playlist/items`;
     if (guid) {
       url += `?guid=${guid}`;
     }
     
-    // Load playlist.json first
-    return forkJoin([
-      this.http.get<Playlist>(url),
-      this.http.get<LibraryItem[]>(`${this.API_URL}/library.json`)
-    ]).pipe(
-      map(([playlistData, library]) => {
-        // Compose playlist array by matching playlist items guids to items from the library.
-        return playlistData.items
-          .map((playlistItem) => {
-            const libItem = library.find((lib) => lib.guid === playlistItem.guid);
-            // fallback in case a library item doesn't exist for guid
-            const baseItem = libItem || {
-              name: "",
-              type: "text",
-              content: "",
-              guid: playlistItem.guid,
-            };
-            // Preserve description from playlist.json if it exists, otherwise use library item description
-            return {
-              ...baseItem,
-              description: playlistItem.description !== undefined ? playlistItem.description : baseItem.description
-            };
-          });
-      })
-    );
+    // Use optimized endpoint that does JOIN query on server
+    return this.http.get<LibraryItem[]>(url);
   }
 
   searchPlaylists(searchTerm: string): Observable<PlaylistSearchResult[]> {
@@ -93,5 +72,89 @@ export class PlaylistService {
     return this.http.get<PlaylistSearchResult[]>(
       `${this.API_URL}/playlists/search?q=${encodedSearchTerm}`
     );
+  }
+
+  getPlaylistMetadata(guid?: number): Observable<Playlist> {
+    // Build URL with optional guid parameter
+    let url = `${this.API_URL}/playlist`;
+    if (guid) {
+      url += `?guid=${guid}`;
+    }
+    
+    return this.http.get<Playlist>(url);
+  }
+
+  getLibraryItems(): Observable<LibraryItem[]> {
+    return this.http.get<LibraryItem[]>(`${this.API_URL}/library`);
+  }
+
+  getLibraryItemByGuid(guid: number): Observable<LibraryItem | null> {
+    return this.getLibraryItems().pipe(
+      map((items) => items.find((item) => item.guid === guid) || null)
+    );
+  }
+
+  // Editor methods for library items
+  searchLibraryItems(searchTerm: string): Observable<LibraryItem[]> {
+    if (!searchTerm || searchTerm.trim().length === 0) {
+      return of([]);
+    }
+    
+    const encodedSearchTerm = encodeURIComponent(searchTerm.trim());
+    return this.http.get<LibraryItem[]>(
+      `${this.API_URL}/library/search?q=${encodedSearchTerm}`
+    );
+  }
+
+  createLibraryItem(item: Partial<LibraryItem>): Observable<LibraryItem> {
+    const headers = new HttpHeaders({ 'Content-Type': 'application/json' });
+    return this.http.post<LibraryItem>(
+      `${this.API_URL}/library`,
+      item,
+      { headers }
+    );
+  }
+
+  updateLibraryItem(item: LibraryItem): Observable<LibraryItem> {
+    const headers = new HttpHeaders({ 'Content-Type': 'application/json' });
+    return this.http.put<LibraryItem>(
+      `${this.API_URL}/library/${item.guid}`,
+      item,
+      { headers }
+    );
+  }
+
+  // Editor methods for playlists
+  createPlaylist(playlist: Partial<Playlist>): Observable<Playlist> {
+    const headers = new HttpHeaders({ 'Content-Type': 'application/json' });
+    return this.http.post<Playlist>(
+      `${this.API_URL}/playlists`,
+      playlist,
+      { headers }
+    );
+  }
+
+  updatePlaylist(playlist: Playlist): Observable<Playlist> {
+    const headers = new HttpHeaders({ 'Content-Type': 'application/json' });
+    return this.http.put<Playlist>(
+      `${this.API_URL}/playlists/${playlist.guid}`,
+      playlist,
+      { headers }
+    );
+  }
+
+  deletePlaylist(guid: number): Observable<void> {
+    return this.http.delete<void>(`${this.API_URL}/playlists/${guid}`);
+  }
+
+  // Check if library item is used in any playlist
+  checkLibraryItemUsage(guid: number): Observable<{ isUsed: boolean; playlists: Array<{ guid: number; name: string }> }> {
+    return this.http.get<{ isUsed: boolean; playlists: Array<{ guid: number; name: string }> }>(
+      `${this.API_URL}/library/${guid}/usage`
+    );
+  }
+
+  deleteLibraryItem(guid: number): Observable<void> {
+    return this.http.delete<void>(`${this.API_URL}/library/${guid}`);
   }
 }

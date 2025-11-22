@@ -1,6 +1,6 @@
-import { Component, Input, Output, EventEmitter, OnInit } from "@angular/core";
+import { Component, Input, Output, EventEmitter } from "@angular/core";
 import { CommonModule } from "@angular/common";
-import { LibraryContent, LibraryItem, PlaylistService } from "../playlist.service";
+import { LibraryItem } from "../../playlist.service";
 
 @Component({
   selector: "app-playlist-item",
@@ -9,21 +9,11 @@ import { LibraryContent, LibraryItem, PlaylistService } from "../playlist.servic
   templateUrl: "./playlist-item.component.html",
   styleUrls: ["./playlist-item.component.scss"]
 })
-export class PlaylistItemComponent implements OnInit{
+export class PlaylistItemComponent {
   @Input() item!: LibraryItem;
   @Input() index!: number;
   @Output() itemClick = new EventEmitter<LibraryItem>();
   @Output() pageClick = new EventEmitter<{ item: LibraryItem; page: number }>();
-
-  pages: LibraryContent[] = [];
-
-  constructor(private playlistService: PlaylistService) {}
-
-  ngOnInit(): void {
-    if (this.item.type === 'text' && this.item.content) {
-      this.pages = this.item.content as LibraryContent[];
-    }
-  }
 
   onItemClick(event: Event): void {
     event.stopPropagation();

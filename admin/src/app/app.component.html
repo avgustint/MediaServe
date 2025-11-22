@@ -1,6 +1,22 @@
 <div class="app-wrapper">
   <nav *ngIf="isAuthenticated()" class="navbar">
-    <div class="nav-brand">Media Player Admin</div>
+    <div class="nav-brand-section">
+      <div class="nav-brand">Media Player Admin</div>
+      <div
+        class="connection-status"
+        [class.connected]="connectionStatus === 'connected'"
+        [class.connecting]="connectionStatus === 'connecting'"
+        [class.disconnected]="connectionStatus === 'disconnected'"
+      >
+        {{
+          connectionStatus === "connected"
+            ? "Connected"
+            : connectionStatus === "connecting"
+            ? "Connecting..."
+            : "Disconnected"
+        }}
+      </div>
+    </div>
     <div class="nav-buttons">
       <div class="user-info" *ngIf="user">
         <span class="user-name">{{ getUserName() }}</span>

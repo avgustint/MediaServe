@@ -1,6 +1,6 @@
 import { Routes } from "@angular/router";
 import { LoginComponent } from "./login/login.component";
-import { PlaylistComponent } from "./playlist/playlist.component";
+import { PlaylistComponent } from "./playlist/playlist/playlist.component";
 import { EditorComponent } from "./editor/editor.component";
 import { RedirectComponent } from "./redirect/redirect.component";
 import { authGuard } from "./auth.guard";

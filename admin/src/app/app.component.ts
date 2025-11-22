@@ -1,8 +1,10 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
 import { AuthService } from './auth.service';
 import { UserService, User } from './user.service';
+import { WebSocketService } from './websocket.service';
+import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-root',
@@ -11,13 +13,16 @@ import { UserService, User } from './user.service';
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.scss']
 })
-export class AppComponent implements OnInit {
+export class AppComponent implements OnInit, OnDestroy {
   user: User | null = null;
+  connectionStatus: "connecting" | "connected" | "disconnected" = "disconnected";
+  private connectionStatusSubscription?: Subscription;
 
   constructor(
     private router: Router,
     private authService: AuthService,
-    private userService: UserService
+    private userService: UserService,
+    private websocketService: WebSocketService
   ) {}
 
   ngOnInit(): void {
@@ -30,6 +35,20 @@ export class AppComponent implements OnInit {
     if (this.authService.isAuthenticated()) {
       this.loadUserData();
     }
+
+    // Subscribe to WebSocket connection status
+    this.connectionStatusSubscription = this.websocketService.connectionStatus$.subscribe((status) => {
+      this.connectionStatus = status;
+    });
+
+    // Connect to WebSocket if authenticated
+    if (this.authService.isAuthenticated()) {
+      this.websocketService.connect("ws://localhost:8080");
+    }
+  }
+
+  ngOnDestroy(): void {
+    this.connectionStatusSubscription?.unsubscribe();
   }
 
   loadUserData(): void {
@@ -44,6 +63,7 @@ export class AppComponent implements OnInit {
   }
 
   logout(): void {
+    this.websocketService.disconnect();
     this.userService.clearUser();
     this.authService.logout();
   }

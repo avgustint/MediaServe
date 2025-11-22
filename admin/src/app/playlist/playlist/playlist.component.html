@@ -1,0 +1,57 @@
+<div class="main-container">
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <div class="tabs">
+        <button
+          class="tab-button"
+          [class.active]="activeTab === 'playlist'"
+          (click)="switchTab('playlist')"
+        >
+          Playlist
+        </button>
+        <button
+          class="tab-button"
+          [class.active]="activeTab === 'manual'"
+          (click)="switchTab('manual')"
+        >
+          Manual
+        </button>
+      </div>
+    </div>
+    <div class="tab-content">
+      <app-playlist-list
+        *ngIf="activeTab === 'playlist'"
+        [selectedPlaylistGuid]="selectedPlaylistGuid"
+        (playlistSelected)="onPlaylistSelected($event)"
+        (playlistItemClick)="onPlaylistItemClick($event)"
+        (playlistItemPageClick)="onPlaylistItemPageClick($event)"
+        (clearClick)="onClearClick()"
+      ></app-playlist-list>
+      <app-manual
+        *ngIf="activeTab === 'manual'"
+        (clearClick)="onClearClick()"
+      ></app-manual>
+    </div>
+  </div>
+  <div class="content-area">
+    <!-- Text Content -->
+    <div *ngIf="currentContent?.type === 'text'" class="content-container text-container" #textContainer>
+      <div class="text-content">{{ text }}</div>
+    </div>
+
+    <!-- Image Content -->
+    <div *ngIf="currentContent?.type === 'image'" class="content-container image-container" #imageContainer>
+      <img [src]="imageSrc" alt="Received image" class="display-image" />
+    </div>
+
+    <!-- URL Content (iframe) -->
+    <div *ngIf="currentContent?.type === 'url'" class="content-container iframe-container">
+      <iframe [src]="safeUrl" class="display-iframe" frameborder="0" allowfullscreen></iframe>
+    </div>
+
+    <!-- No content message -->
+    <div *ngIf="!currentContent" class="content-container no-content">
+      <div class="waiting-message">Waiting for content from WebSocket...</div>
+    </div>
+  </div>
+</div>

@@ -1,5 +1,27 @@
 <div class="editor-container">
-  <h1>Editor</h1>
-  <p>Editor component content goes here.</p>
+  <div class="editor-header">
+    <div class="tabs">
+      <button
+        *ngIf="hasLibraryEditorPermission()"
+        class="tab-button"
+        [class.active]="activeTab === 'library'"
+        (click)="switchTab('library')"
+      >
+        Library
+      </button>
+      <button
+        *ngIf="hasPlaylistEditorPermission()"
+        class="tab-button"
+        [class.active]="activeTab === 'playlist'"
+        (click)="switchTab('playlist')"
+      >
+        Playlist
+      </button>
+    </div>
+  </div>
+  <div class="editor-content">
+    <app-library-editor *ngIf="activeTab === 'library' && hasLibraryEditorPermission()"></app-library-editor>
+    <app-playlist-editor *ngIf="activeTab === 'playlist' && hasPlaylistEditorPermission()"></app-playlist-editor>
+  </div>
 </div>
 

@@ -6,11 +6,11 @@
       {{ item.description }}
     </div>
     <div class="playlist-item-preview"
-         *ngIf="item.type === 'text' && pages.length > 1">
-      <button *ngFor="let pageObj of pages; let pageIdx = index"
-              (click)="onPageClick($event, pageObj.page)"
+         *ngIf="item.type === 'text' && item.pages && item.pages.length > 1">
+      <button *ngFor="let pageNum of item.pages"
+              (click)="onPageClick($event, pageNum)"
               class="page-button">
-        {{ pageObj.page }}
+        {{ pageNum }}
       </button>
     </div>
   </div>

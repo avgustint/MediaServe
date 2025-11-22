@@ -1,0 +1,201 @@
+<div class="playlist-editor-container">
+  <div class="search-section">
+    <div class="search-input-wrapper">
+      <input
+        type="text"
+        class="search-input"
+        [(ngModel)]="searchTerm"
+        (input)="onSearchChange()"
+        placeholder="Search playlists..."
+      />
+      <button *ngIf="searchTerm" class="clear-search-btn" (click)="clearSearch()" title="Clear search">
+        ×
+      </button>
+    </div>
+    <div class="search-results" *ngIf="showSearchResults">
+      <div
+        *ngIf="searchResults.length === 0 && searchTerm.trim().length > 0"
+        class="no-results"
+      >
+        No playlists found
+      </div>
+      <div
+        *ngFor="let result of searchResults"
+        class="search-result-item"
+        (click)="onSearchResultSelect(result)"
+      >
+        <div class="search-result-name">{{ result.name }}</div>
+        <div class="search-result-description" *ngIf="result.description">
+          {{ result.description }}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="actions-section">
+    <button class="add-button" (click)="addNewPlaylist()" *ngIf="!editingPlaylist && !isNewPlaylist">
+      Add New Playlist
+    </button>
+  </div>
+
+  <div class="edit-section" *ngIf="editingPlaylist || isNewPlaylist">
+    <div class="edit-form">
+      <h2>{{ isNewPlaylist ? 'Add New Playlist' : 'Edit Playlist' }}</h2>
+
+      <div class="form-group">
+        <label for="playlistName">Name *</label>
+        <input
+          id="playlistName"
+          type="text"
+          class="form-control"
+          [(ngModel)]="playlistName"
+          placeholder="Enter playlist name"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="playlistDescription">Description</label>
+        <input
+          id="playlistDescription"
+          type="text"
+          class="form-control"
+          [(ngModel)]="playlistDescription"
+          placeholder="Enter playlist description (optional)"
+        />
+      </div>
+
+      <div class="form-group">
+        <label>Library Items</label>
+        
+        <div class="add-item-section">
+          <select
+            class="form-control add-item-select"
+            [(ngModel)]="selectedLibraryItemGuid"
+            (change)="onLibraryItemSelectionChange()"
+          >
+            <option [ngValue]="null">Select a library item to add...</option>
+            <option
+              *ngFor="let item of availableLibraryItems"
+              [ngValue]="item.guid"
+              [disabled]="isItemInPlaylist(item.guid)"
+            >
+              {{ item.name }} ({{ item.type }}) - GUID: {{ item.guid }}
+            </option>
+          </select>
+          <button
+            class="add-item-btn"
+            (click)="addLibraryItemToPlaylist()"
+            [disabled]="!selectedLibraryItemGuid"
+          >
+            Add Item
+          </button>
+        </div>
+
+        <div class="playlist-items-list" *ngIf="playlistItems.length > 0">
+          <div *ngFor="let item of playlistItems; let i = index" class="playlist-item-row">
+            <div class="item-info">
+              <div class="item-name">{{ item.name || getLibraryItemName(item.guid) }}</div>
+              <div class="item-details">
+                <span class="item-type">{{ item.type || getLibraryItemType(item.guid) }}</span>
+                <span class="item-guid">GUID: {{ item.guid }}</span>
+              </div>
+              <div class="item-description" *ngIf="item.description">
+                {{ item.description }}
+              </div>
+              
+              <div class="item-pages-selector" *ngIf="getLibraryItemType(item.guid) === 'text' && getAvailablePages(item.guid).length > 1">
+                <label>Pages (leave empty for all pages):</label>
+                <div class="pages-checkboxes">
+                  <label *ngFor="let pageNum of getAvailablePages(item.guid)" class="page-checkbox-label">
+                    <input
+                      type="checkbox"
+                      [checked]="isPageSelected(item, pageNum)"
+                      (change)="togglePageSelection(item, pageNum)"
+                    />
+                    <span>{{ pageNum }}</span>
+                  </label>
+                </div>
+                <div class="pages-actions">
+                  <button
+                    type="button"
+                    class="btn-select-all"
+                    (click)="selectAllPages(item)"
+                  >
+                    Select All
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-clear-pages"
+                    (click)="clearPages(item)"
+                  >
+                    Clear (All Pages)
+                  </button>
+                </div>
+                <div class="pages-selected-info" *ngIf="getSelectedPagesText(item)">
+                  Selected: {{ getSelectedPagesText(item) }}
+                </div>
+              </div>
+
+              <div class="item-description-input">
+                <input
+                  type="text"
+                  class="form-control description-input"
+                  [(ngModel)]="item.description"
+                  placeholder="Description (optional)"
+                />
+              </div>
+            </div>
+
+            <div class="item-actions">
+              <button
+                class="move-btn"
+                (click)="moveItemUp(i)"
+                [disabled]="i === 0"
+                title="Move up"
+              >
+                ↑
+              </button>
+              <button
+                class="move-btn"
+                (click)="moveItemDown(i)"
+                [disabled]="i === playlistItems.length - 1"
+                title="Move down"
+              >
+                ↓
+              </button>
+              <button
+                class="remove-btn"
+                (click)="removeItemFromPlaylist(item.guid)"
+                title="Remove"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="no-items" *ngIf="playlistItems.length === 0">
+          No items in playlist. Add library items above.
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button class="save-button" (click)="savePlaylist()">Save</button>
+        <button class="cancel-button" (click)="cancelEdit()">Cancel</button>
+        <button 
+          *ngIf="!isNewPlaylist && editingPlaylist && hasDeletePermission()" 
+          class="delete-button" 
+          (click)="deletePlaylist()"
+        >
+          Delete
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <app-error-popup
+    [message]="errorMessage"
+    [show]="showError"
+    (close)="closeErrorPopup()"
+  ></app-error-popup>
+</div>

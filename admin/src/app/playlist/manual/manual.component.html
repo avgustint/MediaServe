@@ -1,0 +1,60 @@
+<div class="manual-container">
+  <button class="clear-button" (click)="onClearClick()">Clear</button>
+  
+  <div class="guid-display">
+    <div class="guid-label">Enter GUID:</div>
+    <div class="guid-value">{{ enteredGuid || "0" }}</div>
+    <button *ngIf="enteredGuid.length > 0" class="clear-guid-btn" (click)="onClearGuid()" title="Clear GUID">
+      ×
+    </button>
+  </div>
+
+  <div class="content-scrollable">
+    <div class="keypad-container">
+      <div class="keypad-row">
+        <button class="keypad-button" (click)="onNumberClick('1')">1</button>
+        <button class="keypad-button" (click)="onNumberClick('2')">2</button>
+        <button class="keypad-button" (click)="onNumberClick('3')">3</button>
+      </div>
+      <div class="keypad-row">
+        <button class="keypad-button" (click)="onNumberClick('4')">4</button>
+        <button class="keypad-button" (click)="onNumberClick('5')">5</button>
+        <button class="keypad-button" (click)="onNumberClick('6')">6</button>
+      </div>
+      <div class="keypad-row">
+        <button class="keypad-button" (click)="onNumberClick('7')">7</button>
+        <button class="keypad-button" (click)="onNumberClick('8')">8</button>
+        <button class="keypad-button" (click)="onNumberClick('9')">9</button>
+      </div>
+      <div class="keypad-row">
+        <button class="keypad-button" (click)="onClearGuid()" title="Clear">C</button>
+        <button class="keypad-button" (click)="onNumberClick('0')">0</button>
+      <button class="keypad-button enter-button" (click)="onEnterClick()" title="Enter">
+        ←
+      </button>
+      </div>
+    </div>
+
+    <div class="library-item-display" *ngIf="libraryItem">
+      <div class="item-name">{{ libraryItem.name }}</div>
+      <div class="item-description" *ngIf="libraryItem.description">
+        {{ libraryItem.description }}
+      </div>
+      <div class="item-type">Type: {{ libraryItem.type }}</div>
+      
+      <div class="page-buttons" *ngIf="libraryItem.type === 'text' && pages.length > 1">
+        <button
+          *ngFor="let page of pages"
+          class="page-button"
+          (click)="onPageClick(page.page)"
+        >
+          {{ page.page }}
+        </button>
+      </div>
+    </div>
+
+    <div class="no-item" *ngIf="enteredGuid.length > 0 && !libraryItem">
+      No library item found with GUID: {{ enteredGuid }}
+    </div>
+  </div>
+</div>
