@@ -1,14 +1,16 @@
 import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewInit } from "@angular/core";
 import { CommonModule } from "@angular/common";
+import { FormsModule } from "@angular/forms";
 import { DomSanitizer, SafeResourceUrl } from "@angular/platform-browser";
 import { WebSocketService, WebSocketMessage } from "../websocket.service";
-import { PlaylistService, PlaylistItem } from "../playlist.service";
-import { Subscription } from "rxjs";
+import { PlaylistService, PlaylistItem, LibraryItem, PlaylistSearchResult } from "../playlist.service";
+import { PlaylistItemComponent } from "./playlist-item.component";
+import { Subscription, debounceTime, distinctUntilChanged, Subject, switchMap, of } from "rxjs";
 
 @Component({
   selector: "app-playlist",
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, PlaylistItemComponent, FormsModule],
   templateUrl: "./playlist.component.html",
   styleUrls: ["./playlist.component.scss"]
 })
@@ -16,11 +18,17 @@ export class PlaylistComponent implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild("textContainer", { static: false }) textContainer!: ElementRef<HTMLDivElement>;
   @ViewChild("imageContainer", { static: false }) imageContainer!: ElementRef<HTMLDivElement>;
 
-  playlist: PlaylistItem[] = [];
+  playlist: LibraryItem[] = [];
   currentContent: WebSocketMessage | null = null;
   private subscription?: Subscription;
   private connectionStatusSubscription?: Subscription;
+  private searchSubscription?: Subscription;
   connectionStatus: "connecting" | "connected" | "disconnected" = "disconnected";
+  searchTerm: string = "";
+  searchResults: PlaylistSearchResult[] = [];
+  showSearchResults: boolean = false;
+  currentPlaylistGuid?: number;
+  private searchSubject = new Subject<string>();
   private resizeHandler = () => {
     if (this.currentContent?.type === "text") {
       this.adjustTextSize();
@@ -34,15 +42,8 @@ export class PlaylistComponent implements OnInit, OnDestroy, AfterViewInit {
   ) {}
 
   ngOnInit(): void {
-    // Load playlist
-    this.playlistService.getPlaylist().subscribe({
-      next: (items) => {
-        this.playlist = items;
-      },
-      error: (error) => {
-        console.error("Error loading playlist:", error);
-      }
-    });
+    // Load default playlist (last updated)
+    this.loadPlaylist();
 
     // Subscribe to connection status
     this.connectionStatusSubscription = this.websocketService.connectionStatus$.subscribe((status) => {
@@ -60,6 +61,30 @@ export class PlaylistComponent implements OnInit, OnDestroy, AfterViewInit {
         setTimeout(() => this.adjustTextSize(), 100);
       }
     });
+
+    // Setup search with debounce
+    this.searchSubscription = this.searchSubject.pipe(
+      debounceTime(300),
+      distinctUntilChanged(),
+      switchMap((searchTerm) => {
+        if (searchTerm.trim().length === 0) {
+          this.searchResults = [];
+          this.showSearchResults = false;
+          return of([]);
+        }
+        return this.playlistService.searchPlaylists(searchTerm);
+      })
+    ).subscribe({
+      next: (results) => {
+        this.searchResults = results;
+        this.showSearchResults = results.length > 0 || this.searchTerm.trim().length > 0;
+      },
+      error: (error) => {
+        console.error("Error searching playlists:", error);
+        this.searchResults = [];
+        this.showSearchResults = false;
+      }
+    });
   }
 
   ngAfterViewInit(): void {
@@ -70,8 +95,39 @@ export class PlaylistComponent implements OnInit, OnDestroy, AfterViewInit {
   ngOnDestroy(): void {
     this.subscription?.unsubscribe();
     this.connectionStatusSubscription?.unsubscribe();
+    this.searchSubscription?.unsubscribe();
     this.websocketService.disconnect();
     window.removeEventListener("resize", this.resizeHandler);
+  }
+
+  loadPlaylist(guid?: number): void {
+    this.currentPlaylistGuid = guid;
+    this.playlistService.getPlaylist(guid).subscribe({
+      next: (items) => {
+        this.playlist = items;
+      },
+      error: (error) => {
+        console.error("Error loading playlist:", error);
+      }
+    });
+  }
+
+  onSearchChange(): void {
+    this.searchSubject.next(this.searchTerm);
+  }
+
+  onSearchResultSelect(result: PlaylistSearchResult): void {
+    this.searchTerm = "";
+    this.showSearchResults = false;
+    this.searchResults = [];
+    this.loadPlaylist(result.guid);
+  }
+
+  clearSearch(): void {
+    this.searchTerm = "";
+    this.showSearchResults = false;
+    this.searchResults = [];
+    this.searchSubject.next("");
   }
 
   adjustTextSize(): void {
@@ -150,22 +206,26 @@ export class PlaylistComponent implements OnInit, OnDestroy, AfterViewInit {
     return this.currentContent?.type === "text" ? this.currentContent.content : "";
   }
 
-  getPlaylistItemType(item: PlaylistItem): string {
+  getPlaylistItemType(item: LibraryItem): string {
     return item.type.charAt(0).toUpperCase() + item.type.slice(1);
   }
 
-  onPlaylistItemClick(item: PlaylistItem): void {
+  onPlaylistItemClick(item: LibraryItem, page?: number): void {
     if (item.guid) {
       const changeMessage = {
         type: "Change",
         guid: item.guid,
-        page: item.page
+        page: page || 1
       };
       this.websocketService.send(JSON.stringify(changeMessage));
-      console.log("Sent Change message for GUID:", item.guid, " and page:", item.page);
+      console.log("Sent Change message for GUID:", item.guid, " and page:", page);
     } else {
       console.warn("Playlist item does not have a GUID");
     }
+  }
+
+  onPlaylistItemPageClick(event: { item: LibraryItem; page: number }): void {
+    this.onPlaylistItemClick(event.item, event.page);
   }
 
   onClearClick(): void {

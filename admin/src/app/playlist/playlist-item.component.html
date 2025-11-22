@@ -1,0 +1,18 @@
+<div class="playlist-item" (click)="onItemClick($event)">
+  <div class="playlist-item-number">{{ index + 1 }}</div>
+  <div class="playlist-item-content">
+    <div class="playlist-item-type">{{ item.name }}</div>
+    <div class="playlist-item-description" *ngIf="item.description">
+      {{ item.description }}
+    </div>
+    <div class="playlist-item-preview"
+         *ngIf="item.type === 'text' && pages.length > 1">
+      <button *ngFor="let pageObj of pages; let pageIdx = index"
+              (click)="onPageClick($event, pageObj.page)"
+              class="page-button">
+        {{ pageObj.page }}
+      </button>
+    </div>
+  </div>
+</div>
+

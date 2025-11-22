@@ -1,0 +1,27 @@
+[
+    {
+        "name": "ViewEditor",
+        "description": "Can user access the editor",
+        "guid": 1
+    },
+    {
+        "name": "ViewPlaylist",
+        "description": "Can user view the playlist",
+        "guid": 2
+    },
+    {
+        "name": "ViewLibrary",
+        "description": "Can user view the library",
+        "guid": 3
+    },
+    {
+        "name": "ViewUsers",
+        "description": "Can user view the users",
+        "guid": 4
+    },
+    {
+        "name": "EditUsers",
+        "description": "Can user edit the users",
+        "guid": 4
+    }
+]

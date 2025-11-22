@@ -3,6 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from '../auth.service';
+import { UserService } from '../user.service';
+import * as CryptoJS from 'crypto-js';
 
 @Component({
   selector: 'app-login',
@@ -18,6 +20,7 @@ export class LoginComponent implements OnInit {
 
   constructor(
     private authService: AuthService,
+    private userService: UserService,
     private router: Router
   ) {}
 
@@ -30,9 +33,15 @@ export class LoginComponent implements OnInit {
 
   onSubmit(): void {
     this.error = '';
-    this.authService.login(this.username, this.password).subscribe({
-      next: (success) => {
-        if (success) {
+    
+    // Hash password with MD5 before sending
+    const hashedPassword = CryptoJS.MD5(this.password).toString();
+    
+    this.authService.login(this.username, hashedPassword).subscribe({
+      next: (response) => {
+        if (response && response.success && response.user) {
+          // Store user data and permissions
+          this.userService.setUser(response.user);
           this.router.navigate(['/playlist']);
         } else {
           this.error = 'Invalid username or password';

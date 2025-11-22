@@ -2,8 +2,11 @@
   <nav *ngIf="isAuthenticated()" class="navbar">
     <div class="nav-brand">Media Player Admin</div>
     <div class="nav-buttons">
+      <div class="user-info" *ngIf="user">
+        <span class="user-name">{{ getUserName() }}</span>
+      </div>
       <button class="nav-btn" (click)="navigateToPlaylist()">Playlist</button>
-      <button class="nav-btn" (click)="navigateToEditor()">Editor</button>
+      <button class="nav-btn" (click)="navigateToEditor()" *ngIf="hasViewEditorPermission()">Editor</button>
       <button class="logout-btn" (click)="logout()">Logout</button>
     </div>
   </nav>

@@ -1,6 +1,6 @@
 import { Injectable } from "@angular/core";
 import { HttpClient } from "@angular/common/http";
-import { forkJoin, map, Observable, switchMap } from "rxjs";
+import { forkJoin, map, Observable, switchMap, of } from "rxjs";
 
 export interface PlaylistItem {
   name: string;
@@ -20,6 +20,25 @@ export interface LibraryItem {
   type: "text" | "image" | "url";
   content: string | LibraryContent[];
   guid: number;
+  description?: string;
+}
+
+export interface Playlist {
+  name: string;
+  description: string;
+  guid: number;
+  updated?: string;
+  items: Array<{
+    guid: number;
+    page?: number;
+    description?: string;
+  }>;
+}
+
+export interface PlaylistSearchResult {
+  guid: number;
+  name: string;
+  description: string;
 }
 
 @Injectable({
@@ -30,35 +49,49 @@ export class PlaylistService {
 
   constructor(private http: HttpClient) {}
 
-  getPlaylist(): Observable<PlaylistItem[]> {
+  getPlaylist(guid?: number): Observable<LibraryItem[]> {
+    // Build URL with optional guid parameter
+    let url = `${this.API_URL}/playlist.json`;
+    if (guid) {
+      url += `?guid=${guid}`;
+    }
+    
     // Load playlist.json first
     return forkJoin([
-      this.http.get<{ guid: number; page?: number }[]>(`${this.API_URL}/playlist.json`),
+      this.http.get<Playlist>(url),
       this.http.get<LibraryItem[]>(`${this.API_URL}/library.json`)
     ]).pipe(
-      map(([playlist, library]) => {
-        const playlistItems: PlaylistItem[] = playlist.map((item) => {
-          const libraryItem: LibraryItem = library.find((libItem) => libItem.guid === item.guid) || {
-            name: "",
-            type: "text",
-            content: "",
-            guid: item.guid
-          };
-          let content = libraryItem?.content as string | LibraryContent[];
-          if (libraryItem?.type === "text" && item.page !== undefined) {
-            content =
-              (content as LibraryContent[]).find((contentItem) => contentItem.page === item.page)?.content || "";
-          }
-          return {
-            name: libraryItem.name,
-            type: libraryItem.type,
-            content: content as string,
-            guid: item.guid,
-            page: item.page
-          };
-        });
-        return playlistItems;
+      map(([playlistData, library]) => {
+        // Compose playlist array by matching playlist items guids to items from the library.
+        return playlistData.items
+          .map((playlistItem) => {
+            const libItem = library.find((lib) => lib.guid === playlistItem.guid);
+            // fallback in case a library item doesn't exist for guid
+            const baseItem = libItem || {
+              name: "",
+              type: "text",
+              content: "",
+              guid: playlistItem.guid,
+            };
+            // Preserve description from playlist.json if it exists, otherwise use library item description
+            return {
+              ...baseItem,
+              description: playlistItem.description !== undefined ? playlistItem.description : baseItem.description
+            };
+          });
       })
+    );
+  }
+
+  searchPlaylists(searchTerm: string): Observable<PlaylistSearchResult[]> {
+    if (!searchTerm || searchTerm.trim().length === 0) {
+      // Return empty array if no search term
+      return of([]);
+    }
+    
+    const encodedSearchTerm = encodeURIComponent(searchTerm.trim());
+    return this.http.get<PlaylistSearchResult[]>(
+      `${this.API_URL}/playlists/search?q=${encodedSearchTerm}`
     );
   }
 }

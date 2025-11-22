@@ -17,23 +17,47 @@
         }}
       </div>
     </div>
-    <div class="playlist-container">
-      <div *ngIf="playlist.length === 0" class="empty-playlist">Loading playlist...</div>
-      <div *ngFor="let item of playlist; let i = index" class="playlist-item" (click)="onPlaylistItemClick(item)">
-        <div class="playlist-item-number">{{ i + 1 }}</div>
-        <div class="playlist-item-content">
-          <div class="playlist-item-type">{{ item.name }}</div>
-          <div class="playlist-item-preview">
-            {{
-              item.type === "text"
-                ? (item.content | slice : 0 : 50) + "..."
-                : item.type === "url"
-                ? item.content
-                : "Image"
-            }}
+    <div class="search-container">
+      <div class="search-input-wrapper">
+        <input
+          type="text"
+          class="search-input"
+          [(ngModel)]="searchTerm"
+          (input)="onSearchChange()"
+          placeholder="Search playlists..."
+        />
+        <button *ngIf="searchTerm" class="clear-search-btn" (click)="clearSearch()" title="Clear search">
+          ×
+        </button>
+      </div>
+      <div class="search-results" *ngIf="showSearchResults">
+        <div
+          *ngIf="searchResults.length === 0 && searchTerm.trim().length > 0"
+          class="no-results"
+        >
+          No playlists found
+        </div>
+        <div
+          *ngFor="let result of searchResults"
+          class="search-result-item"
+          (click)="onSearchResultSelect(result)"
+        >
+          <div class="search-result-name">{{ result.name }}</div>
+          <div class="search-result-description" *ngIf="result.description">
+            {{ result.description }}
           </div>
         </div>
       </div>
+    </div>
+    <div class="playlist-container">
+      <div *ngIf="playlist.length === 0" class="empty-playlist">Loading playlist...</div>
+      <app-playlist-item
+        *ngFor="let item of playlist; let i = index"
+        [item]="item"
+        [index]="i"
+        (itemClick)="onPlaylistItemClick($event)"
+        (pageClick)="onPlaylistItemPageClick($event)">
+      </app-playlist-item>
       <button class="clear-button" (click)="onClearClick()">Clear</button>
     </div>
   </div>

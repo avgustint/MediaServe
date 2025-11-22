@@ -1,0 +1,66 @@
+[
+  {
+    "name": "Main Playlist",
+    "description": "Default playlist for media server",
+    "guid": 1,
+    "updated": "2025-11-22T14:25:45Z",
+    "items": [
+      {
+        "guid": 1,
+        "description": "Welcome message for new visitors"
+      },
+      {
+        "guid": 2
+      },
+      {
+        "guid": 3
+      },
+      {
+        "guid": 4,
+        "description": "Long text content with multiple pages"
+      },
+      {
+        "guid": 5
+      },
+      {
+        "guid": 6
+      }
+    ]
+  },
+  {
+    "name": "Presentation Playlist",
+    "description": "Playlist for presentations and meetings",
+    "guid": 2,
+    "updated": "2025-11-22T10:15:30Z",
+    "items": [
+      {
+        "guid": 1
+      },
+      {
+        "guid": 3
+      },
+      {
+        "guid": 5
+      }
+    ]
+  },
+  {
+    "name": "Evening Playlist",
+    "description": "Evening content playlist",
+    "guid": 3,
+    "updated": "2025-11-22T14:29:15Z",
+    "items": [
+      {
+        "guid": 2
+      },
+      {
+        "guid": 4,
+        "description": "Long text content with multiple pages"
+      },
+      {
+        "guid": 6
+      }
+    ]
+  }
+]
+
