@@ -23,7 +23,12 @@
       </div>
       <button class="nav-btn" (click)="navigateToPlaylist()">Playlist</button>
       <button class="nav-btn" (click)="navigateToEditor()" *ngIf="hasViewEditorPermission()">Editor</button>
-      <button class="logout-btn" (click)="logout()">Logout</button>
+      <button class="nav-btn" (click)="navigateToSettings()" *ngIf="hasViewSettingsPermission()" title="Settings">
+        <i class="fas fa-cog"></i>
+      </button>
+      <button class="logout-btn" (click)="logout()" title="Logout">
+        <i class="fas fa-sign-out-alt"></i>
+      </button>
     </div>
   </nav>
   <router-outlet></router-outlet>

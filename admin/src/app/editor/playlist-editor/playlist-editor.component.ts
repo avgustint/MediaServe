@@ -4,6 +4,7 @@ import { FormsModule } from "@angular/forms";
 import { PlaylistService, Playlist, LibraryItem, PlaylistSearchResult } from "../../playlist.service";
 import { UserService } from "../../user.service";
 import { ErrorPopupComponent } from "../../shared/error-popup/error-popup.component";
+import { ConfirmDialogComponent } from "../../shared/confirm-dialog/confirm-dialog.component";
 import { debounceTime, distinctUntilChanged, Subject, switchMap, of, forkJoin } from "rxjs";
 
 interface PlaylistItemWithDetails {
@@ -18,7 +19,7 @@ interface PlaylistItemWithDetails {
 @Component({
   selector: "app-playlist-editor",
   standalone: true,
-  imports: [CommonModule, FormsModule, ErrorPopupComponent],
+  imports: [CommonModule, FormsModule, ErrorPopupComponent, ConfirmDialogComponent],
   templateUrl: "./playlist-editor.component.html",
   styleUrls: ["./playlist-editor.component.scss"]
 })
@@ -27,6 +28,10 @@ export class PlaylistEditorComponent implements OnInit {
   searchResults: PlaylistSearchResult[] = [];
   showSearchResults: boolean = false;
   private searchSubject = new Subject<string>();
+
+  // Recently modified playlists
+  recentPlaylists: PlaylistSearchResult[] = [];
+  showRecentPlaylists: boolean = true;
 
   editingPlaylist: Playlist | null = null;
   isNewPlaylist: boolean = false;
@@ -45,12 +50,21 @@ export class PlaylistEditorComponent implements OnInit {
   showError: boolean = false;
   errorMessage: string = "";
 
+  // Confirm dialog
+  showConfirmDialog: boolean = false;
+  confirmDialogTitle: string = "";
+  confirmDialogMessage: string = "";
+  playlistToDeleteGuid: number | null = null;
+
   constructor(
     private playlistService: PlaylistService,
     private userService: UserService
   ) {}
 
   ngOnInit(): void {
+    // Load recently modified playlists
+    this.loadRecentPlaylists();
+
     // Load all library items for the dropdown
     this.loadLibraryItems();
 
@@ -62,8 +76,10 @@ export class PlaylistEditorComponent implements OnInit {
         if (searchTerm.trim().length === 0) {
           this.searchResults = [];
           this.showSearchResults = false;
+          this.showRecentPlaylists = true;
           return of([]);
         }
+        this.showRecentPlaylists = false;
         return this.playlistService.searchPlaylists(searchTerm);
       })
     ).subscribe({
@@ -75,6 +91,18 @@ export class PlaylistEditorComponent implements OnInit {
         console.error("Error searching playlists:", error);
         this.searchResults = [];
         this.showSearchResults = false;
+      }
+    });
+  }
+
+  loadRecentPlaylists(): void {
+    this.playlistService.getRecentlyModifiedPlaylists().subscribe({
+      next: (playlists) => {
+        this.recentPlaylists = playlists;
+      },
+      error: (error) => {
+        console.error("Error loading recently modified playlists:", error);
+        this.recentPlaylists = [];
       }
     });
   }
@@ -105,7 +133,46 @@ export class PlaylistEditorComponent implements OnInit {
     this.searchTerm = "";
     this.showSearchResults = false;
     this.searchResults = [];
+    this.showRecentPlaylists = true;
     this.searchSubject.next("");
+  }
+
+  deletePlaylistFromList(playlist: PlaylistSearchResult): void {
+    // Show confirmation dialog
+    this.playlistToDeleteGuid = playlist.guid;
+    this.confirmDialogTitle = "Delete Playlist";
+    this.confirmDialogMessage = `Are you sure you want to delete playlist "${playlist.name}"? This action cannot be undone.`;
+    this.showConfirmDialog = true;
+  }
+
+  onConfirmDelete(): void {
+    if (this.playlistToDeleteGuid === null) {
+      return;
+    }
+
+    const guidToDelete = this.playlistToDeleteGuid;
+    this.playlistService.deletePlaylist(guidToDelete).subscribe({
+      next: () => {
+        console.log("Playlist deleted");
+        this.loadRecentPlaylists();
+        if (this.editingPlaylist?.guid === guidToDelete) {
+          this.cancelEdit();
+        }
+        this.closeConfirmDialog();
+      },
+      error: (error) => {
+        console.error("Error deleting playlist:", error);
+        this.showErrorPopup("Error deleting playlist. Please try again.");
+        this.closeConfirmDialog();
+      }
+    });
+  }
+
+  closeConfirmDialog(): void {
+    this.showConfirmDialog = false;
+    this.playlistToDeleteGuid = null;
+    this.confirmDialogTitle = "";
+    this.confirmDialogMessage = "";
   }
 
   loadPlaylist(guid: number): void {
@@ -284,11 +351,11 @@ export class PlaylistEditorComponent implements OnInit {
     if (this.isNewPlaylist) {
       // Create new playlist
       this.playlistService.createPlaylist(playlistData).subscribe({
-        next: (newPlaylist) => {
-          console.log("Playlist created:", newPlaylist);
-          this.cancelEdit();
-          // Optionally refresh search or show success message
-        },
+      next: (newPlaylist) => {
+        console.log("Playlist created:", newPlaylist);
+        this.loadRecentPlaylists();
+        this.cancelEdit();
+      },
         error: (error) => {
           console.error("Error creating playlist:", error);
           this.showErrorPopup("Error creating playlist. Please try again.");
@@ -302,11 +369,11 @@ export class PlaylistEditorComponent implements OnInit {
       };
 
       this.playlistService.updatePlaylist(updatedPlaylist).subscribe({
-        next: (result) => {
-          console.log("Playlist updated:", result);
-          this.cancelEdit();
-          // Optionally refresh search or show success message
-        },
+      next: (result) => {
+        console.log("Playlist updated:", result);
+        this.loadRecentPlaylists();
+        this.cancelEdit();
+      },
         error: (error) => {
           console.error("Error updating playlist:", error);
           this.showErrorPopup("Error updating playlist. Please try again.");
@@ -320,24 +387,11 @@ export class PlaylistEditorComponent implements OnInit {
       return;
     }
 
-    // Ask for confirmation
-    const confirmed = confirm(`Are you sure you want to delete playlist "${this.editingPlaylist.name}"? This action cannot be undone.`);
-    if (!confirmed) {
-      return;
-    }
-
-    // Delete the playlist
-    this.playlistService.deletePlaylist(this.editingPlaylist.guid).subscribe({
-      next: () => {
-        console.log("Playlist deleted");
-        this.cancelEdit();
-        // Optionally refresh search or show success message
-      },
-      error: (error) => {
-        console.error("Error deleting playlist:", error);
-        this.showErrorPopup("Error deleting playlist. Please try again.");
-      }
-    });
+    // Show confirmation dialog
+    this.playlistToDeleteGuid = this.editingPlaylist.guid;
+    this.confirmDialogTitle = "Delete Playlist";
+    this.confirmDialogMessage = `Are you sure you want to delete playlist "${this.editingPlaylist.name}"? This action cannot be undone.`;
+    this.showConfirmDialog = true;
   }
 
   hasDeletePermission(): boolean {

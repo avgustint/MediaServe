@@ -1,0 +1,65 @@
+<div class="role-permissions-editor-container">
+  <div class="content-wrapper">
+    <div class="roles-list-section">
+      <h3>Roles</h3>
+      <div class="roles-list">
+        <div
+          *ngFor="let role of roles"
+          class="role-item"
+          [class.selected]="selectedRole?.guid === role.guid"
+          (click)="selectRole(role)"
+        >
+          <div class="role-info">
+            <div class="role-name">{{ role.name }}</div>
+            <div class="role-permissions-count">
+              {{ getRolePermissions(role.guid).length }} permission(s)
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="permissions-section" *ngIf="selectedRole">
+      <div class="permissions-header">
+        <h3>Permissions for: {{ selectedRole.name }}</h3>
+        <button *ngIf="hasEditRolesPermission" class="save-button" (click)="saveRolePermissions()">Save Permissions</button>
+        <span *ngIf="!hasEditRolesPermission" class="readonly-badge">Read Only</span>
+      </div>
+      
+      <div class="permissions-list">
+        <div
+          *ngFor="let permission of permissions"
+          class="permission-item"
+          [class.selected]="isPermissionSelected(permission.guid)"
+          [class.readonly]="!hasEditRolesPermission"
+          (click)="hasEditRolesPermission && togglePermission(permission.guid)"
+        >
+          <input
+            type="checkbox"
+            [checked]="isPermissionSelected(permission.guid)"
+            [disabled]="!hasEditRolesPermission"
+            (change)="hasEditRolesPermission && togglePermission(permission.guid)"
+            (click)="$event.stopPropagation()"
+          />
+          <div class="permission-info">
+            <div class="permission-name">{{ permission.name }}</div>
+            <div class="permission-description" *ngIf="permission.description">
+              {{ permission.description }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="no-role-selected" *ngIf="!selectedRole">
+      <p>Select a role to edit its permissions</p>
+    </div>
+  </div>
+
+  <app-error-popup
+    *ngIf="showError"
+    [message]="errorMessage"
+    (close)="closeErrorPopup()"
+  ></app-error-popup>
+</div>
+

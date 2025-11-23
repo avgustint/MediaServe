@@ -39,6 +39,40 @@
     </button>
   </div>
 
+  <div class="recent-items-section" *ngIf="showRecentItems && !editingItem && !isNewItem && recentItems.length > 0">
+    <h3>Recently Modified (Last 50)</h3>
+    <div class="recent-items-list">
+      <div
+        *ngFor="let item of recentItems"
+        class="recent-item"
+        (click)="editItem(item)"
+      >
+        <div class="item-guid-badge">{{ item.guid }}</div>
+        <div class="item-info">
+          <div class="item-name">{{ item.name }}</div>
+          <div class="item-details">
+            <span class="item-type">Type: {{ item.type }}</span>
+            <span class="item-separator">•</span>
+            <span class="item-modified" *ngIf="item.modified">
+              Modified: {{ item.modified | date:'short' }}
+            </span>
+          </div>
+          <div class="item-description" *ngIf="item.description">
+            {{ item.description }}
+          </div>
+        </div>
+        <button
+          *ngIf="hasDeletePermission()"
+          class="delete-item-btn"
+          (click)="deleteItemFromList(item); $event.stopPropagation()"
+          title="Delete item"
+        >
+          <i class="fas fa-trash"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <div class="edit-section" *ngIf="editingItem || isNewItem">
     <div class="edit-form">
       <h2>{{ isNewItem ? 'Add New Library Item' : 'Edit Library Item' }}</h2>
@@ -151,4 +185,16 @@
     [show]="showError"
     (close)="closeErrorPopup()"
   ></app-error-popup>
+
+  <app-confirm-dialog
+    [title]="confirmDialogTitle"
+    [message]="confirmDialogMessage"
+    [show]="showConfirmDialog"
+    confirmText="Delete"
+    cancelText="Cancel"
+    confirmColor="danger"
+    (confirm)="onConfirmDelete()"
+    (cancel)="closeConfirmDialog()"
+    (close)="closeConfirmDialog()"
+  ></app-confirm-dialog>
 </div>

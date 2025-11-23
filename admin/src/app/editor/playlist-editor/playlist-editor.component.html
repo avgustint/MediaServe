@@ -38,6 +38,37 @@
     </button>
   </div>
 
+  <div class="recent-playlists-section" *ngIf="showRecentPlaylists && !editingPlaylist && !isNewPlaylist && recentPlaylists.length > 0">
+    <h3>Recently Modified (Last 50)</h3>
+    <div class="recent-playlists-list">
+      <div
+        *ngFor="let playlist of recentPlaylists"
+        class="recent-playlist"
+        (click)="loadPlaylist(playlist.guid)"
+      >
+        <div class="playlist-info">
+          <div class="playlist-name">{{ playlist.name }}</div>
+          <div class="playlist-details">
+            <span class="playlist-modified" *ngIf="playlist.updated">
+              Updated: {{ playlist.updated | date:'short' }}
+            </span>
+          </div>
+          <div class="playlist-description" *ngIf="playlist.description">
+            {{ playlist.description }}
+          </div>
+        </div>
+        <button
+          *ngIf="hasDeletePermission()"
+          class="delete-playlist-btn"
+          (click)="deletePlaylistFromList(playlist); $event.stopPropagation()"
+          title="Delete playlist"
+        >
+          <i class="fas fa-trash"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <div class="edit-section" *ngIf="editingPlaylist || isNewPlaylist">
     <div class="edit-form">
       <h2>{{ isNewPlaylist ? 'Add New Playlist' : 'Edit Playlist' }}</h2>
@@ -79,7 +110,7 @@
               [ngValue]="item.guid"
               [disabled]="isItemInPlaylist(item.guid)"
             >
-              {{ item.name }} ({{ item.type }}) - GUID: {{ item.guid }}
+              {{ item.name }} ({{ item.type }})
             </option>
           </select>
           <button
@@ -93,11 +124,11 @@
 
         <div class="playlist-items-list" *ngIf="playlistItems.length > 0">
           <div *ngFor="let item of playlistItems; let i = index" class="playlist-item-row">
+            <div class="item-guid-badge">{{ item.guid }}</div>
             <div class="item-info">
               <div class="item-name">{{ item.name || getLibraryItemName(item.guid) }}</div>
               <div class="item-details">
                 <span class="item-type">{{ item.type || getLibraryItemType(item.guid) }}</span>
-                <span class="item-guid">GUID: {{ item.guid }}</span>
               </div>
               <div class="item-description" *ngIf="item.description">
                 {{ item.description }}
@@ -198,4 +229,16 @@
     [show]="showError"
     (close)="closeErrorPopup()"
   ></app-error-popup>
+
+  <app-confirm-dialog
+    [title]="confirmDialogTitle"
+    [message]="confirmDialogMessage"
+    [show]="showConfirmDialog"
+    confirmText="Delete"
+    cancelText="Cancel"
+    confirmColor="danger"
+    (confirm)="onConfirmDelete()"
+    (cancel)="closeConfirmDialog()"
+    (close)="closeConfirmDialog()"
+  ></app-confirm-dialog>
 </div>

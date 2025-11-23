@@ -18,6 +18,7 @@ export class PlaylistListComponent implements OnInit, OnDestroy, OnChanges {
   @Output() playlistItemPageClick = new EventEmitter<{ item: LibraryItem; page: number }>();
   @Output() clearClick = new EventEmitter<void>();
   @Output() playlistSelected = new EventEmitter<number>();
+  @Output() playlistItemsLoaded = new EventEmitter<LibraryItem[]>();
 
   playlist: LibraryItem[] = [];
   currentPlaylist: Playlist | null = null;
@@ -89,6 +90,7 @@ export class PlaylistListComponent implements OnInit, OnDestroy, OnChanges {
       next: ([items, metadata]) => {
         this.playlist = items;
         this.currentPlaylist = metadata;
+        this.playlistItemsLoaded.emit(items);
         if (guid && emitSelection) {
           this.playlistSelected.emit(guid);
         }

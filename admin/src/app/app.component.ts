@@ -80,12 +80,20 @@ export class AppComponent implements OnInit, OnDestroy {
     return this.userService.hasPermission('ViewEditor');
   }
 
+  hasViewSettingsPermission(): boolean {
+    return this.userService.hasPermission('ViewSettings');
+  }
+
   navigateToPlaylist(): void {
     this.router.navigate(["/playlist"]);
   }
 
   navigateToEditor(): void {
     this.router.navigate(["/editor"]);
+  }
+
+  navigateToSettings(): void {
+    this.router.navigate(["/settings"]);
   }
 }
 

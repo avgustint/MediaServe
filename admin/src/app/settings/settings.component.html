@@ -1,0 +1,27 @@
+<div class="settings-container">
+  <div class="settings-header">
+    <div class="tabs">
+      <button
+        *ngIf="hasViewUsersPermission()"
+        class="tab-button"
+        [class.active]="activeTab === 'users'"
+        (click)="switchTab('users')"
+      >
+        Users
+      </button>
+      <button
+        *ngIf="hasViewRolesPermission()"
+        class="tab-button"
+        [class.active]="activeTab === 'roles'"
+        (click)="switchTab('roles')"
+      >
+        Roles & Permissions
+      </button>
+    </div>
+  </div>
+  <div class="settings-content">
+    <app-user-editor *ngIf="activeTab === 'users' && hasViewUsersPermission()"></app-user-editor>
+    <app-role-permissions-editor *ngIf="activeTab === 'roles' && hasViewRolesPermission()"></app-role-permissions-editor>
+  </div>
+</div>
+

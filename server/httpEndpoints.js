@@ -190,8 +190,23 @@ function setupHttpEndpoints(data) {
       }
       return;
     }
-    else // Handle playlist search endpoint (must be checked BEFORE /playlist endpoint)
-    if (req.url && req.url.startsWith('/playlists/search') && req.method === 'GET') {
+    // Handle recently modified playlists endpoint (GET /playlists/recent)
+    else if (req.url === '/playlists/recent' && req.method === 'GET') {
+      try {
+        const recentPlaylists = dbOps.getRecentlyModifiedPlaylists(50);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(recentPlaylists, null, 2));
+      } catch (error) {
+        console.error('Recently modified playlists endpoint error:', error);
+        res.writeHead(500, {
+          'Content-Type': 'application/json'
+        });
+        res.end(JSON.stringify({ success: false, message: 'Server error' }));
+      }
+      return;
+    }
+    // Handle playlist search endpoint (must be checked BEFORE /playlist endpoint)
+    else if (req.url && req.url.startsWith('/playlists/search') && req.method === 'GET') {
       try {
         const urlParts = req.url.split('?');
         let searchTerm = '';
@@ -386,6 +401,48 @@ function setupHttpEndpoints(data) {
       });
       return;
     }
+    // Handle get single library item endpoint (GET /library/:guid) - must be before PUT endpoint and after /library/recent
+    else if (req.url && req.url.startsWith('/library/') && req.method === 'GET' && !req.url.startsWith('/library/search') && req.url !== '/library/recent') {
+      // Check if it's /library/:guid/usage - skip that (handled by other endpoint)
+      if (req.url.match(/^\/library\/\d+\/usage$/)) {
+        // Skip - handled by usage endpoint
+      } else {
+        try {
+          // Extract GUID from URL (e.g., /library/123)
+          const urlParts = req.url.split('/');
+          const guid = parseInt(urlParts[urlParts.length - 1], 10);
+
+          if (isNaN(guid)) {
+            res.writeHead(400, {
+              'Content-Type': 'application/json'
+            });
+            res.end(JSON.stringify({ success: false, message: 'Invalid GUID' }));
+            return;
+          }
+
+          const item = dbOps.getLibraryItem(guid);
+          if (item) {
+            const formattedItem = dbOps.formatLibraryItem(item);
+            res.writeHead(200, {
+              'Content-Type': 'application/json'
+            });
+            res.end(JSON.stringify(formattedItem));
+          } else {
+            res.writeHead(404, {
+              'Content-Type': 'application/json'
+            });
+            res.end(JSON.stringify(null));
+          }
+        } catch (error) {
+          console.error('Get library item error:', error);
+          res.writeHead(500, {
+            'Content-Type': 'application/json'
+          });
+          res.end(JSON.stringify({ success: false, message: 'Server error' }));
+        }
+        return;
+      }
+    }
     else // Handle library update endpoint (PUT /library/:guid)
     if (req.url && req.url.startsWith('/library/') && req.method === 'PUT') {
       try {
@@ -496,8 +553,65 @@ function setupHttpEndpoints(data) {
       }
       return;
     }
-    else // Handle library endpoint
-    if (req.url === '/library' && req.method === 'GET') {
+    // Handle get single library item endpoint (GET /library/:guid) - must be before other /library/ endpoints
+    else if (req.url && req.url.startsWith('/library/') && req.method === 'GET' && !req.url.startsWith('/library/search') && !req.url.startsWith('/library/recent')) {
+      // Check if it's /library/:guid/usage - skip that
+      if (req.url.includes('/usage')) {
+        // Skip - handled by other endpoint
+      } else {
+        try {
+          // Extract GUID from URL (e.g., /library/123)
+          const urlParts = req.url.split('/');
+          const guid = parseInt(urlParts[urlParts.length - 1], 10);
+
+          if (isNaN(guid)) {
+            res.writeHead(400, {
+              'Content-Type': 'application/json'
+            });
+            res.end(JSON.stringify({ success: false, message: 'Invalid GUID' }));
+            return;
+          }
+
+          const item = dbOps.getLibraryItem(guid);
+          if (item) {
+            const formattedItem = dbOps.formatLibraryItem(item);
+            res.writeHead(200, {
+              'Content-Type': 'application/json'
+            });
+            res.end(JSON.stringify(formattedItem));
+          } else {
+            res.writeHead(404, {
+              'Content-Type': 'application/json'
+            });
+            res.end(JSON.stringify(null));
+          }
+        } catch (error) {
+          console.error('Get library item error:', error);
+          res.writeHead(500, {
+            'Content-Type': 'application/json'
+          });
+          res.end(JSON.stringify({ success: false, message: 'Server error' }));
+        }
+        return;
+      }
+    }
+    // Handle recently modified library items endpoint (GET /library/recent)
+    else if (req.url === '/library/recent' && req.method === 'GET') {
+      try {
+        const recentItems = dbOps.getRecentlyModifiedLibraryItems(50).map(item => dbOps.formatLibraryItem(item));
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(recentItems, null, 2));
+      } catch (error) {
+        console.error('Recently modified library items endpoint error:', error);
+        res.writeHead(500, {
+          'Content-Type': 'application/json'
+        });
+        res.end(JSON.stringify({ success: false, message: 'Server error' }));
+      }
+      return;
+    }
+    // Handle library endpoint
+    else if (req.url === '/library' && req.method === 'GET') {
       try {
         const allItems = dbOps.getAllLibraryItems().map(item => dbOps.formatLibraryItem(item));
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -615,6 +729,221 @@ function setupHttpEndpoints(data) {
         res.end(JSON.stringify({ success: false, message: 'Server error' }));
       }
       
+      return;
+    }
+
+    // Handle users endpoints
+    // GET /users - Get all users
+    else if (req.url === '/users' && req.method === 'GET') {
+      try {
+        const users = dbOps.getAllUsers().map(user => {
+          // Decode email
+          let decodedEmail = user.email;
+          try {
+            decodedEmail = Buffer.from(user.email, 'base64').toString('utf8');
+          } catch (e) {
+            // Keep original if decoding fails
+          }
+          return {
+            guid: user.guid,
+            name: user.name,
+            email: decodedEmail,
+            username: user.username,
+            role: user.role,
+            locale: user.locale || null
+          };
+        });
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(users));
+      } catch (error) {
+        console.error('Get all users error:', error);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, message: 'Server error' }));
+      }
+      return;
+    }
+    // POST /users - Create user
+    else if (req.url === '/users' && req.method === 'POST') {
+      readRequestBody(req).then((userData) => {
+        try {
+          const newUser = dbOps.createUser(userData);
+          // Decode email for response
+          let decodedEmail = newUser.email;
+          try {
+            decodedEmail = Buffer.from(newUser.email, 'base64').toString('utf8');
+          } catch (e) {}
+          const responseUser = {
+            guid: newUser.guid,
+            name: newUser.name,
+            email: decodedEmail,
+            username: newUser.username,
+            role: newUser.role,
+            locale: newUser.locale || null
+          };
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(responseUser));
+        } catch (error) {
+          console.error('User create error:', error);
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, message: 'Server error' }));
+        }
+      }).catch((error) => {
+        console.error('User create request error:', error);
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, message: 'Invalid request format' }));
+      });
+      return;
+    }
+    // PUT /users/:guid - Update user
+    else if (req.url && req.url.match(/^\/users\/\d+$/) && req.method === 'PUT') {
+      try {
+        const urlParts = req.url.split('/');
+        const guid = parseInt(urlParts[2], 10);
+
+        if (isNaN(guid)) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, message: 'Invalid GUID' }));
+          return;
+        }
+
+        readRequestBody(req).then((userData) => {
+          const updatedUser = dbOps.updateUser(guid, userData);
+          if (updatedUser) {
+            // Decode email for response
+            let decodedEmail = updatedUser.email;
+            try {
+              decodedEmail = Buffer.from(updatedUser.email, 'base64').toString('utf8');
+            } catch (e) {}
+            const responseUser = {
+              guid: updatedUser.guid,
+              name: updatedUser.name,
+              email: decodedEmail,
+              username: updatedUser.username,
+              role: updatedUser.role,
+              locale: updatedUser.locale || null
+            };
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(responseUser));
+          } else {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, message: 'User not found' }));
+          }
+        }).catch((error) => {
+          console.error('User update request error:', error);
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, message: 'Invalid request format' }));
+        });
+      } catch (error) {
+        console.error('User update error:', error);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, message: 'Server error' }));
+      }
+      return;
+    }
+    // DELETE /users/:guid - Delete user
+    else if (req.url && req.url.match(/^\/users\/\d+$/) && req.method === 'DELETE') {
+      try {
+        const urlParts = req.url.split('/');
+        const guid = parseInt(urlParts[2], 10);
+
+        if (isNaN(guid)) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, message: 'Invalid GUID' }));
+          return;
+        }
+
+        const deleted = dbOps.deleteUser(guid);
+        if (deleted) {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true, message: 'User deleted' }));
+        } else {
+          res.writeHead(404, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, message: 'User not found' }));
+        }
+      } catch (error) {
+        console.error('User delete error:', error);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, message: 'Server error' }));
+      }
+      return;
+    }
+    // Handle roles endpoints
+    // GET /roles - Get all roles
+    else if (req.url === '/roles' && req.method === 'GET') {
+      try {
+        const roles = dbOps.getAllRoles();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(roles));
+      } catch (error) {
+        console.error('Get all roles error:', error);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, message: 'Server error' }));
+      }
+      return;
+    }
+    // Handle permissions endpoints
+    // GET /permissions - Get all permissions
+    else if (req.url === '/permissions' && req.method === 'GET') {
+      try {
+        const permissions = dbOps.getAllPermissions();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(permissions));
+      } catch (error) {
+        console.error('Get all permissions error:', error);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, message: 'Server error' }));
+      }
+      return;
+    }
+    // GET /roles/:guid/permissions - Get permissions for a role
+    else if (req.url && req.url.match(/^\/roles\/\d+\/permissions$/) && req.method === 'GET') {
+      try {
+        const urlParts = req.url.split('/');
+        const roleGuid = parseInt(urlParts[2], 10);
+
+        if (isNaN(roleGuid)) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, message: 'Invalid role GUID' }));
+          return;
+        }
+
+        const permissionGuids = dbOps.getRolePermissions(roleGuid);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(permissionGuids));
+      } catch (error) {
+        console.error('Get role permissions error:', error);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, message: 'Server error' }));
+      }
+      return;
+    }
+    // PUT /roles/:guid/permissions - Update permissions for a role
+    else if (req.url && req.url.match(/^\/roles\/\d+\/permissions$/) && req.method === 'PUT') {
+      try {
+        const urlParts = req.url.split('/');
+        const roleGuid = parseInt(urlParts[2], 10);
+
+        if (isNaN(roleGuid)) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, message: 'Invalid role GUID' }));
+          return;
+        }
+
+        readRequestBody(req).then((data) => {
+          const permissionGuids = Array.isArray(data.permissions) ? data.permissions : [];
+          const updatedPermissions = dbOps.updateRolePermissions(roleGuid, permissionGuids);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(updatedPermissions));
+        }).catch((error) => {
+          console.error('Update role permissions request error:', error);
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, message: 'Invalid request format' }));
+        });
+      } catch (error) {
+        console.error('Update role permissions error:', error);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, message: 'Server error' }));
+      }
       return;
     }
 

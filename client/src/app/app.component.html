@@ -1,8 +1,5 @@
 <div class="app-container">
-  <div class="connection-status" [class.connected]="connectionStatus === 'connected'" 
-       [class.connecting]="connectionStatus === 'connecting'">
-    {{ connectionStatus === 'connected' ? 'Connected' : connectionStatus === 'connecting' ? 'Connecting...' : 'Disconnected' }}
-  </div>
+  <div class="connection-status" [class.connected]="connectionStatus === 'connected'"></div>
 
   <!-- Text Content -->
   <div *ngIf="currentContent?.type === 'text'" 
@@ -27,9 +24,11 @@
             allowfullscreen></iframe>
   </div>
 
-  <!-- No content message -->
-  <div *ngIf="!currentContent" class="content-container no-content">
-    <div class="waiting-message">Waiting for content from WebSocket...</div>
+  <!-- Loading spinner when not connected -->
+  <div *ngIf="connectionStatus !== 'connected'" class="content-container no-content">
+    <div class="loading-spinner">
+      <div class="spinner"></div>
+    </div>
   </div>
 </div>
 

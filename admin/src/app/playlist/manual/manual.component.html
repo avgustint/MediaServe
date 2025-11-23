@@ -1,12 +1,52 @@
 <div class="manual-container">
-  <button class="clear-button" (click)="onClearClick()">Clear</button>
-  
+  <div class="search-section">
+    <div class="search-input-wrapper">
+      <input
+        type="text"
+        class="search-input"
+        [(ngModel)]="searchTerm"
+        (input)="onSearchChange()"
+        placeholder="Search library items..."
+      />
+      <button *ngIf="searchTerm" class="clear-search-btn" (click)="clearSearch()" title="Clear search">
+        ×
+      </button>
+    </div>
+    <div class="search-results" *ngIf="showSearchResults">
+      <div
+        *ngIf="searchResults.length === 0 && searchTerm.trim().length > 0"
+        class="no-results"
+      >
+        No library items found
+      </div>
+      <div
+        *ngFor="let result of searchResults"
+        class="search-result-item"
+        (click)="onSearchResultSelect(result)"
+      >
+        <div class="search-result-name">{{ result.name }}</div>
+        <div class="search-result-description" *ngIf="result.description">
+          {{ result.description }}
+        </div>
+        <div class="search-result-footer">
+          <div class="search-result-type">Type: {{ result.type }}</div>
+          <div class="item-guid-badge">{{ result.guid }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="guid-display">
-    <div class="guid-label">Enter GUID:</div>
-    <div class="guid-value">{{ enteredGuid || "0" }}</div>
-    <button *ngIf="enteredGuid.length > 0" class="clear-guid-btn" (click)="onClearGuid()" title="Clear GUID">
-      ×
-    </button>
+    <div class="guid-label">Enter ID:</div>
+    <div class="guid-badge-container">
+      <div class="guid-badge">{{ enteredGuid || "0" }}</div>
+      <button *ngIf="enteredGuid.length > 0" class="clear-guid-btn" (click)="onClearGuid()" title="Clear ID">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <div class="no-item" *ngIf="!libraryItem && searchedGuid">
+      No library item found with ID: {{ searchedGuid }}
+    </div>
   </div>
 
   <div class="content-scrollable">
@@ -27,34 +67,12 @@
         <button class="keypad-button" (click)="onNumberClick('9')">9</button>
       </div>
       <div class="keypad-row">
-        <button class="keypad-button" (click)="onClearGuid()" title="Clear">C</button>
+        <button class="keypad-button" (click)="onBackspaceClick()" title="Delete last digit">C</button>
         <button class="keypad-button" (click)="onNumberClick('0')">0</button>
       <button class="keypad-button enter-button" (click)="onEnterClick()" title="Enter">
-        ←
+        <i class="fas fa-arrow-right"></i>
       </button>
       </div>
-    </div>
-
-    <div class="library-item-display" *ngIf="libraryItem">
-      <div class="item-name">{{ libraryItem.name }}</div>
-      <div class="item-description" *ngIf="libraryItem.description">
-        {{ libraryItem.description }}
-      </div>
-      <div class="item-type">Type: {{ libraryItem.type }}</div>
-      
-      <div class="page-buttons" *ngIf="libraryItem.type === 'text' && pages.length > 1">
-        <button
-          *ngFor="let page of pages"
-          class="page-button"
-          (click)="onPageClick(page.page)"
-        >
-          {{ page.page }}
-        </button>
-      </div>
-    </div>
-
-    <div class="no-item" *ngIf="enteredGuid.length > 0 && !libraryItem">
-      No library item found with GUID: {{ enteredGuid }}
     </div>
   </div>
 </div>

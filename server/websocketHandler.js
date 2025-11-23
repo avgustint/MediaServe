@@ -18,12 +18,6 @@ function setupWebSocket(server, library) {
     console.log('New client connected');
     clients.add(ws);
 
-    // Send welcome message
-    ws.send(JSON.stringify({
-      type: 'text',
-      content: 'Connected to media player server'
-    }));
-
     // Handle client disconnection
     ws.on('close', () => {
       console.log('Client disconnected');

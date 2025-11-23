@@ -13,6 +13,9 @@ export class WebSocketService {
   private socket: WebSocket | null = null;
   private messageSubject = new Subject<WebSocketMessage>();
   public messages$ = this.messageSubject.asObservable();
+  
+  private connectionStatusSubject = new Subject<'connecting' | 'connected' | 'disconnected'>();
+  public connectionStatus$ = this.connectionStatusSubject.asObservable();
 
   // Default WebSocket URL - can be configured
   private wsUrl = 'ws://localhost:8080';
@@ -23,10 +26,12 @@ export class WebSocketService {
     }
 
     try {
+      this.connectionStatusSubject.next('connecting');
       this.socket = new WebSocket(this.wsUrl);
 
       this.socket.onopen = () => {
         console.log('WebSocket connection established');
+        this.connectionStatusSubject.next('connected');
       };
 
       this.socket.onmessage = (event) => {
@@ -40,15 +45,18 @@ export class WebSocketService {
 
       this.socket.onerror = (error) => {
         console.error('WebSocket error:', error);
+        this.connectionStatusSubject.next('disconnected');
       };
 
       this.socket.onclose = () => {
         console.log('WebSocket connection closed');
+        this.connectionStatusSubject.next('disconnected');
         // Optionally attempt to reconnect
         setTimeout(() => this.connect(), 3000);
       };
     } catch (error) {
       console.error('Failed to create WebSocket connection:', error);
+      this.connectionStatusSubject.next('disconnected');
     }
   }
 
@@ -56,6 +64,7 @@ export class WebSocketService {
     if (this.socket) {
       this.socket.close();
       this.socket = null;
+      this.connectionStatusSubject.next('disconnected');
     }
   }
 

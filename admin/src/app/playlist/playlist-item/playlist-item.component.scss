@@ -90,3 +90,23 @@
     transform: scale(0.95);
   }
 }
+
+.item-guid-badge {
+  background-color: #007bff;
+  color: white;
+  padding: 0.5rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  font-weight: bold;
+  font-family: "Courier New", monospace;
+  min-width: 60px;
+  text-align: center;
+  flex-shrink: 0;
+  margin-left: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  align-self: flex-start;
+  height: fit-content;
+}

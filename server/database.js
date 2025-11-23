@@ -75,7 +75,8 @@ function createTables() {
       name TEXT NOT NULL,
       type TEXT NOT NULL CHECK(type IN ('text', 'image', 'url')),
       content TEXT NOT NULL,
-      description TEXT
+      description TEXT,
+      modified TEXT
     )
   `);
 
@@ -114,11 +115,29 @@ function createTables() {
     `);
   }
 
+  // Add modified column to library_items if it doesn't exist (for existing databases)
+  const libraryTableInfo = db.prepare("PRAGMA table_info(library_items)").all();
+  const hasModifiedColumn = libraryTableInfo.some(col => col.name === 'modified');
+  if (!hasModifiedColumn) {
+    db.exec(`
+      ALTER TABLE library_items 
+      ADD COLUMN modified TEXT
+    `);
+    // Set modified timestamp for existing items to current time
+    const now = new Date().toISOString();
+    db.prepare(`
+      UPDATE library_items
+      SET modified = ?
+      WHERE modified IS NULL
+    `).run(now);
+  }
+
   // Create indexes for better query performance
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
     CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
     CREATE INDEX IF NOT EXISTS idx_library_items_type ON library_items(type);
+    CREATE INDEX IF NOT EXISTS idx_library_items_modified ON library_items(modified);
     CREATE INDEX IF NOT EXISTS idx_playlists_updated ON playlists(updated);
     CREATE INDEX IF NOT EXISTS idx_playlist_items_playlist ON playlist_items(playlist_guid);
     CREATE INDEX IF NOT EXISTS idx_playlist_items_library ON playlist_items(library_item_guid);

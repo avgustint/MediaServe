@@ -1,5 +1,6 @@
 <div class="main-container">
-  <div class="sidebar">
+  <div class="content-wrapper">
+    <div class="sidebar">
     <div class="sidebar-header">
       <div class="tabs">
         <button
@@ -25,11 +26,11 @@
         (playlistSelected)="onPlaylistSelected($event)"
         (playlistItemClick)="onPlaylistItemClick($event)"
         (playlistItemPageClick)="onPlaylistItemPageClick($event)"
-        (clearClick)="onClearClick()"
+        (playlistItemsLoaded)="onPlaylistItemsLoaded($event)"
       ></app-playlist-list>
       <app-manual
         *ngIf="activeTab === 'manual'"
-        (clearClick)="onClearClick()"
+        (itemClick)="onManualItemSelected($event.item, $event.page)"
       ></app-manual>
     </div>
   </div>
@@ -52,6 +53,55 @@
     <!-- No content message -->
     <div *ngIf="!currentContent" class="content-container no-content">
       <div class="waiting-message">Waiting for content from WebSocket...</div>
+    </div>
+  </div>
+  </div>
+  
+  <!-- Footer -->
+  <div class="footer">
+    <div class="footer-info">
+      <div class="current-item-info">
+        <div class="current-item-label">Current library item details:</div>
+        <div class="current-item-guid" *ngIf="currentItemGuid">{{ currentItemGuid }}</div>
+        <div class="current-item-name" *ngIf="currentItemName">{{ currentItemName }}</div>
+        <div class="current-item-placeholder" *ngIf="!currentItemGuid">No item selected</div>
+      </div>
+      <div class="page-buttons-container" *ngIf="getAvailablePages().length > 0">
+        <button
+          *ngFor="let pageNum of getAvailablePages()"
+          class="page-button"
+          [class.active]="currentPage === pageNum"
+          (click)="onPageButtonClick(pageNum)"
+          [title]="'Go to page ' + pageNum"
+        >
+          {{ pageNum }}
+        </button>
+      </div>
+    </div>
+    <div class="footer-actions">
+      <button 
+        class="footer-button nav-button prev-button" 
+        (click)="onPreviousClick()"
+        [disabled]="!canGoPrevious()"
+        title="Previous"
+      >
+        <i class="fas fa-chevron-left"></i>
+      </button>
+      <button 
+        class="footer-button clear-button" 
+        (click)="onClearClick()"
+        title="Clear"
+      >
+        Clear
+      </button>
+      <button 
+        class="footer-button nav-button next-button" 
+        (click)="onNextClick()"
+        [disabled]="!canGoNext()"
+        title="Next"
+      >
+        <i class="fas fa-chevron-right"></i>
+      </button>
     </div>
   </div>
 </div>

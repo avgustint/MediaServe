@@ -4,12 +4,13 @@ import { FormsModule } from "@angular/forms";
 import { PlaylistService, LibraryItem, LibraryContent } from "../../playlist.service";
 import { UserService } from "../../user.service";
 import { ErrorPopupComponent } from "../../shared/error-popup/error-popup.component";
+import { ConfirmDialogComponent } from "../../shared/confirm-dialog/confirm-dialog.component";
 import { debounceTime, distinctUntilChanged, Subject, switchMap, of } from "rxjs";
 
 @Component({
   selector: "app-library-editor",
   standalone: true,
-  imports: [CommonModule, FormsModule, ErrorPopupComponent],
+  imports: [CommonModule, FormsModule, ErrorPopupComponent, ConfirmDialogComponent],
   templateUrl: "./library-editor.component.html",
   styleUrls: ["./library-editor.component.scss"]
 })
@@ -18,6 +19,10 @@ export class LibraryEditorComponent implements OnInit {
   searchResults: LibraryItem[] = [];
   showSearchResults: boolean = false;
   private searchSubject = new Subject<string>();
+
+  // Recently modified items
+  recentItems: LibraryItem[] = [];
+  showRecentItems: boolean = true;
 
   editingItem: LibraryItem | null = null;
   isNewItem: boolean = false;
@@ -42,12 +47,21 @@ export class LibraryEditorComponent implements OnInit {
   showError: boolean = false;
   errorMessage: string = "";
 
+  // Confirm dialog
+  showConfirmDialog: boolean = false;
+  confirmDialogTitle: string = "";
+  confirmDialogMessage: string = "";
+  itemToDeleteGuid: number | null = null;
+
   constructor(
     private playlistService: PlaylistService,
     private userService: UserService
   ) {}
 
   ngOnInit(): void {
+    // Load recently modified items
+    this.loadRecentItems();
+
     // Setup search with debounce
     this.searchSubject.pipe(
       debounceTime(300),
@@ -56,8 +70,10 @@ export class LibraryEditorComponent implements OnInit {
         if (searchTerm.trim().length === 0) {
           this.searchResults = [];
           this.showSearchResults = false;
+          this.showRecentItems = true;
           return of([]);
         }
+        this.showRecentItems = false;
         return this.playlistService.searchLibraryItems(searchTerm);
       })
     ).subscribe({
@@ -69,6 +85,18 @@ export class LibraryEditorComponent implements OnInit {
         console.error("Error searching library items:", error);
         this.searchResults = [];
         this.showSearchResults = false;
+      }
+    });
+  }
+
+  loadRecentItems(): void {
+    this.playlistService.getRecentlyModifiedLibraryItems().subscribe({
+      next: (items) => {
+        this.recentItems = items;
+      },
+      error: (error) => {
+        console.error("Error loading recently modified library items:", error);
+        this.recentItems = [];
       }
     });
   }
@@ -88,7 +116,31 @@ export class LibraryEditorComponent implements OnInit {
     this.searchTerm = "";
     this.showSearchResults = false;
     this.searchResults = [];
+    this.showRecentItems = true;
     this.searchSubject.next("");
+  }
+
+  deleteItemFromList(item: LibraryItem): void {
+    // Check if item is used in any playlist first
+    this.playlistService.checkLibraryItemUsage(item.guid).subscribe({
+      next: (usageInfo) => {
+        if (usageInfo.isUsed) {
+          const playlistNames = usageInfo.playlists.map(p => p.name).join(", ");
+          this.showErrorPopup(`Cannot delete library item "${item.name}". It is used in the following playlist(s): ${playlistNames}`);
+          return;
+        }
+
+        // Show confirmation dialog
+        this.itemToDeleteGuid = item.guid;
+        this.confirmDialogTitle = "Delete Library Item";
+        this.confirmDialogMessage = `Are you sure you want to delete library item "${item.name}"? This action cannot be undone.`;
+        this.showConfirmDialog = true;
+      },
+      error: (error) => {
+        console.error("Error checking library item usage:", error);
+        this.showErrorPopup("Error checking library item usage. Please try again.");
+      }
+    });
   }
 
   editItem(item: LibraryItem): void {
@@ -261,7 +313,8 @@ export class LibraryEditorComponent implements OnInit {
         next: (newItem) => {
           console.log("Library item created:", newItem);
           this.cancelEdit();
-          // Optionally refresh search or show success message
+          // Refresh the recently modified items list to show the new item on top
+          this.loadRecentItems();
         },
         error: (error) => {
           console.error("Error creating library item:", error);
@@ -276,11 +329,11 @@ export class LibraryEditorComponent implements OnInit {
       };
       
       this.playlistService.updateLibraryItem(updatedItem).subscribe({
-        next: (result) => {
-          console.log("Library item updated:", result);
-          this.cancelEdit();
-          // Optionally refresh search or show success message
-        },
+      next: (result) => {
+        console.log("Library item updated:", result);
+        this.loadRecentItems();
+        this.cancelEdit();
+      },
         error: (error) => {
           console.error("Error updating library item:", error);
           this.showErrorPopup("Error updating library item. Please try again.");
@@ -294,39 +347,61 @@ export class LibraryEditorComponent implements OnInit {
       return;
     }
 
-    // Check if item is used in any playlist
-    this.playlistService.checkLibraryItemUsage(this.editingItem.guid).subscribe({
+    // Show confirmation dialog
+    this.itemToDeleteGuid = this.editingItem.guid;
+    this.confirmDialogTitle = "Delete Library Item";
+    this.confirmDialogMessage = `Are you sure you want to delete library item "${this.editingItem.name}"? This action cannot be undone.`;
+    this.showConfirmDialog = true;
+  }
+
+  onConfirmDelete(): void {
+    if (this.itemToDeleteGuid === null) {
+      return;
+    }
+
+    const guidToDelete = this.itemToDeleteGuid;
+    const itemName = this.editingItem?.name || this.recentItems.find(item => item.guid === guidToDelete)?.name || "this item";
+    
+    // Check if item is used in any playlist before deleting
+    this.playlistService.checkLibraryItemUsage(guidToDelete).subscribe({
       next: (usageInfo) => {
         if (usageInfo.isUsed) {
           const playlistNames = usageInfo.playlists.map(p => p.name).join(", ");
-          this.showErrorPopup(`Cannot delete library item "${this.editingItem?.name}". It is used in the following playlist(s): ${playlistNames}`);
-          return;
-        }
-
-        // Ask for confirmation
-        const confirmed = confirm(`Are you sure you want to delete library item "${this.editingItem?.name}"? This action cannot be undone.`);
-        if (!confirmed) {
+          this.showErrorPopup(`Cannot delete library item "${itemName}". It is used in the following playlist(s): ${playlistNames}`);
+          this.closeConfirmDialog();
           return;
         }
 
         // Delete the item
-        this.playlistService.deleteLibraryItem(this.editingItem!.guid).subscribe({
+        this.playlistService.deleteLibraryItem(guidToDelete).subscribe({
           next: () => {
             console.log("Library item deleted");
-            this.cancelEdit();
-            // Optionally refresh search or show success message
+            this.loadRecentItems();
+            if (this.editingItem?.guid === guidToDelete) {
+              this.cancelEdit();
+            }
+            this.closeConfirmDialog();
           },
           error: (error) => {
             console.error("Error deleting library item:", error);
             this.showErrorPopup("Error deleting library item. Please try again.");
+            this.closeConfirmDialog();
           }
         });
       },
       error: (error) => {
         console.error("Error checking library item usage:", error);
         this.showErrorPopup("Error checking library item usage. Please try again.");
+        this.closeConfirmDialog();
       }
     });
+  }
+
+  closeConfirmDialog(): void {
+    this.showConfirmDialog = false;
+    this.itemToDeleteGuid = null;
+    this.confirmDialogTitle = "";
+    this.confirmDialogMessage = "";
   }
 
   hasDeletePermission(): boolean {

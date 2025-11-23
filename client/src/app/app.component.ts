@@ -17,6 +17,7 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
 
   currentContent: WebSocketMessage | null = null;
   private subscription?: Subscription;
+  private connectionStatusSubscription?: Subscription;
   connectionStatus: "connecting" | "connected" | "disconnected" = "disconnected";
   private resizeHandler = () => {
     if (this.currentContent?.type === "text") {
@@ -29,11 +30,16 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
   ngOnInit(): void {
     // Connect to WebSocket - update URL as needed
     this.websocketService.connect("ws://localhost:8080");
-    this.connectionStatus = "connecting";
+
+    // Subscribe to connection status changes
+    this.connectionStatusSubscription = this.websocketService.connectionStatus$.subscribe(
+      (status) => {
+        this.connectionStatus = status;
+      }
+    );
 
     this.subscription = this.websocketService.messages$.subscribe((message: WebSocketMessage) => {
       this.currentContent = message;
-      this.connectionStatus = "connected";
 
       // Adjust font size for text after view update
       if (message.type === "text") {
@@ -49,6 +55,7 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
 
   ngOnDestroy(): void {
     this.subscription?.unsubscribe();
+    this.connectionStatusSubscription?.unsubscribe();
     this.websocketService.disconnect();
     window.removeEventListener("resize", this.resizeHandler);
   }

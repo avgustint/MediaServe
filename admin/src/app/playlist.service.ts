@@ -22,6 +22,7 @@ export interface LibraryItem {
   guid: number;
   description?: string;
   pages?: number[]; // For text items in playlists - array of page numbers to display
+  modified?: string; // ISO datetime string when item was created or last modified
 }
 
 export interface Playlist {
@@ -41,6 +42,7 @@ export interface PlaylistSearchResult {
   guid: number;
   name: string;
   description: string;
+  updated?: string;
 }
 
 @Injectable({
@@ -89,9 +91,15 @@ export class PlaylistService {
   }
 
   getLibraryItemByGuid(guid: number): Observable<LibraryItem | null> {
-    return this.getLibraryItems().pipe(
-      map((items) => items.find((item) => item.guid === guid) || null)
-    );
+    return this.http.get<LibraryItem | null>(`${this.API_URL}/library/${guid}`);
+  }
+
+  getRecentlyModifiedLibraryItems(): Observable<LibraryItem[]> {
+    return this.http.get<LibraryItem[]>(`${this.API_URL}/library/recent`);
+  }
+
+  getRecentlyModifiedPlaylists(): Observable<PlaylistSearchResult[]> {
+    return this.http.get<PlaylistSearchResult[]>(`${this.API_URL}/playlists/recent`);
   }
 
   // Editor methods for library items

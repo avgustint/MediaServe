@@ -14,18 +14,21 @@ const dbOps = {
       ? item.content
       : JSON.stringify(item.content);
 
+    const modified = new Date().toISOString();
+
     db.prepare(`
-      INSERT INTO library_items (guid, name, type, content, description)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO library_items (guid, name, type, content, description, modified)
+      VALUES (?, ?, ?, ?, ?, ?)
     `).run(
       newGuid,
       item.name || '',
       item.type || 'text',
       contentStr,
-      item.description || null
+      item.description || null,
+      modified
     );
 
-    return { ...item, guid: newGuid };
+    return { ...item, guid: newGuid, modified };
   },
 
   updateLibraryItem(guid, item) {
@@ -34,19 +37,22 @@ const dbOps = {
       ? item.content
       : JSON.stringify(item.content);
 
+    const modified = new Date().toISOString();
+
     db.prepare(`
       UPDATE library_items
-      SET name = ?, type = ?, content = ?, description = ?
+      SET name = ?, type = ?, content = ?, description = ?, modified = ?
       WHERE guid = ?
     `).run(
       item.name || '',
       item.type || 'text',
       contentStr,
       item.description || null,
+      modified,
       guid
     );
 
-    return { ...item, guid };
+    return { ...item, guid, modified };
   },
 
   deleteLibraryItem(guid) {
@@ -65,15 +71,84 @@ const dbOps = {
     return db.prepare('SELECT * FROM library_items ORDER BY guid').all();
   },
 
+  getRecentlyModifiedLibraryItems(limit = 50) {
+    const db = getDatabase();
+    const items = db.prepare(`
+      SELECT * FROM library_items 
+      WHERE modified IS NOT NULL
+      ORDER BY modified DESC 
+      LIMIT ?
+    `).all(limit);
+    
+    return items.map(item => {
+      // Parse content for text items
+      if (item.type === 'text' && item.content) {
+        try {
+          item.content = JSON.parse(item.content);
+        } catch (e) {
+          item.content = [{ page: 1, content: item.content }];
+        }
+      }
+      return item;
+    });
+  },
+
   searchLibraryItems(searchTerm) {
     const db = getDatabase();
-    const term = `%${searchTerm.toLowerCase()}%`;
-    return db.prepare(`
-      SELECT * FROM library_items
-      WHERE LOWER(name) LIKE ? 
-         OR LOWER(description) LIKE ?
-         OR LOWER(content) LIKE ?
-    `).all(term, term, term);
+    
+    if (!searchTerm || searchTerm.trim().length === 0) {
+      return [];
+    }
+
+    const trimmedTerm = searchTerm.trim();
+    
+    // Check if the entire search term is a valid GUID number
+    const isEntireTermNumeric = /^\d+$/.test(trimmedTerm);
+    if (isEntireTermNumeric) {
+      const guidValue = parseInt(trimmedTerm, 10);
+      // If it's a valid GUID, search for exact GUID match OR text match (excluding image content)
+      const term = `%${trimmedTerm}%`;
+      return db.prepare(`
+        SELECT * FROM library_items 
+        WHERE guid = ? 
+           OR LOWER(name) LIKE ? 
+           OR LOWER(description) LIKE ? 
+           OR (type != 'image' AND LOWER(content) LIKE ?)
+      `).all(guidValue, term, term, term);
+    }
+
+    // Split search term by spaces and filter out empty strings
+    const searchWords = trimmedTerm.toLowerCase().split(/\s+/).filter(word => word.length > 0);
+    
+    if (searchWords.length === 0) {
+      return [];
+    }
+
+    // Build SQL query with AND conditions for each word
+    // Each word must appear in name OR description OR content (if not image) OR guid (if numeric)
+    let query = 'SELECT * FROM library_items WHERE ';
+    const params = [];
+
+    searchWords.forEach((word, index) => {
+      if (index > 0) {
+        query += ' AND ';
+      }
+      const term = `%${word}%`;
+      const isNumeric = /^\d+$/.test(word);
+      
+      if (isNumeric) {
+        // If word is numeric, also search for GUID matching
+        const guidValue = parseInt(word, 10);
+        query += `(LOWER(name) LIKE ? OR LOWER(description) LIKE ? OR (type != 'image' AND LOWER(content) LIKE ?) OR guid = ?)`;
+        params.push(term, term, term, guidValue);
+      } else {
+        // If word is not numeric, only search in text fields (excluding image content)
+        query += `(LOWER(name) LIKE ? OR LOWER(description) LIKE ? OR (type != 'image' AND LOWER(content) LIKE ?))`;
+        params.push(term, term, term);
+      }
+    });
+
+    return db.prepare(query).all(...params);
   },
 
   checkLibraryItemUsage(guid) {
@@ -338,6 +413,22 @@ const dbOps = {
     return playlists.map(p => this.getPlaylist(p.guid));
   },
 
+  getAllPlaylistsMetadata() {
+    const db = getDatabase();
+    return db.prepare('SELECT guid, name, description, updated FROM playlists').all();
+  },
+
+  getRecentlyModifiedPlaylists(limit = 50) {
+    const db = getDatabase();
+    return db.prepare(`
+      SELECT guid, name, description, updated 
+      FROM playlists 
+      WHERE updated IS NOT NULL
+      ORDER BY updated DESC 
+      LIMIT ?
+    `).all(limit);
+  },
+
   // User operations
   getUserByUsername(username) {
     const db = getDatabase();
@@ -349,14 +440,93 @@ const dbOps = {
     return db.prepare('SELECT * FROM users WHERE guid = ?').get(guid);
   },
 
+  getAllUsers() {
+    const db = getDatabase();
+    return db.prepare('SELECT * FROM users ORDER BY guid').all();
+  },
+
+  createUser(user) {
+    const db = getDatabase();
+    const maxGuid = db.prepare('SELECT MAX(guid) as maxGuid FROM users').get()?.maxGuid || 0;
+    const newGuid = maxGuid + 1;
+
+    // Encode email to base64
+    const encodedEmail = Buffer.from(user.email || '').toString('base64');
+
+    db.prepare(`
+      INSERT INTO users (guid, name, email, username, password, role, locale)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      newGuid,
+      user.name || '',
+      encodedEmail,
+      user.username || '',
+      user.password || '',
+      user.role || null,
+      user.locale || null
+    );
+
+    return this.getUserById(newGuid);
+  },
+
+  updateUser(guid, user) {
+    const db = getDatabase();
+    
+    // Encode email to base64 if provided
+    let encodedEmail = null;
+    if (user.email !== undefined) {
+      encodedEmail = Buffer.from(user.email || '').toString('base64');
+    } else {
+      // Get existing email if not provided
+      const existingUser = this.getUserById(guid);
+      if (existingUser) {
+        encodedEmail = existingUser.email;
+      }
+    }
+
+    db.prepare(`
+      UPDATE users
+      SET name = ?, email = ?, username = ?, password = COALESCE(?, password), role = ?, locale = ?
+      WHERE guid = ?
+    `).run(
+      user.name !== undefined ? user.name : null,
+      encodedEmail,
+      user.username !== undefined ? user.username : null,
+      user.password || null,
+      user.role !== undefined ? user.role : null,
+      user.locale !== undefined ? user.locale : null,
+      guid
+    );
+
+    return this.getUserById(guid);
+  },
+
+  deleteUser(guid) {
+    const db = getDatabase();
+    const result = db.prepare('DELETE FROM users WHERE guid = ?').run(guid);
+    return result.changes > 0;
+  },
+
+  // Role operations
   getRole(guid) {
     const db = getDatabase();
     return db.prepare('SELECT * FROM roles WHERE guid = ?').get(guid);
   },
 
+  getAllRoles() {
+    const db = getDatabase();
+    return db.prepare('SELECT * FROM roles ORDER BY guid').all();
+  },
+
+  // Permission operations
   getPermission(guid) {
     const db = getDatabase();
     return db.prepare('SELECT * FROM permissions WHERE guid = ?').get(guid);
+  },
+
+  getAllPermissions() {
+    const db = getDatabase();
+    return db.prepare('SELECT * FROM permissions ORDER BY guid').all();
   },
 
   getRolePermissions(roleGuid) {
@@ -368,12 +538,39 @@ const dbOps = {
     `).all(roleGuid).map(r => r.permission_guid);
   },
 
+  updateRolePermissions(roleGuid, permissionGuids) {
+    const db = getDatabase();
+    
+    db.transaction(() => {
+      // Delete existing permissions for this role
+      db.prepare('DELETE FROM role_permissions WHERE role_guid = ?').run(roleGuid);
+      
+      // Insert new permissions
+      if (permissionGuids && Array.isArray(permissionGuids) && permissionGuids.length > 0) {
+        const insertStmt = db.prepare(`
+          INSERT INTO role_permissions (role_guid, permission_guid)
+          VALUES (?, ?)
+        `);
+        permissionGuids.forEach(permGuid => {
+          insertStmt.run(roleGuid, permGuid);
+        });
+      }
+    })();
+
+    return this.getRolePermissions(roleGuid);
+  },
+
   // Helper to format library item with parsed content
   formatLibraryItem(item) {
     if (!item) return null;
 
     let content = item.content;
-    if (item.type === 'text' && content && !content.startsWith('http')) {
+    
+    // If content is already parsed (array), use it as-is
+    if (Array.isArray(content)) {
+      // Content is already parsed, use as-is
+    } else if (typeof content === 'string' && item.type === 'text' && !content.startsWith('http')) {
+      // Content is a string, try to parse it for text items
       try {
         const parsed = JSON.parse(content);
         if (Array.isArray(parsed)) {
@@ -389,7 +586,8 @@ const dbOps = {
       name: item.name,
       type: item.type,
       content: content,
-      description: item.description || undefined
+      description: item.description || undefined,
+      modified: item.modified || undefined
     };
   }
 };
