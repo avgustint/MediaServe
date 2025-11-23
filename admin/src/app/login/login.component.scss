@@ -92,3 +92,21 @@
   color: #999;
 }
 
+/* Mobile Responsive Styles */
+@media (max-width: 480px) {
+  .login-container {
+    padding: 1rem;
+  }
+
+  .login-card {
+    padding: 1.5rem;
+    max-width: 100%;
+  }
+
+  .form-control,
+  .btn-primary {
+    min-height: 44px;
+    font-size: 1rem;
+  }
+}
+

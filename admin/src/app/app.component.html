@@ -1,23 +1,28 @@
 <div class="app-wrapper">
   <nav *ngIf="isAuthenticated()" class="navbar">
     <div class="nav-brand-section">
-      <div class="nav-brand">Media Player Admin</div>
-      <div
-        class="connection-status"
-        [class.connected]="connectionStatus === 'connected'"
-        [class.connecting]="connectionStatus === 'connecting'"
-        [class.disconnected]="connectionStatus === 'disconnected'"
-      >
-        {{
-          connectionStatus === "connected"
-            ? "Connected"
-            : connectionStatus === "connecting"
-            ? "Connecting..."
-            : "Disconnected"
-        }}
+      <button class="mobile-menu-toggle" (click)="toggleMobileMenu()" *ngIf="true" aria-label="Toggle menu">
+        <i class="fas fa-bars"></i>
+      </button>
+      <div class="nav-brand-text">
+        <div class="nav-brand">Media Player Admin</div>
+        <div
+          class="connection-status"
+          [class.connected]="connectionStatus === 'connected'"
+          [class.connecting]="connectionStatus === 'connecting'"
+          [class.disconnected]="connectionStatus === 'disconnected'"
+        >
+          {{
+            connectionStatus === "connected"
+              ? "Connected"
+              : connectionStatus === "connecting"
+              ? "Connecting..."
+              : "Disconnected"
+          }}
+        </div>
       </div>
     </div>
-    <div class="nav-buttons">
+    <div class="nav-buttons desktop-nav">
       <div class="user-info" *ngIf="user">
         <span class="user-name">{{ getUserName() }}</span>
       </div>
@@ -31,6 +36,40 @@
       </button>
     </div>
   </nav>
+  
+  <!-- Mobile menu overlay -->
+  <div class="mobile-menu-overlay" *ngIf="mobileMenuOpen" (click)="closeMobileMenu()"></div>
+  
+  <!-- Mobile menu drawer -->
+  <div class="mobile-menu-drawer" [class.open]="mobileMenuOpen">
+    <div class="mobile-menu-header">
+      <div class="user-info-mobile" *ngIf="user">
+        <span class="user-name">{{ getUserName() }}</span>
+      </div>
+      <button class="close-menu-btn" (click)="closeMobileMenu()" aria-label="Close menu">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <div class="mobile-menu-items">
+      <button class="mobile-nav-btn" (click)="navigateToPlaylistMobile()">
+        <i class="fas fa-list"></i>
+        <span>Playlist</span>
+      </button>
+      <button class="mobile-nav-btn" (click)="navigateToEditorMobile()" *ngIf="hasViewEditorPermission()">
+        <i class="fas fa-edit"></i>
+        <span>Editor</span>
+      </button>
+      <button class="mobile-nav-btn" (click)="navigateToSettings(); closeMobileMenu()" *ngIf="hasViewSettingsPermission()">
+        <i class="fas fa-cog"></i>
+        <span>Settings</span>
+      </button>
+      <button class="mobile-nav-btn logout" (click)="logout(); closeMobileMenu()">
+        <i class="fas fa-sign-out-alt"></i>
+        <span>Logout</span>
+      </button>
+    </div>
+  </div>
+  
   <router-outlet></router-outlet>
 </div>
 

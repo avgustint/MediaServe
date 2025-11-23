@@ -5,6 +5,7 @@ import { PlaylistService, Playlist, LibraryItem, PlaylistSearchResult } from "..
 import { UserService } from "../../user.service";
 import { ErrorPopupComponent } from "../../shared/error-popup/error-popup.component";
 import { ConfirmDialogComponent } from "../../shared/confirm-dialog/confirm-dialog.component";
+import { LibraryItemSearchComponent } from "../../shared/library-item-search/library-item-search.component";
 import { debounceTime, distinctUntilChanged, Subject, switchMap, of, forkJoin } from "rxjs";
 
 interface PlaylistItemWithDetails {
@@ -19,7 +20,7 @@ interface PlaylistItemWithDetails {
 @Component({
   selector: "app-playlist-editor",
   standalone: true,
-  imports: [CommonModule, FormsModule, ErrorPopupComponent, ConfirmDialogComponent],
+  imports: [CommonModule, FormsModule, ErrorPopupComponent, ConfirmDialogComponent, LibraryItemSearchComponent],
   templateUrl: "./playlist-editor.component.html",
   styleUrls: ["./playlist-editor.component.scss"]
 })
@@ -41,10 +42,8 @@ export class PlaylistEditorComponent implements OnInit {
   playlistDescription: string = "";
   playlistItems: PlaylistItemWithDetails[] = [];
 
-  // Available library items for adding
+  // Available library items for adding (kept for backward compatibility with getLibraryItemName, etc.)
   availableLibraryItems: LibraryItem[] = [];
-  showAddItemDropdown: boolean = false;
-  selectedLibraryItemGuid: number | null = null;
 
   // Error popup
   showError: boolean = false;
@@ -108,6 +107,7 @@ export class PlaylistEditorComponent implements OnInit {
   }
 
   loadLibraryItems(): void {
+    // Still load library items for backward compatibility (getLibraryItemName, getLibraryItemType, etc.)
     this.playlistService.getLibraryItems().subscribe({
       next: (items) => {
         this.availableLibraryItems = items;
@@ -116,6 +116,10 @@ export class PlaylistEditorComponent implements OnInit {
         console.error("Error loading library items:", error);
       }
     });
+  }
+
+  onLibraryItemSelected(item: LibraryItem): void {
+    this.addLibraryItemToPlaylist(item);
   }
 
   onSearchChange(): void {
@@ -222,53 +226,34 @@ export class PlaylistEditorComponent implements OnInit {
     this.playlistName = "";
     this.playlistDescription = "";
     this.playlistItems = [];
-    this.selectedLibraryItemGuid = null;
-    this.showAddItemDropdown = false;
   }
 
-  addLibraryItemToPlaylist(): void {
-    if (!this.selectedLibraryItemGuid) {
+  addLibraryItemToPlaylist(item?: LibraryItem): void {
+    let libraryItem: LibraryItem | undefined;
+
+    if (item) {
+      // Called from search component
+      libraryItem = item;
+    } else {
+      // Legacy support (should not be called anymore)
       return;
     }
 
-    // Ensure selectedLibraryItemGuid is a number (select elements return strings)
-    let selectedGuid: number;
-    if (typeof this.selectedLibraryItemGuid === 'string') {
-      selectedGuid = parseInt(this.selectedLibraryItemGuid, 10);
-    } else {
-      selectedGuid = this.selectedLibraryItemGuid;
-    }
-
-    if (isNaN(selectedGuid)) {
+    if (!libraryItem) {
       this.showErrorPopup("Please select a valid library item");
       return;
     }
 
-    const libraryItem = this.availableLibraryItems.find(item => item.guid === selectedGuid);
-    if (!libraryItem) {
-      this.showErrorPopup("Selected library item not found");
-      return;
-    }
-
-    // Check if item already exists in playlist
-    if (this.playlistItems.some(item => item.guid === selectedGuid)) {
-      this.showErrorPopup("This library item is already in the playlist");
-      return;
-    }
-
+    // Allow adding the same library item multiple times
     // For text items, don't set pages by default (meaning all pages will be used)
     // User can optionally select specific pages later
     this.playlistItems.push({
-      guid: selectedGuid,
+      guid: libraryItem.guid,
       pages: undefined, // undefined means all pages
       name: libraryItem.name,
       type: libraryItem.type,
       description: libraryItem.description
     });
-
-    // Reset selection
-    this.selectedLibraryItemGuid = null;
-    this.showAddItemDropdown = false;
   }
 
   removeItemFromPlaylist(guid: number): void {
@@ -309,17 +294,7 @@ export class PlaylistEditorComponent implements OnInit {
     return [];
   }
 
-  isItemInPlaylist(guid: number): boolean {
-    return this.playlistItems.some(pi => pi.guid === guid);
-  }
 
-  onLibraryItemSelectionChange(): void {
-    this.showAddItemDropdown = false;
-    // Convert string value to number if needed (select elements return strings)
-    if (this.selectedLibraryItemGuid !== null && typeof this.selectedLibraryItemGuid === 'string') {
-      this.selectedLibraryItemGuid = parseInt(this.selectedLibraryItemGuid, 10);
-    }
-  }
 
   showErrorPopup(message: string): void {
     this.errorMessage = message;

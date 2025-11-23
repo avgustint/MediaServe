@@ -1,0 +1,37 @@
+<div class="library-item-search-container">
+  <div class="search-input-wrapper">
+    <input
+      type="text"
+      class="search-input"
+      [(ngModel)]="searchTerm"
+      (input)="onSearchChange()"
+      [placeholder]="placeholder"
+    />
+    <button *ngIf="searchTerm" class="clear-search-btn" (click)="clearSearch()" title="Clear search">
+      ×
+    </button>
+  </div>
+  <div class="search-results" *ngIf="showSearchResults">
+    <div
+      *ngIf="searchResults.length === 0 && searchTerm.trim().length > 0"
+      class="no-results"
+    >
+      No library items found
+    </div>
+    <div
+      *ngFor="let result of searchResults"
+      class="search-result-item"
+      (click)="onSearchResultSelect(result)"
+    >
+      <div class="search-result-name">{{ result.name }}</div>
+      <div class="search-result-description" *ngIf="result.description">
+        {{ result.description }}
+      </div>
+      <div class="search-result-footer">
+        <div class="search-result-type">Type: {{ result.type }}</div>
+        <div class="item-guid-badge">{{ result.guid }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+

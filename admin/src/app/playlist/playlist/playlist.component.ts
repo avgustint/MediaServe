@@ -38,6 +38,9 @@ export class PlaylistComponent implements OnInit, OnDestroy, AfterViewInit {
   // Manual tab item tracking
   manualItem: LibraryItem | null = null;
   manualItemPages: number[] = [];
+  
+  // Mobile sidebar state
+  sidebarOpen: boolean = false;
 
   constructor(
     private websocketService: WebSocketService,
@@ -88,6 +91,16 @@ export class PlaylistComponent implements OnInit, OnDestroy, AfterViewInit {
       this.manualItem = null;
       this.manualItemPages = [];
     }
+    // Close sidebar on mobile after tab switch
+    this.sidebarOpen = false;
+  }
+
+  toggleSidebar(): void {
+    this.sidebarOpen = !this.sidebarOpen;
+  }
+
+  closeSidebar(): void {
+    this.sidebarOpen = false;
   }
 
   onPlaylistSelected(guid: number): void {

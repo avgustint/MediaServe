@@ -99,27 +99,11 @@
         <label>Library Items</label>
         
         <div class="add-item-section">
-          <select
-            class="form-control add-item-select"
-            [(ngModel)]="selectedLibraryItemGuid"
-            (change)="onLibraryItemSelectionChange()"
-          >
-            <option [ngValue]="null">Select a library item to add...</option>
-            <option
-              *ngFor="let item of availableLibraryItems"
-              [ngValue]="item.guid"
-              [disabled]="isItemInPlaylist(item.guid)"
-            >
-              {{ item.name }} ({{ item.type }})
-            </option>
-          </select>
-          <button
-            class="add-item-btn"
-            (click)="addLibraryItemToPlaylist()"
-            [disabled]="!selectedLibraryItemGuid"
-          >
-            Add Item
-          </button>
+          <app-library-item-search
+            placeholder="Search library items to add..."
+            [excludeGuids]="[]"
+            (itemSelected)="onLibraryItemSelected($event)"
+          ></app-library-item-search>
         </div>
 
         <div class="playlist-items-list" *ngIf="playlistItems.length > 0">

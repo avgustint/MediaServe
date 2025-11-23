@@ -121,6 +121,7 @@
   cursor: pointer;
   transition: all 0.2s;
   min-width: 80px;
+  min-height: 44px;
 
   &.cancel-button {
     background-color: #6c757d;
@@ -161,6 +162,37 @@
         background-color: #004085;
       }
     }
+  }
+}
+
+/* Mobile Responsive Styles */
+@media (max-width: 480px) {
+  .confirm-dialog-content {
+    width: 95%;
+    max-width: 95%;
+  }
+
+  .confirm-dialog-header {
+    padding: 1rem;
+
+    h3 {
+      font-size: 1.1rem;
+    }
+  }
+
+  .confirm-dialog-body {
+    padding: 1rem;
+  }
+
+  .confirm-dialog-footer {
+    flex-direction: column;
+    padding: 1rem;
+    gap: 0.5rem;
+  }
+
+  .confirm-dialog-button {
+    width: 100%;
+    min-height: 48px;
   }
 }
 

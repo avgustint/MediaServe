@@ -16,6 +16,7 @@ import { Subscription } from 'rxjs';
 export class AppComponent implements OnInit, OnDestroy {
   user: User | null = null;
   connectionStatus: "connecting" | "connected" | "disconnected" = "disconnected";
+  mobileMenuOpen: boolean = false;
   private connectionStatusSubscription?: Subscription;
 
   constructor(
@@ -94,6 +95,25 @@ export class AppComponent implements OnInit, OnDestroy {
 
   navigateToSettings(): void {
     this.router.navigate(["/settings"]);
+    this.mobileMenuOpen = false;
+  }
+
+  navigateToPlaylistMobile(): void {
+    this.navigateToPlaylist();
+    this.mobileMenuOpen = false;
+  }
+
+  navigateToEditorMobile(): void {
+    this.navigateToEditor();
+    this.mobileMenuOpen = false;
+  }
+
+  toggleMobileMenu(): void {
+    this.mobileMenuOpen = !this.mobileMenuOpen;
+  }
+
+  closeMobileMenu(): void {
+    this.mobileMenuOpen = false;
   }
 }
 

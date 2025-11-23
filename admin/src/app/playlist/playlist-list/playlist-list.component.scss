@@ -186,3 +186,18 @@
   color: #999;
 }
 
+/* Mobile Responsive Styles */
+@media (max-width: 768px) {
+  .search-container {
+    padding: 0.5rem;
+  }
+
+  .playlist-container {
+    padding: 0.25rem;
+  }
+
+  .clear-button {
+    min-height: 44px;
+  }
+}
+

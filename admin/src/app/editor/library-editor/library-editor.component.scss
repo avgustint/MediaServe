@@ -454,3 +454,69 @@
     background-color: #c82333;
   }
 }
+
+/* Mobile Responsive Styles */
+@media (max-width: 768px) {
+  .library-editor-container {
+    padding: 0.75rem;
+  }
+
+  .recent-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .item-guid-badge {
+    align-self: flex-start;
+    padding: 0.75rem 1rem;
+    font-size: 1.25rem;
+    min-width: 100px;
+  }
+
+  .delete-item-btn {
+    width: 100%;
+    margin-left: 0;
+    margin-top: 0.5rem;
+    min-height: 44px;
+  }
+
+  .edit-form {
+    padding: 1rem;
+  }
+
+  .form-actions {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .save-button,
+  .cancel-button,
+  .delete-button {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .image-preview {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .library-editor-container {
+    padding: 0.5rem;
+  }
+
+  .edit-form {
+    padding: 0.75rem;
+  }
+
+  .item-guid-badge {
+    font-size: 1.1rem;
+    padding: 0.5rem 0.75rem;
+  }
+
+  .recent-item {
+    padding: 0.5rem;
+  }
+}

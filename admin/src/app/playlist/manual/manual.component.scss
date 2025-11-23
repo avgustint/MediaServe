@@ -389,3 +389,44 @@
   font-size: 0.9rem;
   flex-shrink: 0;
 }
+
+/* Mobile Responsive Styles */
+@media (max-width: 768px) {
+  .manual-container {
+    padding: 0.75rem;
+  }
+
+  .keypad-button {
+    min-height: 60px;
+    font-size: 1.25rem;
+  }
+
+  .guid-badge {
+    font-size: 1.25rem;
+    padding: 0.75rem 1rem;
+  }
+
+  .content-scrollable {
+    max-height: calc(100vh - 250px);
+  }
+}
+
+@media (max-width: 480px) {
+  .manual-container {
+    padding: 0.5rem;
+  }
+
+  .keypad-button {
+    min-height: 50px;
+    font-size: 1.1rem;
+  }
+
+  .guid-badge {
+    font-size: 1.1rem;
+    padding: 0.5rem 0.75rem;
+  }
+
+  .search-input {
+    font-size: 1rem; /* Prevent zoom on iOS */
+  }
+}

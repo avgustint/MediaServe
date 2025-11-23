@@ -587,3 +587,78 @@
     background-color: #c82333;
   }
 }
+
+/* Mobile Responsive Styles */
+@media (max-width: 768px) {
+  .playlist-editor-container {
+    padding: 0.75rem;
+  }
+
+  .playlist-item-row {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .item-guid-badge {
+    align-self: center;
+    width: 100%;
+    max-width: 200px;
+    padding: 0.75rem 1rem;
+    font-size: 1.25rem;
+  }
+
+  .item-actions {
+    flex-direction: row;
+    justify-content: flex-end;
+    width: 100%;
+  }
+
+  .move-btn,
+  .remove-btn {
+    flex: 1;
+    min-height: 44px;
+  }
+
+  .form-actions {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .save-button,
+  .cancel-button,
+  .delete-button {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .edit-form {
+    padding: 1rem;
+  }
+
+  .pages-checkboxes {
+    gap: 0.5rem;
+  }
+
+  .page-checkbox-label {
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 480px) {
+  .playlist-editor-container {
+    padding: 0.5rem;
+  }
+
+  .edit-form {
+    padding: 0.75rem;
+  }
+
+  .playlist-item-row {
+    padding: 0.75rem;
+  }
+
+  .item-guid-badge {
+    font-size: 1.1rem;
+    padding: 0.5rem 0.75rem;
+  }
+}

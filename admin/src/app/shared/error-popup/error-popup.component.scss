@@ -118,6 +118,7 @@
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
+  min-height: 44px;
 
   &:hover {
     background-color: #c82333;
@@ -125,5 +126,34 @@
 
   &:active {
     background-color: #bd2130;
+  }
+}
+
+/* Mobile Responsive Styles */
+@media (max-width: 480px) {
+  .error-popup-content {
+    width: 95%;
+    max-width: 95%;
+  }
+
+  .error-popup-header {
+    padding: 1rem;
+
+    h3 {
+      font-size: 1.1rem;
+    }
+  }
+
+  .error-popup-body {
+    padding: 1rem;
+  }
+
+  .error-popup-footer {
+    padding: 1rem;
+  }
+
+  .error-popup-button {
+    width: 100%;
+    min-height: 48px;
   }
 }
