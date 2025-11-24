@@ -1,8 +1,8 @@
 <div class="error-popup-overlay" *ngIf="show" (click)="onClose()">
   <div class="error-popup-content" (click)="$event.stopPropagation()">
     <div class="error-popup-header">
-      <h3>Error</h3>
-      <button class="error-popup-close" (click)="onClose()" title="Close">
+      <h3>{{ 'error' | translate }}</h3>
+      <button class="error-popup-close" (click)="onClose()" [attr.title]="'close' | translate">
         ×
       </button>
     </div>
@@ -10,7 +10,7 @@
       <p>{{ message }}</p>
     </div>
     <div class="error-popup-footer">
-      <button class="error-popup-button" (click)="onClose()">OK</button>
+      <button class="error-popup-button" (click)="onClose()">{{ 'ok' | translate }}</button>
     </div>
   </div>
 </div>

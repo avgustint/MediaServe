@@ -6,9 +6,9 @@
         class="search-input"
         [(ngModel)]="searchTerm"
         (input)="onSearchChange()"
-        placeholder="Search users by name, email, or username..."
+        [placeholder]="'searchUsersPlaceholder' | translate"
       />
-      <button *ngIf="searchTerm" class="clear-search-btn" (click)="clearSearch()" title="Clear search">
+      <button *ngIf="searchTerm" class="clear-search-btn" (click)="clearSearch()" [title]="'clearSearch' | translate">
         ×
       </button>
     </div>
@@ -16,7 +16,7 @@
 
   <div class="actions-section">
     <button class="add-button" (click)="addNewUser()" *ngIf="!editingUser && !isNewUser && hasEditUsersPermission">
-      Add New User
+      {{ 'addNewUser' | translate }}
     </button>
   </div>
 
@@ -26,8 +26,8 @@
         <div
           *ngFor="let user of filteredUsers"
           class="user-item"
-          [class.clickable]="hasEditUsersPermission"
-          (click)="hasEditUsersPermission && selectUser(user)"
+          [class.clickable]="canModifyUser(user)"
+          (click)="canModifyUser(user) && selectUser(user)"
         >
           <div class="user-info">
             <div class="user-name">{{ user.name }}</div>
@@ -40,10 +40,10 @@
             </div>
           </div>
           <button
-            *ngIf="hasEditUsersPermission"
+            *ngIf="hasEditUsersPermission && canModifyUser(user)"
             class="delete-button"
             (click)="deleteUser(user); $event.stopPropagation()"
-            title="Delete user"
+            [title]="'deleteUser' | translate"
           >
             <i class="fas fa-trash"></i>
           </button>
@@ -53,55 +53,68 @@
 
     <div class="edit-section" *ngIf="editingUser || isNewUser">
       <div class="edit-form">
-        <h2>{{ isNewUser ? 'Add New User' : 'Edit User' }}</h2>
+        <h2>{{ isNewUser ? ('addNewUser' | translate) : ('editUser' | translate) }}</h2>
 
         <div class="form-group">
-          <label for="userName">Name *</label>
+          <label for="userName">{{ 'name' | translate }} *</label>
           <input
             id="userName"
             type="text"
             [(ngModel)]="userName"
-            placeholder="Enter user name"
+            [placeholder]="'enterUserName' | translate"
             [readonly]="!hasEditUsersPermission"
           />
         </div>
 
         <div class="form-group">
-          <label for="userEmail">Email *</label>
+          <label for="userEmail">{{ 'email' | translate }} *</label>
           <input
             id="userEmail"
             type="email"
+            name="userEmail"
             [(ngModel)]="userEmail"
-            placeholder="Enter email address"
+            [placeholder]="'enterUserEmail' | translate"
             [readonly]="!hasEditUsersPermission"
+            required
+            pattern="[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*"
+            #emailInput="ngModel"
+            [class.invalid]="emailInput.invalid && emailInput.touched"
           />
+          <div *ngIf="emailInput.invalid && emailInput.touched" class="validation-error">
+            <span *ngIf="emailInput.errors?.['required']">{{ 'emailRequired' | translate }}</span>
+            <span *ngIf="emailInput.errors?.['pattern'] && !emailInput.errors?.['required']">{{ 'invalidEmail' | translate }}</span>
+          </div>
         </div>
 
         <div class="form-group">
-          <label for="userUsername">Username *</label>
+          <label for="userUsername">{{ 'username' | translate }} *</label>
           <input
             id="userUsername"
             type="text"
             [(ngModel)]="userUsername"
-            placeholder="Enter username"
-            [readonly]="true"
+            [placeholder]="'enterUserUsername' | translate"
+            [readonly]="!isNewUser"
           />
         </div>
 
         <div class="form-group" *ngIf="hasEditUsersPermission">
-          <label for="userPassword">Password {{ isNewUser ? '*' : '(leave blank to keep current)' }}</label>
+          <label for="userPassword">{{ 'password' | translate }} {{ isNewUser ? '*' : ('(' + ('passwordLeaveBlank' | translate) + ')') }}</label>
           <input
             id="userPassword"
             type="password"
             [(ngModel)]="userPassword"
-            placeholder="Enter password"
+            [placeholder]="'enterPassword' | translate"
           />
         </div>
 
         <div class="form-group">
-          <label for="userRole">Role</label>
-          <select id="userRole" [(ngModel)]="userRole" [disabled]="!hasEditUsersPermission">
-            <option [ngValue]="null">No Role</option>
+          <label for="userRole">{{ 'role' | translate }} *</label>
+          <select 
+            id="userRole" 
+            [(ngModel)]="userRole" 
+            [disabled]="isRoleDisabled()"
+            required>
+            <option [ngValue]="null" disabled>{{ 'selectRole' | translate }}</option>
             <option *ngFor="let role of roles" [ngValue]="role.guid">
               {{ role.name }}
             </option>
@@ -109,22 +122,25 @@
         </div>
 
         <div class="form-group">
-          <label for="userLocale">Locale</label>
-          <input
+          <label for="userLocale">{{ 'locale' | translate }} *</label>
+          <select
             id="userLocale"
-            type="text"
             [(ngModel)]="userLocale"
-            placeholder="Enter locale (e.g., en-US)"
-            [readonly]="!hasEditUsersPermission"
-          />
+            [disabled]="!hasEditUsersPermission"
+            required>
+            <option [ngValue]="null" disabled>{{ 'selectLocale' | translate }}</option>
+            <option value="sl-SI">{{ 'slovenian' | translate }}</option>
+            <option value="en-GB">{{ 'ukEnglish' | translate }}</option>
+            <option value="it-IT">{{ 'italian' | translate }}</option>
+          </select>
         </div>
 
         <div class="form-actions" *ngIf="hasEditUsersPermission">
-          <button class="save-button" (click)="saveUser()">Save</button>
-          <button class="cancel-button" (click)="cancelEdit()">Cancel</button>
+          <button class="save-button" (click)="saveUser()">{{ 'save' | translate }}</button>
+          <button class="cancel-button" (click)="cancelEdit()">{{ 'cancel' | translate }}</button>
         </div>
         <div class="form-actions" *ngIf="!hasEditUsersPermission">
-          <button class="cancel-button" (click)="cancelEdit()">Close</button>
+          <button class="cancel-button" (click)="cancelEdit()">{{ 'close' | translate }}</button>
         </div>
       </div>
     </div>
@@ -135,5 +151,17 @@
     [message]="errorMessage"
     (close)="closeErrorPopup()"
   ></app-error-popup>
+
+  <app-confirm-dialog
+    [title]="confirmDialogTitle"
+    [message]="confirmDialogMessage"
+    [show]="showConfirmDialog"
+    [confirmText]="'delete' | translate"
+    [cancelText]="'cancel' | translate"
+    confirmColor="danger"
+    (confirm)="onConfirmDelete()"
+    (cancel)="closeConfirmDialog()"
+    (close)="closeConfirmDialog()"
+  ></app-confirm-dialog>
 </div>
 

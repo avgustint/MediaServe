@@ -5,20 +5,14 @@
         <i class="fas fa-bars"></i>
       </button>
       <div class="nav-brand-text">
-        <div class="nav-brand">Media Player Admin</div>
+        <div class="nav-brand">{{ 'mediaPlayerAdmin' | translate }}</div>
         <div
           class="connection-status"
           [class.connected]="connectionStatus === 'connected'"
           [class.connecting]="connectionStatus === 'connecting'"
           [class.disconnected]="connectionStatus === 'disconnected'"
         >
-          {{
-            connectionStatus === "connected"
-              ? "Connected"
-              : connectionStatus === "connecting"
-              ? "Connecting..."
-              : "Disconnected"
-          }}
+          {{ getConnectionStatusText() }}
         </div>
       </div>
     </div>
@@ -26,12 +20,19 @@
       <div class="user-info" *ngIf="user">
         <span class="user-name">{{ getUserName() }}</span>
       </div>
-      <button class="nav-btn" (click)="navigateToPlaylist()">Playlist</button>
-      <button class="nav-btn" (click)="navigateToEditor()" *ngIf="hasViewEditorPermission()">Editor</button>
-      <button class="nav-btn" (click)="navigateToSettings()" *ngIf="hasViewSettingsPermission()" title="Settings">
+      <button class="nav-btn" (click)="navigateToPlaylist()" *ngIf="shouldShowPlaylistButton()" [title]="'playlist' | translate">
+        <i class="fas fa-list"></i>
+      </button>
+      <button class="nav-btn" (click)="navigateToEditor()" *ngIf="hasViewEditorPermission()" [title]="'editor' | translate">
+        <i class="fas fa-edit"></i>
+      </button>
+      <button class="nav-btn" (click)="navigateToSettings()" *ngIf="hasViewSettingsPermission()" [title]="'settings' | translate">
         <i class="fas fa-cog"></i>
       </button>
-      <button class="logout-btn" (click)="logout()" title="Logout">
+      <button class="nav-btn" (click)="navigateToDisplay()" [title]="'display' | translate">
+        <i class="fas fa-tv"></i>
+      </button>
+      <button class="logout-btn" (click)="logout()" [title]="'logout' | translate">
         <i class="fas fa-sign-out-alt"></i>
       </button>
     </div>
@@ -51,25 +52,42 @@
       </button>
     </div>
     <div class="mobile-menu-items">
-      <button class="mobile-nav-btn" (click)="navigateToPlaylistMobile()">
+      <button class="mobile-nav-btn" (click)="navigateToPlaylistMobile()" *ngIf="shouldShowPlaylistButton()">
         <i class="fas fa-list"></i>
-        <span>Playlist</span>
+        <span>{{ 'playlist' | translate }}</span>
       </button>
       <button class="mobile-nav-btn" (click)="navigateToEditorMobile()" *ngIf="hasViewEditorPermission()">
         <i class="fas fa-edit"></i>
-        <span>Editor</span>
+        <span>{{ 'editor' | translate }}</span>
       </button>
       <button class="mobile-nav-btn" (click)="navigateToSettings(); closeMobileMenu()" *ngIf="hasViewSettingsPermission()">
         <i class="fas fa-cog"></i>
-        <span>Settings</span>
+        <span>{{ 'settings' | translate }}</span>
       </button>
-      <button class="mobile-nav-btn logout" (click)="logout(); closeMobileMenu()">
+      <button class="mobile-nav-btn" (click)="navigateToDisplay(); closeMobileMenu()">
+        <i class="fas fa-tv"></i>
+        <span>{{ 'display' | translate }}</span>
+      </button>
+      <button class="mobile-nav-btn logout" (click)="logout()">
         <i class="fas fa-sign-out-alt"></i>
-        <span>Logout</span>
+        <span>{{ 'logout' | translate }}</span>
       </button>
     </div>
   </div>
   
   <router-outlet></router-outlet>
+
+  <!-- Logout Confirmation Dialog -->
+  <app-confirm-dialog
+    [title]="'confirmLogout' | translate"
+    [message]="'logoutConfirmMessage' | translate"
+    [show]="showLogoutConfirmDialog"
+    [confirmText]="'logout' | translate"
+    [cancelText]="'cancel' | translate"
+    confirmColor="danger"
+    (confirm)="onConfirmLogout()"
+    (cancel)="closeLogoutConfirmDialog()"
+    (close)="closeLogoutConfirmDialog()"
+  ></app-confirm-dialog>
 </div>
 

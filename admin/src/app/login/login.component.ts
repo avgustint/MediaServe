@@ -4,12 +4,14 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from '../auth.service';
 import { UserService } from '../user.service';
+import { TranslationService, SupportedLocale } from '../translation.service';
+import { TranslatePipe } from '../translation.pipe';
 import * as CryptoJS from 'crypto-js';
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, TranslatePipe],
   templateUrl: './login.component.html',
   styleUrls: ['./login.component.scss']
 })
@@ -21,7 +23,8 @@ export class LoginComponent implements OnInit {
   constructor(
     private authService: AuthService,
     private userService: UserService,
-    private router: Router
+    private router: Router,
+    private translationService: TranslationService
   ) {}
 
   ngOnInit(): void {
@@ -42,14 +45,18 @@ export class LoginComponent implements OnInit {
         if (response && response.success && response.user) {
           // Store user data and permissions
           this.userService.setUser(response.user);
+          // Set locale from user preferences
+          if (response.user.locale) {
+            this.translationService.setLocale(response.user.locale as SupportedLocale);
+          }
           this.router.navigate(['/playlist']);
         } else {
-          this.error = 'Invalid username or password';
+          this.error = this.translationService.translate('invalidCredentials');
         }
       },
       error: (error) => {
         console.error('Login error:', error);
-        this.error = 'Login failed. Please try again.';
+        this.error = this.translationService.translate('loginFailed');
       }
     });
   }

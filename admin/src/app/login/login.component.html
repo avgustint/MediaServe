@@ -1,10 +1,10 @@
 <div class="login-container">
   <div class="login-card">
-    <h1>Media Player Admin</h1>
-    <h2>Login</h2>
+    <h1>{{ 'mediaPlayerAdmin' | translate }}</h1>
+    <h2>{{ 'login' | translate }}</h2>
     <form (ngSubmit)="onSubmit()" #loginForm="ngForm">
       <div class="form-group">
-        <label for="username">Username</label>
+        <label for="username">{{ 'username' | translate }}</label>
         <input
           type="text"
           id="username"
@@ -12,11 +12,11 @@
           [(ngModel)]="username"
           required
           class="form-control"
-          placeholder="Enter username"
+          [placeholder]="'username' | translate"
         />
       </div>
       <div class="form-group">
-        <label for="password">Password</label>
+        <label for="password">{{ 'password' | translate }}</label>
         <input
           type="password"
           id="password"
@@ -24,17 +24,14 @@
           [(ngModel)]="password"
           required
           class="form-control"
-          placeholder="Enter password"
+          [placeholder]="'password' | translate"
         />
       </div>
       <div *ngIf="error" class="error-message">{{ error }}</div>
       <button type="submit" class="btn-primary" [disabled]="!loginForm.valid">
-        Login
+        {{ 'login' | translate }}
       </button>
     </form>
-    <div class="login-hint">
-      <small>Default: admin / admin</small>
-    </div>
   </div>
 </div>
 

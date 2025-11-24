@@ -2,7 +2,7 @@
   <div class="confirm-dialog-content" (click)="$event.stopPropagation()">
     <div class="confirm-dialog-header" [class.danger]="confirmColor === 'danger'">
       <h3>{{ title }}</h3>
-      <button class="confirm-dialog-close" (click)="onClose()" title="Close">
+      <button class="confirm-dialog-close" (click)="onClose()" [attr.title]="'close' | translate">
         ×
       </button>
     </div>

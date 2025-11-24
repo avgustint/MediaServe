@@ -1,10 +1,11 @@
 import { Component, Input, Output, EventEmitter } from "@angular/core";
 import { CommonModule } from "@angular/common";
+import { TranslatePipe } from "../../translation.pipe";
 
 @Component({
   selector: "app-error-popup",
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, TranslatePipe],
   templateUrl: "./error-popup.component.html",
   styleUrls: ["./error-popup.component.scss"]
 })

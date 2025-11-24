@@ -13,6 +13,7 @@ export interface User {
   role: UserRole | null;
   guid: number;
   permissions: string[];
+  locale?: string | null;
 }
 
 @Injectable({

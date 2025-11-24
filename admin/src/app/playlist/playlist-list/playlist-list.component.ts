@@ -3,12 +3,13 @@ import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { PlaylistService, LibraryItem, PlaylistSearchResult, Playlist } from "../../playlist.service";
 import { PlaylistItemComponent } from "../playlist-item/playlist-item.component";
+import { TranslatePipe } from "../../translation.pipe";
 import { Subscription, debounceTime, distinctUntilChanged, Subject, switchMap, of, forkJoin } from "rxjs";
 
 @Component({
   selector: "app-playlist-list",
   standalone: true,
-  imports: [CommonModule, PlaylistItemComponent, FormsModule],
+  imports: [CommonModule, PlaylistItemComponent, FormsModule, TranslatePipe],
   templateUrl: "./playlist-list.component.html",
   styleUrls: ["./playlist-list.component.scss"]
 })

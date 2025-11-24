@@ -4,12 +4,17 @@ import { FormsModule } from "@angular/forms";
 import { SettingsService, User, Role } from "../settings.service";
 import { UserService } from "../../user.service";
 import { ErrorPopupComponent } from "../../shared/error-popup/error-popup.component";
+import { ConfirmDialogComponent } from "../../shared/confirm-dialog/confirm-dialog.component";
+import { TranslatePipe } from "../../translation.pipe";
+import { TranslationService } from "../../translation.service";
 import { debounceTime, distinctUntilChanged, Subject, switchMap, of, forkJoin } from "rxjs";
+import * as CryptoJS from "crypto-js";
+import { HttpErrorResponse } from "@angular/common/http";
 
 @Component({
   selector: "app-user-editor",
   standalone: true,
-  imports: [CommonModule, FormsModule, ErrorPopupComponent],
+  imports: [CommonModule, FormsModule, ErrorPopupComponent, ConfirmDialogComponent, TranslatePipe],
   templateUrl: "./user-editor.component.html",
   styleUrls: ["./user-editor.component.scss"]
 })
@@ -33,6 +38,12 @@ export class UserEditorComponent implements OnInit {
   // Error popup
   showError: boolean = false;
   errorMessage: string = "";
+
+  // Confirm dialog
+  showConfirmDialog: boolean = false;
+  confirmDialogTitle: string = "";
+  confirmDialogMessage: string = "";
+  userToDeleteGuid: number | null = null;
   
   private searchSubject = new Subject<string>();
 
@@ -40,7 +51,8 @@ export class UserEditorComponent implements OnInit {
 
   constructor(
     private settingsService: SettingsService,
-    private userService: UserService
+    public userService: UserService,
+    private translationService: TranslationService
   ) {}
 
   ngOnInit(): void {
@@ -104,6 +116,9 @@ export class UserEditorComponent implements OnInit {
   }
 
   selectUser(user: User): void {
+    if (!this.canModifyUser(user)) {
+      return;
+    }
     this.isNewUser = false;
     this.editingUser = { ...user };
     this.userName = user.name;
@@ -138,25 +153,61 @@ export class UserEditorComponent implements OnInit {
 
   saveUser(): void {
     if (!this.userName || !this.userEmail || !this.userUsername) {
-      this.showErrorPopup("Name, Email, and Username are required.");
+      this.showErrorPopup(this.translationService.translate('nameAndEmailAndUsernameRequired'));
+      return;
+    }
+
+    // Validate email format
+    if (!this.isValidEmail(this.userEmail)) {
+      this.showErrorPopup(this.translationService.translate('invalidEmail'));
+      return;
+    }
+
+    if (!this.userRole) {
+      this.showErrorPopup(this.translationService.translate('roleRequired'));
+      return;
+    }
+
+    if (!this.userLocale) {
+      this.showErrorPopup(this.translationService.translate('localeRequired'));
       return;
     }
 
     if (this.isNewUser && !this.userPassword) {
-      this.showErrorPopup("Password is required for new users.");
+      this.showErrorPopup(this.translationService.translate('passwordRequired'));
       return;
     }
 
+    // Check if trying to modify administrator role without permission
+    if (!this.isNewUser && this.editingUser) {
+      const currentUser = this.userService.getUser();
+      const currentIsAdmin = this.isAdministrator(currentUser);
+      const targetIsAdmin = this.isUserAdministrator(this.editingUser);
+      const newRole = this.roles.find(r => r.guid === this.userRole);
+      const wouldBeAdmin = newRole && newRole.name && newRole.name.toLowerCase() === 'administrator';
+
+      // Check if trying to set/remove administrator role
+      if ((targetIsAdmin || wouldBeAdmin) && !currentIsAdmin) {
+        this.showErrorPopup(this.translationService.translate('cannotModifyAdminRole'));
+        return;
+      }
+    }
+
+    // Encode email in base64
+    const encodedEmail = btoa(unescape(encodeURIComponent(this.userEmail)));
+
     const userData: Partial<User> = {
       name: this.userName,
-      email: this.userEmail,
+      email: encodedEmail,
       username: this.userUsername,
       role: this.userRole,
-      locale: this.userLocale || null
+      locale: this.userLocale
     };
 
+    // Encode password in MD5 if provided
     if (this.userPassword) {
-      (userData as any).password = this.userPassword;
+      const md5Password = CryptoJS.MD5(this.userPassword).toString();
+      (userData as any).password = md5Password;
     }
 
     const saveOperation = this.isNewUser
@@ -168,28 +219,60 @@ export class UserEditorComponent implements OnInit {
         this.loadData();
         this.cancelEdit();
       },
-      error: (error) => {
+      error: (error: HttpErrorResponse) => {
         console.error("Error saving user:", error);
-        this.showErrorPopup("Error saving user. Please try again.");
+        const errorMessage = error.error?.message || this.translationService.translate('errorSavingUser');
+        this.showErrorPopup(errorMessage);
       }
     });
   }
 
   deleteUser(user: User): void {
-    if (confirm(`Are you sure you want to delete user "${user.name}"?`)) {
-      this.settingsService.deleteUser(user.guid).subscribe({
-        next: () => {
-          this.loadData();
-          if (this.editingUser?.guid === user.guid) {
-            this.cancelEdit();
-          }
-        },
-        error: (error) => {
-          console.error("Error deleting user:", error);
-          this.showErrorPopup("Error deleting user. Please try again.");
-        }
-      });
+    // Check if trying to delete administrator without permission
+    const currentUser = this.userService.getUser();
+    const currentIsAdmin = this.isAdministrator(currentUser);
+    const targetIsAdmin = this.isUserAdministrator(user);
+
+    if (targetIsAdmin && !currentIsAdmin) {
+      this.showErrorPopup(this.translationService.translate('cannotDeleteAdmin'));
+      return;
     }
+
+    // Show confirmation dialog
+    this.userToDeleteGuid = user.guid;
+    this.confirmDialogTitle = this.translationService.translate('deleteUser');
+    this.confirmDialogMessage = `${this.translationService.translate('deleteUserConfirm')} "${user.name}"? ${this.translationService.translate('thisActionCannotBeUndone')}`;
+    this.showConfirmDialog = true;
+  }
+
+  onConfirmDelete(): void {
+    if (this.userToDeleteGuid === null) {
+      return;
+    }
+
+    const guidToDelete = this.userToDeleteGuid;
+    this.settingsService.deleteUser(guidToDelete).subscribe({
+      next: () => {
+        this.loadData();
+        if (this.editingUser?.guid === guidToDelete) {
+          this.cancelEdit();
+        }
+        this.closeConfirmDialog();
+      },
+      error: (error: HttpErrorResponse) => {
+        console.error("Error deleting user:", error);
+        const errorMessage = error.error?.message || "Error deleting user. Please try again.";
+        this.showErrorPopup(errorMessage);
+        this.closeConfirmDialog();
+      }
+    });
+  }
+
+  closeConfirmDialog(): void {
+    this.showConfirmDialog = false;
+    this.userToDeleteGuid = null;
+    this.confirmDialogTitle = "";
+    this.confirmDialogMessage = "";
   }
 
   getRoleName(roleGuid: number | null): string {
@@ -206,6 +289,69 @@ export class UserEditorComponent implements OnInit {
   closeErrorPopup(): void {
     this.showError = false;
     this.errorMessage = "";
+  }
+
+  isAdministrator(user: any): boolean {
+    if (!user || !user.role || !user.role.name) {
+      return false;
+    }
+    return user.role.name.toLowerCase() === 'administrator';
+  }
+
+  isUserAdministrator(user: User): boolean {
+    if (!user || !user.role) {
+      return false;
+    }
+    const role = this.roles.find(r => r.guid === user.role);
+    if (!role || !role.name) {
+      return false;
+    }
+    return role.name.toLowerCase() === 'administrator';
+  }
+
+  canModifyUser(user: User): boolean {
+    if (!this.hasEditUsersPermission) {
+      return false;
+    }
+    const currentUser = this.userService.getUser();
+    const currentIsAdmin = this.isAdministrator(currentUser);
+    const targetIsAdmin = this.isUserAdministrator(user);
+    
+    // Only administrators can modify administrators
+    if (targetIsAdmin && !currentIsAdmin) {
+      return false;
+    }
+    return true;
+  }
+
+  isRoleDisabled(): boolean {
+    if (!this.hasEditUsersPermission) {
+      return true;
+    }
+    if (this.isNewUser) {
+      return false;
+    }
+    if (!this.editingUser) {
+      return false;
+    }
+    const currentUser = this.userService.getUser();
+    if (!currentUser) {
+      return true;
+    }
+    const targetIsAdmin = this.isUserAdministrator(this.editingUser);
+    const currentIsAdmin = this.isAdministrator(currentUser);
+    
+    // Disable role dropdown if editing an administrator and current user is not an administrator
+    return targetIsAdmin && !currentIsAdmin;
+  }
+
+  isValidEmail(email: string): boolean {
+    if (!email || email.trim().length === 0) {
+      return false;
+    }
+    // RFC 5322 compliant email regex (simplified version)
+    const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+    return emailRegex.test(email.trim());
   }
 }
 

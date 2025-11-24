@@ -6,9 +6,9 @@
         class="search-input"
         [(ngModel)]="searchTerm"
         (input)="onSearchChange()"
-        placeholder="Search playlists..."
+        [placeholder]="'searchPlaylists' | translate"
       />
-      <button *ngIf="searchTerm" class="clear-search-btn" (click)="clearSearch()" title="Clear search">
+      <button *ngIf="searchTerm" class="clear-search-btn" (click)="clearSearch()" [title]="'clearSearch' | translate">
         ×
       </button>
     </div>
@@ -17,7 +17,7 @@
         *ngIf="searchResults.length === 0 && searchTerm.trim().length > 0"
         class="no-results"
       >
-        No playlists found
+        {{ 'noPlaylistsFound' | translate }}
       </div>
       <div
         *ngFor="let result of searchResults"
@@ -34,12 +34,12 @@
 
   <div class="actions-section">
     <button class="add-button" (click)="addNewPlaylist()" *ngIf="!editingPlaylist && !isNewPlaylist">
-      Add New Playlist
+      {{ 'addNewPlaylist' | translate }}
     </button>
   </div>
 
   <div class="recent-playlists-section" *ngIf="showRecentPlaylists && !editingPlaylist && !isNewPlaylist && recentPlaylists.length > 0">
-    <h3>Recently Modified (Last 50)</h3>
+    <h3>{{ 'recentlyModified' | translate }}</h3>
     <div class="recent-playlists-list">
       <div
         *ngFor="let playlist of recentPlaylists"
@@ -50,7 +50,7 @@
           <div class="playlist-name">{{ playlist.name }}</div>
           <div class="playlist-details">
             <span class="playlist-modified" *ngIf="playlist.updated">
-              Updated: {{ playlist.updated | date:'short' }}
+              {{ 'modified' | translate }}: {{ playlist.updated | localizedDate:'short' }}
             </span>
           </div>
           <div class="playlist-description" *ngIf="playlist.description">
@@ -61,7 +61,7 @@
           *ngIf="hasDeletePermission()"
           class="delete-playlist-btn"
           (click)="deletePlaylistFromList(playlist); $event.stopPropagation()"
-          title="Delete playlist"
+          [title]="'deletePlaylist' | translate"
         >
           <i class="fas fa-trash"></i>
         </button>
@@ -71,36 +71,36 @@
 
   <div class="edit-section" *ngIf="editingPlaylist || isNewPlaylist">
     <div class="edit-form">
-      <h2>{{ isNewPlaylist ? 'Add New Playlist' : 'Edit Playlist' }}</h2>
+      <h2>{{ isNewPlaylist ? ('addNewPlaylist' | translate) : ('editPlaylist' | translate) }}</h2>
 
       <div class="form-group">
-        <label for="playlistName">Name *</label>
+        <label for="playlistName">{{ 'name' | translate }} *</label>
         <input
           id="playlistName"
           type="text"
           class="form-control"
           [(ngModel)]="playlistName"
-          placeholder="Enter playlist name"
+          [placeholder]="'enterPlaylistName' | translate"
         />
       </div>
 
       <div class="form-group">
-        <label for="playlistDescription">Description</label>
+        <label for="playlistDescription">{{ 'description' | translate }}</label>
         <input
           id="playlistDescription"
           type="text"
           class="form-control"
           [(ngModel)]="playlistDescription"
-          placeholder="Enter playlist description (optional)"
+          [placeholder]="'enterPlaylistDescription' | translate"
         />
       </div>
 
       <div class="form-group">
-        <label>Library Items</label>
+        <label>{{ 'libraryItems' | translate }}</label>
         
         <div class="add-item-section">
           <app-library-item-search
-            placeholder="Search library items to add..."
+            [placeholder]="'searchLibraryItemsToAdd' | translate"
             [excludeGuids]="[]"
             (itemSelected)="onLibraryItemSelected($event)"
           ></app-library-item-search>
@@ -119,7 +119,7 @@
               </div>
               
               <div class="item-pages-selector" *ngIf="getLibraryItemType(item.guid) === 'text' && getAvailablePages(item.guid).length > 1">
-                <label>Pages (leave empty for all pages):</label>
+                <label>{{ 'pagesLeaveEmpty' | translate }}</label>
                 <div class="pages-checkboxes">
                   <label *ngFor="let pageNum of getAvailablePages(item.guid)" class="page-checkbox-label">
                     <input
@@ -136,18 +136,18 @@
                     class="btn-select-all"
                     (click)="selectAllPages(item)"
                   >
-                    Select All
+                    {{ 'selectAll' | translate }}
                   </button>
                   <button
                     type="button"
                     class="btn-clear-pages"
                     (click)="clearPages(item)"
                   >
-                    Clear (All Pages)
+                    {{ 'clearAllPages' | translate }}
                   </button>
                 </div>
                 <div class="pages-selected-info" *ngIf="getSelectedPagesText(item)">
-                  Selected: {{ getSelectedPagesText(item) }}
+                  {{ 'selected' | translate }}: {{ getSelectedPagesText(item) }}
                 </div>
               </div>
 
@@ -156,7 +156,7 @@
                   type="text"
                   class="form-control description-input"
                   [(ngModel)]="item.description"
-                  placeholder="Description (optional)"
+                  [placeholder]="'descriptionOptional' | translate"
                 />
               </div>
             </div>
@@ -166,7 +166,7 @@
                 class="move-btn"
                 (click)="moveItemUp(i)"
                 [disabled]="i === 0"
-                title="Move up"
+                [title]="'moveUp' | translate"
               >
                 ↑
               </button>
@@ -174,14 +174,14 @@
                 class="move-btn"
                 (click)="moveItemDown(i)"
                 [disabled]="i === playlistItems.length - 1"
-                title="Move down"
+                [title]="'moveDown' | translate"
               >
                 ↓
               </button>
               <button
                 class="remove-btn"
                 (click)="removeItemFromPlaylist(item.guid)"
-                title="Remove"
+                [title]="'remove' | translate"
               >
                 ×
               </button>
@@ -190,19 +190,19 @@
         </div>
 
         <div class="no-items" *ngIf="playlistItems.length === 0">
-          No items in playlist. Add library items above.
+          {{ 'noItemsInPlaylist' | translate }}
         </div>
       </div>
 
       <div class="form-actions">
-        <button class="save-button" (click)="savePlaylist()">Save</button>
-        <button class="cancel-button" (click)="cancelEdit()">Cancel</button>
+        <button class="save-button" (click)="savePlaylist()">{{ 'save' | translate }}</button>
+        <button class="cancel-button" (click)="cancelEdit()">{{ 'cancel' | translate }}</button>
         <button 
           *ngIf="!isNewPlaylist && editingPlaylist && hasDeletePermission()" 
           class="delete-button" 
           (click)="deletePlaylist()"
         >
-          Delete
+          {{ 'delete' | translate }}
         </button>
       </div>
     </div>
@@ -218,8 +218,8 @@
     [title]="confirmDialogTitle"
     [message]="confirmDialogMessage"
     [show]="showConfirmDialog"
-    confirmText="Delete"
-    cancelText="Cancel"
+    [confirmText]="'delete' | translate"
+    [cancelText]="'cancel' | translate"
     confirmColor="danger"
     (confirm)="onConfirmDelete()"
     (cancel)="closeConfirmDialog()"

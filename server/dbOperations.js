@@ -450,18 +450,17 @@ const dbOps = {
     const maxGuid = db.prepare('SELECT MAX(guid) as maxGuid FROM users').get()?.maxGuid || 0;
     const newGuid = maxGuid + 1;
 
-    // Encode email to base64
-    const encodedEmail = Buffer.from(user.email || '').toString('base64');
-
+    // Email is already base64 encoded from frontend, use as-is
+    // Password is already MD5 hashed from frontend, use as-is
     db.prepare(`
       INSERT INTO users (guid, name, email, username, password, role, locale)
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `).run(
       newGuid,
       user.name || '',
-      encodedEmail,
+      user.email || '', // Already base64 encoded
       user.username || '',
-      user.password || '',
+      user.password || '', // Already MD5 hashed
       user.role || null,
       user.locale || null
     );
@@ -472,25 +471,26 @@ const dbOps = {
   updateUser(guid, user) {
     const db = getDatabase();
     
-    // Encode email to base64 if provided
-    let encodedEmail = null;
+    // Email is already base64 encoded from frontend, use as-is
+    let email = null;
     if (user.email !== undefined) {
-      encodedEmail = Buffer.from(user.email || '').toString('base64');
+      email = user.email;
     } else {
       // Get existing email if not provided
       const existingUser = this.getUserById(guid);
       if (existingUser) {
-        encodedEmail = existingUser.email;
+        email = existingUser.email;
       }
     }
 
+    // Password is already MD5 hashed from frontend, use as-is
     db.prepare(`
       UPDATE users
       SET name = ?, email = ?, username = ?, password = COALESCE(?, password), role = ?, locale = ?
       WHERE guid = ?
     `).run(
       user.name !== undefined ? user.name : null,
-      encodedEmail,
+      email,
       user.username !== undefined ? user.username : null,
       user.password || null,
       user.role !== undefined ? user.role : null,

@@ -6,9 +6,9 @@
         class="search-input"
         [(ngModel)]="searchTerm"
         (input)="onSearchChange()"
-        placeholder="Search playlists..."
+        [placeholder]="'searchPlaylists' | translate"
       />
-      <button *ngIf="searchTerm" class="clear-search-btn" (click)="clearSearch()" title="Clear search">
+      <button *ngIf="searchTerm" class="clear-search-btn" (click)="clearSearch()" [title]="'clearSearch' | translate">
         ×
       </button>
     </div>
@@ -17,7 +17,7 @@
         *ngIf="searchResults.length === 0 && searchTerm.trim().length > 0"
         class="no-results"
       >
-        No playlists found
+        {{ 'noPlaylistsFound' | translate }}
       </div>
       <div
         *ngFor="let result of searchResults"
@@ -39,7 +39,7 @@
   </div>
   <div class="playlist-container">
     <div class="playlist-items-wrapper">
-      <div *ngIf="playlist.length === 0" class="empty-playlist">Loading playlist...</div>
+      <div *ngIf="playlist.length === 0" class="empty-playlist">{{ 'loadingPlaylist' | translate }}</div>
       <app-playlist-item
         *ngFor="let item of playlist; let i = index"
         [item]="item"

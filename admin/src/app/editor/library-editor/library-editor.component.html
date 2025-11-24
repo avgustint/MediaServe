@@ -6,9 +6,9 @@
         class="search-input"
         [(ngModel)]="searchTerm"
         (input)="onSearchChange()"
-        placeholder="Search library items by name or content..."
+        [placeholder]="'searchLibraryItems' | translate"
       />
-      <button *ngIf="searchTerm" class="clear-search-btn" (click)="clearSearch()" title="Clear search">
+      <button *ngIf="searchTerm" class="clear-search-btn" (click)="clearSearch()" [title]="'clearSearch' | translate">
         ×
       </button>
     </div>
@@ -17,7 +17,7 @@
         *ngIf="searchResults.length === 0 && searchTerm.trim().length > 0"
         class="no-results"
       >
-        No library items found
+        {{ 'noLibraryItemsFound' | translate }}
       </div>
       <div
         *ngFor="let result of searchResults"
@@ -25,7 +25,7 @@
         (click)="onSearchResultSelect(result)"
       >
         <div class="search-result-name">{{ result.name }}</div>
-        <div class="search-result-type">Type: {{ result.type }}</div>
+        <div class="search-result-type">{{ 'typeColon' | translate }} {{ result.type }}</div>
         <div class="search-result-description" *ngIf="result.description">
           {{ result.description }}
         </div>
@@ -35,12 +35,12 @@
 
   <div class="actions-section">
     <button class="add-button" (click)="addNewItem()" *ngIf="!editingItem && !isNewItem">
-      Add New Library Item
+      {{ 'addNewLibraryItem' | translate }}
     </button>
   </div>
 
   <div class="recent-items-section" *ngIf="showRecentItems && !editingItem && !isNewItem && recentItems.length > 0">
-    <h3>Recently Modified (Last 50)</h3>
+    <h3>{{ 'recentlyModified' | translate }}</h3>
     <div class="recent-items-list">
       <div
         *ngFor="let item of recentItems"
@@ -51,10 +51,10 @@
         <div class="item-info">
           <div class="item-name">{{ item.name }}</div>
           <div class="item-details">
-            <span class="item-type">Type: {{ item.type }}</span>
+            <span class="item-type">{{ 'typeColon' | translate }} {{ item.type }}</span>
             <span class="item-separator">•</span>
             <span class="item-modified" *ngIf="item.modified">
-              Modified: {{ item.modified | date:'short' }}
+              {{ 'modified' | translate }} {{ item.modified | localizedDate:'short' }}
             </span>
           </div>
           <div class="item-description" *ngIf="item.description">
@@ -65,7 +65,7 @@
           *ngIf="hasDeletePermission()"
           class="delete-item-btn"
           (click)="deleteItemFromList(item); $event.stopPropagation()"
-          title="Delete item"
+          [title]="'deleteItem' | translate"
         >
           <i class="fas fa-trash"></i>
         </button>
@@ -75,56 +75,56 @@
 
   <div class="edit-section" *ngIf="editingItem || isNewItem">
     <div class="edit-form">
-      <h2>{{ isNewItem ? 'Add New Library Item' : 'Edit Library Item' }}</h2>
+      <h2>{{ isNewItem ? ('addNewLibraryItem' | translate) : ('editLibraryItem' | translate) }}</h2>
 
       <div class="form-group">
-        <label for="itemName">Name *</label>
+        <label for="itemName">{{ 'name' | translate }} *</label>
         <input
           id="itemName"
           type="text"
           class="form-control"
           [(ngModel)]="itemName"
-          placeholder="Enter item name"
+          [placeholder]="'enterItemName' | translate"
         />
       </div>
 
       <div class="form-group">
-        <label for="itemDescription">Description</label>
+        <label for="itemDescription">{{ 'description' | translate }}</label>
         <input
           id="itemDescription"
           type="text"
           class="form-control"
           [(ngModel)]="itemDescription"
-          placeholder="Enter item description (optional)"
+          [placeholder]="'enterItemDescription' | translate"
         />
       </div>
 
       <div class="form-group">
-        <label for="itemType">Type *</label>
+        <label for="itemType">{{ 'type' | translate }} *</label>
         <select
           id="itemType"
           class="form-control"
           [(ngModel)]="itemType"
           (change)="onTypeChange()"
         >
-          <option value="text">Text</option>
-          <option value="image">Image</option>
-          <option value="url">URL</option>
+          <option value="text">{{ 'text' | translate }}</option>
+          <option value="image">{{ 'image' | translate }}</option>
+          <option value="url">{{ 'url' | translate }}</option>
         </select>
       </div>
 
       <!-- Text Type Content -->
       <div class="form-group" *ngIf="itemType === 'text'">
-        <label>Content Pages</label>
+        <label>{{ 'contentPages' | translate }}</label>
         <div class="pages-container">
           <div *ngFor="let page of textPages; let i = index" class="page-item">
             <div class="page-header">
-              <span class="page-number">Page {{ page.page }}</span>
+              <span class="page-number">{{ 'page' | translate }} {{ page.page }}</span>
               <button
                 *ngIf="textPages.length > 1"
                 class="remove-page-btn"
                 (click)="removePage(page.page)"
-                title="Remove page"
+                [title]="'removePage' | translate"
               >
                 ×
               </button>
@@ -132,17 +132,17 @@
             <textarea
               class="form-control page-content"
               [(ngModel)]="page.content"
-              placeholder="Enter content for page {{ page.page }}"
+              [placeholder]="('enterContentForPage' | translate) + ' ' + page.page"
               rows="5"
             ></textarea>
           </div>
-          <button class="add-page-btn" (click)="addPage()">Add Page</button>
+          <button class="add-page-btn" (click)="addPage()">{{ 'addPage' | translate }}</button>
         </div>
       </div>
 
       <!-- Image Type Content -->
       <div class="form-group" *ngIf="itemType === 'image'">
-        <label>Image File *</label>
+        <label>{{ 'imageFile' | translate }} *</label>
         <input
           type="file"
           class="form-control"
@@ -150,7 +150,7 @@
           (change)="onImageFileSelected($event)"
         />
         <div *ngIf="imagePreview" class="image-preview">
-          <img [src]="imagePreview" alt="Preview" />
+          <img [src]="imagePreview" [alt]="'preview' | translate" />
         </div>
       </div>
 
@@ -162,19 +162,19 @@
           type="url"
           class="form-control"
           [(ngModel)]="urlContent"
-          placeholder="Enter URL (e.g., https://example.com)"
+          [placeholder]="'enterUrl' | translate"
         />
       </div>
 
       <div class="form-actions">
-        <button class="save-button" (click)="saveItem()">Save</button>
-        <button class="cancel-button" (click)="cancelEdit()">Cancel</button>
+        <button class="save-button" (click)="saveItem()">{{ 'save' | translate }}</button>
+        <button class="cancel-button" (click)="cancelEdit()">{{ 'cancel' | translate }}</button>
         <button 
           *ngIf="!isNewItem && editingItem && hasDeletePermission()" 
           class="delete-button" 
           (click)="deleteItem()"
         >
-          Delete
+          {{ 'delete' | translate }}
         </button>
       </div>
     </div>
@@ -190,8 +190,8 @@
     [title]="confirmDialogTitle"
     [message]="confirmDialogMessage"
     [show]="showConfirmDialog"
-    confirmText="Delete"
-    cancelText="Cancel"
+    [confirmText]="'delete' | translate"
+    [cancelText]="'cancel' | translate"
     confirmColor="danger"
     (confirm)="onConfirmDelete()"
     (cancel)="closeConfirmDialog()"

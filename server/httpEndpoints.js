@@ -67,6 +67,34 @@ function getUserWithPermissions(user) {
   };
 }
 
+/**
+ * Helper function to check if a user is an administrator
+ */
+function isAdministrator(user) {
+  if (!user || !user.role) {
+    return false;
+  }
+  const role = dbOps.getRole(user.role);
+  return role && role.name && role.name.toLowerCase() === 'administrator';
+}
+
+/**
+ * Helper function to extract username from request query parameters
+ */
+function getUsernameFromRequest(req) {
+  const urlParts = req.url.split('?');
+  if (urlParts.length > 1) {
+    const queryParams = urlParts[1].split('&');
+    for (const param of queryParams) {
+      const [key, value] = param.split('=');
+      if (key === 'username') {
+        return decodeURIComponent(value);
+      }
+    }
+  }
+  return null;
+}
+
 function setupHttpEndpoints(data) {
   // Load initial data from database for WebSocket (library)
   const { library } = data;
@@ -766,12 +794,15 @@ function setupHttpEndpoints(data) {
     else if (req.url === '/users' && req.method === 'POST') {
       readRequestBody(req).then((userData) => {
         try {
+          // Email and password are already encoded from frontend (base64 and MD5)
           const newUser = dbOps.createUser(userData);
-          // Decode email for response
+          // Decode email from base64 for response
           let decodedEmail = newUser.email;
           try {
             decodedEmail = Buffer.from(newUser.email, 'base64').toString('utf8');
-          } catch (e) {}
+          } catch (e) {
+            // If decoding fails, email might already be decoded or invalid
+          }
           const responseUser = {
             guid: newUser.guid,
             name: newUser.name,
@@ -795,7 +826,7 @@ function setupHttpEndpoints(data) {
       return;
     }
     // PUT /users/:guid - Update user
-    else if (req.url && req.url.match(/^\/users\/\d+$/) && req.method === 'PUT') {
+    else if (req.url && req.url.match(/^\/users\/\d+/) && req.method === 'PUT') {
       try {
         const urlParts = req.url.split('/');
         const guid = parseInt(urlParts[2], 10);
@@ -806,14 +837,54 @@ function setupHttpEndpoints(data) {
           return;
         }
 
+        // Get current user from username query parameter
+        const currentUsername = getUsernameFromRequest(req);
+        if (!currentUsername) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, message: 'Username parameter required' }));
+          return;
+        }
+
+        const currentUser = dbOps.getUserByUsername(currentUsername);
+        if (!currentUser) {
+          res.writeHead(401, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, message: 'Unauthorized' }));
+          return;
+        }
+
+        // Get target user being updated
+        const targetUser = dbOps.getUserById(guid);
+        if (!targetUser) {
+          res.writeHead(404, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, message: 'User not found' }));
+          return;
+        }
+
         readRequestBody(req).then((userData) => {
+          // Check if trying to modify administrator role
+          const targetIsAdmin = isAdministrator(targetUser);
+          const currentIsAdmin = isAdministrator(currentUser);
+          const newRole = userData.role !== undefined ? userData.role : targetUser.role;
+          const newRoleObj = newRole ? dbOps.getRole(newRole) : null;
+          const wouldBeAdmin = newRoleObj && newRoleObj.name && newRoleObj.name.toLowerCase() === 'administrator';
+
+          // Only administrators can set/remove administrator role
+          if ((targetIsAdmin || wouldBeAdmin) && !currentIsAdmin) {
+            res.writeHead(403, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, message: 'Only administrators can modify administrator roles' }));
+            return;
+          }
+
+          // Email and password are already encoded from frontend (base64 and MD5)
           const updatedUser = dbOps.updateUser(guid, userData);
           if (updatedUser) {
-            // Decode email for response
+            // Decode email from base64 for response
             let decodedEmail = updatedUser.email;
             try {
               decodedEmail = Buffer.from(updatedUser.email, 'base64').toString('utf8');
-            } catch (e) {}
+            } catch (e) {
+              // If decoding fails, email might already be decoded or invalid
+            }
             const responseUser = {
               guid: updatedUser.guid,
               name: updatedUser.name,
@@ -841,7 +912,7 @@ function setupHttpEndpoints(data) {
       return;
     }
     // DELETE /users/:guid - Delete user
-    else if (req.url && req.url.match(/^\/users\/\d+$/) && req.method === 'DELETE') {
+    else if (req.url && req.url.match(/^\/users\/\d+/) && req.method === 'DELETE') {
       try {
         const urlParts = req.url.split('/');
         const guid = parseInt(urlParts[2], 10);
@@ -849,6 +920,39 @@ function setupHttpEndpoints(data) {
         if (isNaN(guid)) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ success: false, message: 'Invalid GUID' }));
+          return;
+        }
+
+        // Get current user from username query parameter
+        const currentUsername = getUsernameFromRequest(req);
+        if (!currentUsername) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, message: 'Username parameter required' }));
+          return;
+        }
+
+        const currentUser = dbOps.getUserByUsername(currentUsername);
+        if (!currentUser) {
+          res.writeHead(401, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, message: 'Unauthorized' }));
+          return;
+        }
+
+        // Get target user being deleted
+        const targetUser = dbOps.getUserById(guid);
+        if (!targetUser) {
+          res.writeHead(404, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, message: 'User not found' }));
+          return;
+        }
+
+        // Only administrators can delete other administrators
+        const targetIsAdmin = isAdministrator(targetUser);
+        const currentIsAdmin = isAdministrator(currentUser);
+        
+        if (targetIsAdmin && !currentIsAdmin) {
+          res.writeHead(403, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, message: 'Only administrators can delete other administrators' }));
           return;
         }
 

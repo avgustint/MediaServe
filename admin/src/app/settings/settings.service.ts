@@ -1,6 +1,7 @@
 import { Injectable } from "@angular/core";
 import { HttpClient, HttpHeaders } from "@angular/common/http";
 import { Observable } from "rxjs";
+import { AuthService } from "../auth.service";
 
 export interface User {
   guid: number;
@@ -28,7 +29,10 @@ export interface Permission {
 export class SettingsService {
   private readonly API_URL = "http://localhost:8080";
 
-  constructor(private http: HttpClient) {}
+  constructor(
+    private http: HttpClient,
+    private authService: AuthService
+  ) {}
 
   // User operations
   getAllUsers(): Observable<User[]> {
@@ -42,11 +46,19 @@ export class SettingsService {
 
   updateUser(guid: number, user: Partial<User>): Observable<User> {
     const headers = new HttpHeaders({ "Content-Type": "application/json" });
-    return this.http.put<User>(`${this.API_URL}/users/${guid}`, user, { headers });
+    const username = this.authService.getStoredUsername();
+    const url = username 
+      ? `${this.API_URL}/users/${guid}?username=${encodeURIComponent(username)}`
+      : `${this.API_URL}/users/${guid}`;
+    return this.http.put<User>(url, user, { headers });
   }
 
   deleteUser(guid: number): Observable<void> {
-    return this.http.delete<void>(`${this.API_URL}/users/${guid}`);
+    const username = this.authService.getStoredUsername();
+    const url = username 
+      ? `${this.API_URL}/users/${guid}?username=${encodeURIComponent(username)}`
+      : `${this.API_URL}/users/${guid}`;
+    return this.http.delete<void>(url);
   }
 
   // Role operations

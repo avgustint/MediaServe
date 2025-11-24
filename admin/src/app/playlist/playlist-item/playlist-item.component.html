@@ -1,19 +1,21 @@
 <div class="playlist-item" (click)="onItemClick($event)">
-  <div class="playlist-item-number">{{ index + 1 }}</div>
-  <div class="playlist-item-content">
-    <div class="playlist-item-type">{{ item.name }}</div>
-    <div class="playlist-item-description" *ngIf="item.description">
-      {{ item.description }}
+  <div class="playlist-item-main">
+    <div class="playlist-item-number">{{ index + 1 }}</div>
+    <div class="playlist-item-content">
+      <div class="playlist-item-type">{{ item.name }}</div>
+      <div class="playlist-item-description" *ngIf="item.description">
+        {{ item.description }}
+      </div>
     </div>
-    <div class="playlist-item-preview"
-         *ngIf="item.type === 'text' && item.pages && item.pages.length > 1">
-      <button *ngFor="let pageNum of item.pages"
-              (click)="onPageClick($event, pageNum)"
-              class="page-button">
-        {{ pageNum }}
-      </button>
-    </div>
+    <div class="item-guid-badge">{{ item.guid }}</div>
   </div>
-  <div class="item-guid-badge">{{ item.guid }}</div>
+  <div class="playlist-item-pages"
+       *ngIf="item.type === 'text' && item.pages && item.pages.length > 1">
+    <button *ngFor="let pageNum of item.pages"
+            (click)="onPageClick($event, pageNum)"
+            class="page-button">
+      {{ pageNum }}
+    </button>
+  </div>
 </div>
 

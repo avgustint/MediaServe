@@ -5,12 +5,14 @@ import { PlaylistService, LibraryItem, LibraryContent } from "../../playlist.ser
 import { UserService } from "../../user.service";
 import { ErrorPopupComponent } from "../../shared/error-popup/error-popup.component";
 import { ConfirmDialogComponent } from "../../shared/confirm-dialog/confirm-dialog.component";
+import { TranslatePipe } from "../../translation.pipe";
+import { LocalizedDatePipe } from "../../localized-date.pipe";
 import { debounceTime, distinctUntilChanged, Subject, switchMap, of } from "rxjs";
 
 @Component({
   selector: "app-library-editor",
   standalone: true,
-  imports: [CommonModule, FormsModule, ErrorPopupComponent, ConfirmDialogComponent],
+  imports: [CommonModule, FormsModule, ErrorPopupComponent, ConfirmDialogComponent, TranslatePipe, LocalizedDatePipe],
   templateUrl: "./library-editor.component.html",
   styleUrls: ["./library-editor.component.scss"]
 })

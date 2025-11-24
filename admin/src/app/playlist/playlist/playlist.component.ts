@@ -5,12 +5,13 @@ import { WebSocketService, WebSocketMessage } from "../../websocket.service";
 import { LibraryItem, PlaylistService } from "../../playlist.service";
 import { PlaylistListComponent } from "../playlist-list/playlist-list.component";
 import { ManualComponent } from "../manual/manual.component";
+import { TranslatePipe } from "../../translation.pipe";
 import { Subscription } from "rxjs";
 
 @Component({
   selector: "app-playlist",
   standalone: true,
-  imports: [CommonModule, PlaylistListComponent, ManualComponent],
+  imports: [CommonModule, PlaylistListComponent, ManualComponent, TranslatePipe],
   templateUrl: "./playlist.component.html",
   styleUrls: ["./playlist.component.scss"]
 })

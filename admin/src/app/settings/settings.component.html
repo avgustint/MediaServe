@@ -7,7 +7,7 @@
         [class.active]="activeTab === 'users'"
         (click)="switchTab('users')"
       >
-        Users
+        {{ 'users' | translate }}
       </button>
       <button
         *ngIf="hasViewRolesPermission()"
@@ -15,7 +15,7 @@
         [class.active]="activeTab === 'roles'"
         (click)="switchTab('roles')"
       >
-        Roles & Permissions
+        {{ 'rolesPermissions' | translate }}
       </button>
     </div>
   </div>

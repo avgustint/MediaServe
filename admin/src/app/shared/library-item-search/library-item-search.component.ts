@@ -2,12 +2,13 @@ import { Component, Input, Output, EventEmitter, OnInit, OnDestroy } from "@angu
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { PlaylistService, LibraryItem } from "../../playlist.service";
+import { TranslatePipe } from "../../translation.pipe";
 import { Subject, Subscription, debounceTime, distinctUntilChanged, switchMap, of } from "rxjs";
 
 @Component({
   selector: "app-library-item-search",
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, TranslatePipe],
   templateUrl: "./library-item-search.component.html",
   styleUrls: ["./library-item-search.component.scss"]
 })

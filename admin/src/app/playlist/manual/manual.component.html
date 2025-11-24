@@ -6,9 +6,9 @@
         class="search-input"
         [(ngModel)]="searchTerm"
         (input)="onSearchChange()"
-        placeholder="Search library items..."
+        [placeholder]="'searchLibraryItems' | translate"
       />
-      <button *ngIf="searchTerm" class="clear-search-btn" (click)="clearSearch()" title="Clear search">
+      <button *ngIf="searchTerm" class="clear-search-btn" (click)="clearSearch()" [title]="'clearSearch' | translate">
         ×
       </button>
     </div>
@@ -17,7 +17,7 @@
         *ngIf="searchResults.length === 0 && searchTerm.trim().length > 0"
         class="no-results"
       >
-        No library items found
+        {{ 'noLibraryItemsFound' | translate }}
       </div>
       <div
         *ngFor="let result of searchResults"
@@ -29,7 +29,7 @@
           {{ result.description }}
         </div>
         <div class="search-result-footer">
-          <div class="search-result-type">Type: {{ result.type }}</div>
+          <div class="search-result-type">{{ 'typeColon' | translate }} {{ result.type }}</div>
           <div class="item-guid-badge">{{ result.guid }}</div>
         </div>
       </div>
@@ -37,15 +37,14 @@
   </div>
 
   <div class="guid-display">
-    <div class="guid-label">Enter ID:</div>
     <div class="guid-badge-container">
       <div class="guid-badge">{{ enteredGuid || "0" }}</div>
-      <button *ngIf="enteredGuid.length > 0" class="clear-guid-btn" (click)="onClearGuid()" title="Clear ID">
+      <button *ngIf="enteredGuid.length > 0" class="clear-guid-btn" (click)="onClearGuid()" [title]="'clearId' | translate">
         <i class="fas fa-times"></i>
       </button>
     </div>
     <div class="no-item" *ngIf="!libraryItem && searchedGuid">
-      No library item found with ID: {{ searchedGuid }}
+      {{ 'noLibraryItemFoundWithId' | translate }} {{ searchedGuid }}
     </div>
   </div>
 
@@ -67,9 +66,9 @@
         <button class="keypad-button" (click)="onNumberClick('9')">9</button>
       </div>
       <div class="keypad-row">
-        <button class="keypad-button" (click)="onBackspaceClick()" title="Delete last digit">C</button>
+        <button class="keypad-button" (click)="onBackspaceClick()" [title]="'deleteLastDigit' | translate">C</button>
         <button class="keypad-button" (click)="onNumberClick('0')">0</button>
-      <button class="keypad-button enter-button" (click)="onEnterClick()" title="Enter">
+      <button class="keypad-button enter-button" (click)="onEnterClick()" [title]="'enter' | translate">
         <i class="fas fa-arrow-right"></i>
       </button>
       </div>

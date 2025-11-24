@@ -1,4 +1,5 @@
 const WebSocket = require('ws');
+const { exec } = require('child_process');
 
 /**
  * Sets up WebSocket server and handles all WebSocket connections
@@ -108,6 +109,12 @@ function setupWebSocket(server, library) {
             console.log(`Broadcasted Clear message to ${sentCount} client(s)`);
           }
         }
+        
+        // Check if it's an "Action" message
+        if (message.type === 'Action' && message.actionType) {
+          console.log('Received Action message with type:', message.actionType);
+          handleCecAction(message.actionType);
+        }
       } catch (error) {
         console.error('Error parsing incoming message:', error);
       }
@@ -127,6 +134,59 @@ function setupWebSocket(server, library) {
   });
 
   return wss;
+}
+
+/**
+ * Handle HDMI CEC actions by executing cec-client commands
+ * @param {string} actionType - The type of action (powerOn, powerOff, volumeUp, volumeDown)
+ */
+function handleCecAction(actionType) {
+  let cecCommand;
+  
+  switch (actionType) {
+    case 'powerOn':
+      // Send "Image View On" command to device 0 (TV)
+      // Format: on <destination>
+      cecCommand = 'echo "on 0" | cec-client -s -d 1';
+      break;
+    case 'powerOff':
+      // Send "Standby" command to device 0 (TV)
+      // Format: standby <destination>
+      cecCommand = 'echo "standby 0" | cec-client -s -d 1';
+      break;
+    case 'volumeUp':
+      // Send "Volume Up" command
+      // Format: tx <source><destination> <opcode>
+      // 4F = broadcast address, 44 = Volume Up opcode
+      cecCommand = 'echo "tx 4F 44" | cec-client -s -d 1';
+      break;
+    case 'volumeDown':
+      // Send "Volume Down" command
+      // Format: tx <source><destination> <opcode>
+      // 4F = broadcast address, 45 = Volume Down opcode
+      cecCommand = 'echo "tx 4F 45" | cec-client -s -d 1';
+      break;
+    default:
+      console.warn(`Unknown action type: ${actionType}`);
+      return;
+  }
+  
+  exec(cecCommand, (error, stdout, stderr) => {
+    if (error) {
+      console.error(`Error executing CEC command for ${actionType}:`, error);
+      if (error.code === 'ENOENT') {
+        console.error('cec-client not found. Please install libcec-utils package (e.g., sudo apt-get install cec-utils).');
+      }
+      return;
+    }
+    if (stderr && !stderr.includes('waiting for input')) {
+      console.error(`CEC command stderr for ${actionType}:`, stderr);
+    }
+    if (stdout) {
+      console.log(`CEC command output for ${actionType}:`, stdout);
+    }
+    console.log(`CEC command executed successfully for ${actionType}`);
+  });
 }
 
 module.exports = { setupWebSocket };

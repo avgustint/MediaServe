@@ -4,12 +4,14 @@ import { FormsModule } from "@angular/forms";
 import { SettingsService, Role, Permission } from "../settings.service";
 import { UserService } from "../../user.service";
 import { ErrorPopupComponent } from "../../shared/error-popup/error-popup.component";
+import { TranslatePipe } from "../../translation.pipe";
+import { TranslationService } from "../../translation.service";
 import { forkJoin } from "rxjs";
 
 @Component({
   selector: "app-role-permissions-editor",
   standalone: true,
-  imports: [CommonModule, FormsModule, ErrorPopupComponent],
+  imports: [CommonModule, FormsModule, ErrorPopupComponent, TranslatePipe],
   templateUrl: "./role-permissions-editor.component.html",
   styleUrls: ["./role-permissions-editor.component.scss"]
 })
@@ -29,7 +31,8 @@ export class RolePermissionsEditorComponent implements OnInit {
 
   constructor(
     private settingsService: SettingsService,
-    private userService: UserService
+    private userService: UserService,
+    private translationService: TranslationService
   ) {}
 
   ngOnInit(): void {
@@ -61,7 +64,7 @@ export class RolePermissionsEditorComponent implements OnInit {
       },
       error: (error) => {
         console.error("Error loading data:", error);
-        this.showErrorPopup("Error loading data. Please try again.");
+        this.showErrorPopup(this.translationService.translate('errorLoadingData'));
       }
     });
   }
@@ -73,6 +76,10 @@ export class RolePermissionsEditorComponent implements OnInit {
   }
 
   togglePermission(permissionGuid: number): void {
+    // Prevent editing permissions for administrator role
+    if (this.isAdministratorRole(this.selectedRole)) {
+      return;
+    }
     const index = this.selectedPermissions.indexOf(permissionGuid);
     if (index >= 0) {
       this.selectedPermissions.splice(index, 1);
@@ -92,6 +99,12 @@ export class RolePermissionsEditorComponent implements OnInit {
       return;
     }
 
+    // Prevent saving permissions for administrator role
+    if (this.isAdministratorRole(this.selectedRole)) {
+      this.showErrorPopup(this.translationService.translate('cannotModifyPermissionsForAdminRole'));
+      return;
+    }
+
     this.settingsService.updateRolePermissions(
       this.selectedRole.guid,
       this.selectedPermissions
@@ -99,11 +112,11 @@ export class RolePermissionsEditorComponent implements OnInit {
       next: (updatedPermissions) => {
         this.rolePermissions.set(this.selectedRole!.guid, updatedPermissions);
         this.selectedPermissions = [...updatedPermissions];
-        this.showErrorPopup("Role permissions updated successfully!");
+        this.showErrorPopup(this.translationService.translate('rolePermissionsUpdated'));
       },
       error: (error) => {
         console.error("Error saving role permissions:", error);
-        this.showErrorPopup("Error saving role permissions. Please try again.");
+        this.showErrorPopup(this.translationService.translate('errorSavingRolePermissions'));
       }
     });
   }
@@ -126,6 +139,17 @@ export class RolePermissionsEditorComponent implements OnInit {
   closeErrorPopup(): void {
     this.showError = false;
     this.errorMessage = "";
+  }
+
+  isAdministratorRole(role: Role | null): boolean {
+    if (!role || !role.name) {
+      return false;
+    }
+    return role.name.toLowerCase() === 'administrator';
+  }
+
+  isRoleReadOnly(): boolean {
+    return this.isAdministratorRole(this.selectedRole);
   }
 }
 

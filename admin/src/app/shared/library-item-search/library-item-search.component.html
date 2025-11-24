@@ -7,7 +7,7 @@
       (input)="onSearchChange()"
       [placeholder]="placeholder"
     />
-    <button *ngIf="searchTerm" class="clear-search-btn" (click)="clearSearch()" title="Clear search">
+    <button *ngIf="searchTerm" class="clear-search-btn" (click)="clearSearch()" [attr.title]="'clearSearch' | translate">
       ×
     </button>
   </div>
@@ -16,7 +16,7 @@
       *ngIf="searchResults.length === 0 && searchTerm.trim().length > 0"
       class="no-results"
     >
-      No library items found
+      {{ 'noLibraryItemsFound' | translate }}
     </div>
     <div
       *ngFor="let result of searchResults"
@@ -28,7 +28,7 @@
         {{ result.description }}
       </div>
       <div class="search-result-footer">
-        <div class="search-result-type">Type: {{ result.type }}</div>
+        <div class="search-result-type">{{ 'typeColon' | translate }} {{ result.type }}</div>
         <div class="item-guid-badge">{{ result.guid }}</div>
       </div>
     </div>

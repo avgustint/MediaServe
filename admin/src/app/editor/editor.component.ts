@@ -2,12 +2,13 @@ import { Component, OnInit } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { LibraryEditorComponent } from "./library-editor/library-editor.component";
 import { PlaylistEditorComponent } from "./playlist-editor/playlist-editor.component";
+import { TranslatePipe } from "../translation.pipe";
 import { UserService } from "../user.service";
 
 @Component({
   selector: "app-editor",
   standalone: true,
-  imports: [CommonModule, LibraryEditorComponent, PlaylistEditorComponent],
+  imports: [CommonModule, LibraryEditorComponent, PlaylistEditorComponent, TranslatePipe],
   templateUrl: "./editor.component.html",
   styleUrls: ["./editor.component.scss"]
 })

@@ -1,6 +1,6 @@
 <div class="main-container">
   <!-- Sidebar toggle button for mobile -->
-  <button class="sidebar-toggle-mobile" (click)="toggleSidebar()" aria-label="Toggle sidebar">
+      <button class="sidebar-toggle-mobile" (click)="toggleSidebar()" [attr.aria-label]="'toggleSidebar' | translate">
     <i class="fas fa-bars"></i>
   </button>
   
@@ -17,17 +17,17 @@
               [class.active]="activeTab === 'playlist'"
               (click)="switchTab('playlist')"
             >
-              Playlist
+              {{ 'playlist' | translate }}
             </button>
             <button
               class="tab-button"
               [class.active]="activeTab === 'manual'"
               (click)="switchTab('manual')"
             >
-              Manual
+              {{ 'manual' | translate }}
             </button>
           </div>
-          <button class="close-sidebar-btn" (click)="closeSidebar()" aria-label="Close sidebar">
+          <button class="close-sidebar-btn" (click)="closeSidebar()" [attr.aria-label]="'closeSidebar' | translate">
             <i class="fas fa-times"></i>
           </button>
         </div>
@@ -65,7 +65,7 @@
 
       <!-- No content message -->
       <div *ngIf="!currentContent" class="content-container no-content">
-        <div class="waiting-message">Waiting for content from WebSocket...</div>
+        <div class="waiting-message">{{ 'waitingForContent' | translate }}</div>
       </div>
     </div>
   </div>
@@ -74,18 +74,18 @@
   <div class="footer">
     <div class="footer-info">
       <div class="current-item-info">
-        <div class="current-item-label">Current library item details:</div>
-        <div class="current-item-guid" *ngIf="currentItemGuid">{{ currentItemGuid }}</div>
+        <div class="current-item-label">{{ 'currentLibraryItemDetails' | translate }}</div>
+        <div class="current-item-guid-badge" *ngIf="currentItemGuid">{{ currentItemGuid }}</div>
         <div class="current-item-name" *ngIf="currentItemName">{{ currentItemName }}</div>
-        <div class="current-item-placeholder" *ngIf="!currentItemGuid">No item selected</div>
+        <div class="current-item-placeholder" *ngIf="!currentItemGuid">{{ 'noItemSelected' | translate }}</div>
       </div>
-      <div class="page-buttons-container" *ngIf="getAvailablePages().length > 0">
+      <div class="page-buttons-container" *ngIf="getAvailablePages().length > 1">
         <button
           *ngFor="let pageNum of getAvailablePages()"
           class="page-button"
           [class.active]="currentPage === pageNum"
           (click)="onPageButtonClick(pageNum)"
-          [title]="'Go to page ' + pageNum"
+          [title]="('goToPage' | translate) + ' ' + pageNum"
         >
           {{ pageNum }}
         </button>
@@ -96,22 +96,22 @@
         class="footer-button nav-button prev-button" 
         (click)="onPreviousClick()"
         [disabled]="!canGoPrevious()"
-        title="Previous"
+        [title]="'previous' | translate"
       >
         <i class="fas fa-chevron-left"></i>
       </button>
       <button 
         class="footer-button clear-button" 
         (click)="onClearClick()"
-        title="Clear"
+        [title]="'clear' | translate"
       >
-        Clear
+        {{ 'clear' | translate }}
       </button>
       <button 
         class="footer-button nav-button next-button" 
         (click)="onNextClick()"
         [disabled]="!canGoNext()"
-        title="Next"
+        [title]="'next' | translate"
       >
         <i class="fas fa-chevron-right"></i>
       </button>

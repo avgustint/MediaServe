@@ -3,12 +3,13 @@ import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { PlaylistService, LibraryItem, LibraryContent } from "../../playlist.service";
 import { WebSocketService } from "../../websocket.service";
+import { TranslatePipe } from "../../translation.pipe";
 import { Subject, Subscription, debounceTime, distinctUntilChanged, switchMap, of } from "rxjs";
 
 @Component({
   selector: "app-manual",
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, TranslatePipe],
   templateUrl: "./manual.component.html",
   styleUrls: ["./manual.component.scss"]
 })

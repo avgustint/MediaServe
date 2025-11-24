@@ -1,4 +1,4 @@
-import { Component, OnInit } from "@angular/core";
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { PlaylistService, Playlist, LibraryItem, PlaylistSearchResult } from "../../playlist.service";
@@ -6,7 +6,10 @@ import { UserService } from "../../user.service";
 import { ErrorPopupComponent } from "../../shared/error-popup/error-popup.component";
 import { ConfirmDialogComponent } from "../../shared/confirm-dialog/confirm-dialog.component";
 import { LibraryItemSearchComponent } from "../../shared/library-item-search/library-item-search.component";
-import { debounceTime, distinctUntilChanged, Subject, switchMap, of, forkJoin } from "rxjs";
+import { TranslatePipe } from "../../translation.pipe";
+import { LocalizedDatePipe } from "../../localized-date.pipe";
+import { TranslationService } from "../../translation.service";
+import { debounceTime, distinctUntilChanged, Subject, switchMap, of, forkJoin, Subscription } from "rxjs";
 
 interface PlaylistItemWithDetails {
   guid: number;
@@ -20,15 +23,16 @@ interface PlaylistItemWithDetails {
 @Component({
   selector: "app-playlist-editor",
   standalone: true,
-  imports: [CommonModule, FormsModule, ErrorPopupComponent, ConfirmDialogComponent, LibraryItemSearchComponent],
+  imports: [CommonModule, FormsModule, ErrorPopupComponent, ConfirmDialogComponent, LibraryItemSearchComponent, TranslatePipe, LocalizedDatePipe],
   templateUrl: "./playlist-editor.component.html",
   styleUrls: ["./playlist-editor.component.scss"]
 })
-export class PlaylistEditorComponent implements OnInit {
+export class PlaylistEditorComponent implements OnInit, OnDestroy {
   searchTerm: string = "";
   searchResults: PlaylistSearchResult[] = [];
   showSearchResults: boolean = false;
   private searchSubject = new Subject<string>();
+  private localeSubscription?: Subscription;
 
   // Recently modified playlists
   recentPlaylists: PlaylistSearchResult[] = [];
@@ -57,7 +61,9 @@ export class PlaylistEditorComponent implements OnInit {
 
   constructor(
     private playlistService: PlaylistService,
-    private userService: UserService
+    private userService: UserService,
+    private translationService: TranslationService,
+    private changeDetectorRef: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
@@ -66,6 +72,11 @@ export class PlaylistEditorComponent implements OnInit {
 
     // Load all library items for the dropdown
     this.loadLibraryItems();
+
+    // Subscribe to locale changes to trigger date re-rendering
+    this.localeSubscription = this.translationService.currentLocale$.subscribe(() => {
+      this.changeDetectorRef.markForCheck();
+    });
 
     // Setup search with debounce
     this.searchSubject.pipe(
@@ -421,5 +432,9 @@ export class PlaylistEditorComponent implements OnInit {
       return "All pages";
     }
     return item.pages.join(", ");
+  }
+
+  ngOnDestroy(): void {
+    this.localeSubscription?.unsubscribe();
   }
 }
