@@ -44,7 +44,8 @@ function createTables() {
   db.exec(`
     CREATE TABLE IF NOT EXISTS roles (
       guid INTEGER PRIMARY KEY,
-      name TEXT NOT NULL
+      name TEXT NOT NULL,
+      is_admin INTEGER NOT NULL DEFAULT 0
     )
   `);
 
@@ -130,6 +131,66 @@ function createTables() {
       SET modified = ?
       WHERE modified IS NULL
     `).run(now);
+  }
+
+  // Add is_admin column to roles table if it doesn't exist (for existing databases)
+  const rolesTableInfo = db.prepare("PRAGMA table_info(roles)").all();
+  const hasIsAdminColumn = rolesTableInfo.some(col => col.name === 'is_admin');
+  if (!hasIsAdminColumn) {
+    db.exec(`
+      ALTER TABLE roles 
+      ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0
+    `);
+    // Set is_admin = 1 for Administrator role
+    db.prepare(`
+      UPDATE roles
+      SET is_admin = 1
+      WHERE LOWER(name) = 'administrator'
+    `).run();
+  }
+
+  // Add ViewDisplay permission and assign it to all roles except user role
+  try {
+    const dbOps = require('./dbOperations');
+    
+    // Check if ViewDisplay permission exists
+    const viewDisplayPerm = dbOps.getPermissionByName('ViewDisplay');
+    if (!viewDisplayPerm) {
+      // Create ViewDisplay permission
+      const newPerm = dbOps.createPermission({
+        name: 'ViewDisplay',
+        description: 'Permission to view and access the display component'
+      });
+      
+      // Get all roles
+      const allRoles = dbOps.getAllRoles();
+      
+      // Find user role (case-insensitive)
+      const userRole = allRoles.find(role => role.name.toLowerCase() === 'user');
+      
+      // Add ViewDisplay permission to all roles except user role
+      for (const role of allRoles) {
+        // Skip user role
+        if (userRole && role.guid === userRole.guid) {
+          continue;
+        }
+        
+        // Get current permissions for this role
+        const currentPermissions = dbOps.getRolePermissions(role.guid);
+        
+        // Check if ViewDisplay permission is already assigned
+        if (!currentPermissions.includes(newPerm.guid)) {
+          // Add ViewDisplay permission to this role
+          const updatedPermissions = [...currentPermissions, newPerm.guid];
+          dbOps.updateRolePermissions(role.guid, updatedPermissions);
+        }
+      }
+      
+      console.log('ViewDisplay permission created and assigned to all roles except user role');
+    }
+  } catch (error) {
+    console.warn('Error adding ViewDisplay permission during initialization:', error.message);
+    // Don't fail initialization if permission setup fails
   }
 
   // Create indexes for better query performance

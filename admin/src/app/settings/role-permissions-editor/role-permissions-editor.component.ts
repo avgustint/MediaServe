@@ -142,10 +142,10 @@ export class RolePermissionsEditorComponent implements OnInit {
   }
 
   isAdministratorRole(role: Role | null): boolean {
-    if (!role || !role.name) {
+    if (!role) {
       return false;
     }
-    return role.name.toLowerCase() === 'administrator';
+    return role.is_admin === 1;
   }
 
   isRoleReadOnly(): boolean {

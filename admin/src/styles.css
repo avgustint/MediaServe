@@ -55,6 +55,116 @@ button {
   -moz-user-select: none;
 }
 
+/* Unified Save and Cancel Button Styles */
+.btn-save,
+.save-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(40, 167, 69, 0.3);
+  min-height: 44px;
+}
+
+.btn-save i,
+.save-button i {
+  font-size: 14px;
+}
+
+.btn-save:hover:not(:disabled),
+.save-button:hover:not(:disabled) {
+  background: linear-gradient(135deg, #218838 0%, #1ea085 100%);
+  box-shadow: 0 4px 8px rgba(40, 167, 69, 0.4);
+  transform: translateY(-1px);
+}
+
+.btn-save:active:not(:disabled),
+.save-button:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(40, 167, 69, 0.3);
+}
+
+.btn-save:disabled,
+.save-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-cancel,
+.cancel-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(108, 117, 125, 0.3);
+  min-height: 44px;
+}
+
+.btn-cancel i,
+.cancel-button i {
+  font-size: 14px;
+}
+
+.btn-cancel:hover:not(:disabled),
+.cancel-button:hover:not(:disabled) {
+  background: linear-gradient(135deg, #5a6268 0%, #495057 100%);
+  box-shadow: 0 4px 8px rgba(108, 117, 125, 0.4);
+  transform: translateY(-1px);
+}
+
+.btn-cancel:active:not(:disabled),
+.cancel-button:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(108, 117, 125, 0.3);
+}
+
+.btn-cancel:disabled,
+.cancel-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Form actions container */
+.form-actions {
+  display: flex;
+  gap: 15px;
+  margin-top: 30px;
+  justify-content: flex-end;
+}
+
+@media (max-width: 768px) {
+  .form-actions {
+    flex-direction: column;
+  }
+
+  .form-actions .btn-save,
+  .form-actions .btn-cancel,
+  .form-actions .save-button,
+  .form-actions .cancel-button {
+    width: 100%;
+  }
+}
+
 /* Media query breakpoints */
 @media (max-width: 768px) {
   * {

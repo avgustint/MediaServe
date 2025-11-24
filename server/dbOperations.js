@@ -471,16 +471,28 @@ const dbOps = {
   updateUser(guid, user) {
     const db = getDatabase();
     
+    // Get existing user data to preserve fields that aren't being updated
+    const existingUser = this.getUserById(guid);
+    if (!existingUser) {
+      throw new Error('User not found');
+    }
+    
     // Email is already base64 encoded from frontend, use as-is
-    let email = null;
+    let email = existingUser.email;
     if (user.email !== undefined) {
       email = user.email;
-    } else {
-      // Get existing email if not provided
-      const existingUser = this.getUserById(guid);
-      if (existingUser) {
-        email = existingUser.email;
-      }
+    }
+    
+    // Preserve existing name if not provided
+    let name = existingUser.name;
+    if (user.name !== undefined) {
+      name = user.name;
+    }
+    
+    // Preserve existing username if not provided
+    let username = existingUser.username;
+    if (user.username !== undefined) {
+      username = user.username;
     }
 
     // Password is already MD5 hashed from frontend, use as-is
@@ -489,12 +501,12 @@ const dbOps = {
       SET name = ?, email = ?, username = ?, password = COALESCE(?, password), role = ?, locale = ?
       WHERE guid = ?
     `).run(
-      user.name !== undefined ? user.name : null,
+      name,
       email,
-      user.username !== undefined ? user.username : null,
+      username,
       user.password || null,
-      user.role !== undefined ? user.role : null,
-      user.locale !== undefined ? user.locale : null,
+      user.role !== undefined ? user.role : existingUser.role,
+      user.locale !== undefined ? user.locale : existingUser.locale,
       guid
     );
 
@@ -518,10 +530,116 @@ const dbOps = {
     return db.prepare('SELECT * FROM roles ORDER BY guid').all();
   },
 
+  createRole(role) {
+    const db = getDatabase();
+    const maxGuid = db.prepare('SELECT MAX(guid) as maxGuid FROM roles').get()?.maxGuid || 0;
+    const newGuid = maxGuid + 1;
+
+    db.prepare(`
+      INSERT INTO roles (guid, name, is_admin)
+      VALUES (?, ?, ?)
+    `).run(
+      newGuid,
+      role.name || '',
+      role.is_admin || 0
+    );
+
+    return this.getRole(newGuid);
+  },
+
+  updateRole(guid, role) {
+    const db = getDatabase();
+    const existingRole = this.getRole(guid);
+    if (!existingRole) {
+      return null;
+    }
+
+    // For admin roles, only allow name to be changed
+    if (existingRole.is_admin === 1) {
+      db.prepare(`
+        UPDATE roles
+        SET name = ?
+        WHERE guid = ?
+      `).run(role.name || existingRole.name, guid);
+    } else {
+      // For non-admin roles, allow name and is_admin to be changed
+      db.prepare(`
+        UPDATE roles
+        SET name = ?, is_admin = ?
+        WHERE guid = ?
+      `).run(
+        role.name !== undefined ? role.name : existingRole.name,
+        role.is_admin !== undefined ? role.is_admin : existingRole.is_admin,
+        guid
+      );
+    }
+
+    return this.getRole(guid);
+  },
+
+  checkRoleUsage(guid) {
+    const db = getDatabase();
+    const usersWithRole = db.prepare('SELECT COUNT(*) as count FROM users WHERE role = ?').get(guid);
+    return usersWithRole.count > 0;
+  },
+
+  deleteRole(guid) {
+    const db = getDatabase();
+    const role = this.getRole(guid);
+    if (!role) {
+      return false;
+    }
+
+    // Prevent deleting admin roles
+    if (role.is_admin === 1) {
+      throw new Error('Cannot delete administrator role');
+    }
+
+    // Check if role is used by any users
+    if (this.checkRoleUsage(guid)) {
+      throw new Error('Role is used by one or more users');
+    }
+
+    // Delete role permissions first
+    db.prepare('DELETE FROM role_permissions WHERE role_guid = ?').run(guid);
+
+    // Delete the role
+    const result = db.prepare('DELETE FROM roles WHERE guid = ?').run(guid);
+    return result.changes > 0;
+  },
+
   // Permission operations
   getPermission(guid) {
     const db = getDatabase();
     return db.prepare('SELECT * FROM permissions WHERE guid = ?').get(guid);
+  },
+
+  getPermissionByName(name) {
+    const db = getDatabase();
+    return db.prepare('SELECT * FROM permissions WHERE name = ?').get(name);
+  },
+
+  createPermission(permission) {
+    const db = getDatabase();
+    // Check if permission already exists
+    const existing = this.getPermissionByName(permission.name);
+    if (existing) {
+      return existing;
+    }
+
+    const maxGuid = db.prepare('SELECT MAX(guid) as maxGuid FROM permissions').get()?.maxGuid || 0;
+    const newGuid = maxGuid + 1;
+
+    db.prepare(`
+      INSERT INTO permissions (guid, name, description)
+      VALUES (?, ?, ?)
+    `).run(
+      newGuid,
+      permission.name || '',
+      permission.description || null
+    );
+
+    return this.getPermission(newGuid);
   },
 
   getAllPermissions() {

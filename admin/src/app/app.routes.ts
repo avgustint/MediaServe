@@ -4,8 +4,10 @@ import { PlaylistComponent } from "./playlist/playlist/playlist.component";
 import { EditorComponent } from "./editor/editor.component";
 import { SettingsComponent } from "./settings/settings.component";
 import { DisplayComponent } from "./display/display.component";
+import { UserProfileComponent } from "./user-profile/user-profile.component";
 import { RedirectComponent } from "./redirect/redirect.component";
 import { authGuard } from "./auth.guard";
+import { permissionGuard } from "./permission.guard";
 
 export const routes: Routes = [
   {
@@ -30,6 +32,11 @@ export const routes: Routes = [
   {
     path: "display",
     component: DisplayComponent,
+    canActivate: [authGuard, permissionGuard('ViewDisplay')]
+  },
+  {
+    path: "user",
+    component: UserProfileComponent,
     canActivate: [authGuard]
   },
   {

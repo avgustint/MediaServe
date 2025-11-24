@@ -121,21 +121,7 @@ h3 {
   font-weight: 500;
 }
 
-.save-button {
-  padding: 0.5rem 1rem;
-  background-color: #28a745;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.9rem;
-  font-weight: 500;
-  transition: background-color 0.2s;
-
-  &:hover {
-    background-color: #218838;
-  }
-}
+/* Save button styles are now in global styles.css */
 
 .permissions-list {
   flex: 1;
@@ -248,10 +234,7 @@ h3 {
     height: 20px;
   }
 
-  .save-button {
-    width: 100%;
-    min-height: 44px;
-  }
+  /* Button styles are now in global styles.css */
 }
 
 @media (max-width: 480px) {

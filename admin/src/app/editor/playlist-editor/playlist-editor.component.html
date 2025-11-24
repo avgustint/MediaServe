@@ -195,8 +195,14 @@
       </div>
 
       <div class="form-actions">
-        <button class="save-button" (click)="savePlaylist()">{{ 'save' | translate }}</button>
-        <button class="cancel-button" (click)="cancelEdit()">{{ 'cancel' | translate }}</button>
+        <button class="btn-save" (click)="savePlaylist()">
+          <i class="fas fa-check"></i>
+          <span>{{ 'save' | translate }}</span>
+        </button>
+        <button class="btn-cancel" (click)="cancelEdit()">
+          <i class="fas fa-times"></i>
+          <span>{{ 'cancel' | translate }}</span>
+        </button>
         <button 
           *ngIf="!isNewPlaylist && editingPlaylist && hasDeletePermission()" 
           class="delete-button" 

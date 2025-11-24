@@ -136,11 +136,20 @@
         </div>
 
         <div class="form-actions" *ngIf="hasEditUsersPermission">
-          <button class="save-button" (click)="saveUser()">{{ 'save' | translate }}</button>
-          <button class="cancel-button" (click)="cancelEdit()">{{ 'cancel' | translate }}</button>
+          <button class="btn-save" (click)="saveUser()">
+            <i class="fas fa-check"></i>
+            <span>{{ 'save' | translate }}</span>
+          </button>
+          <button class="btn-cancel" (click)="cancelEdit()">
+            <i class="fas fa-times"></i>
+            <span>{{ 'cancel' | translate }}</span>
+          </button>
         </div>
         <div class="form-actions" *ngIf="!hasEditUsersPermission">
-          <button class="cancel-button" (click)="cancelEdit()">{{ 'close' | translate }}</button>
+          <button class="btn-cancel" (click)="cancelEdit()">
+            <i class="fas fa-times"></i>
+            <span>{{ 'close' | translate }}</span>
+          </button>
         </div>
       </div>
     </div>

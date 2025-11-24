@@ -15,13 +15,22 @@
         [class.active]="activeTab === 'roles'"
         (click)="switchTab('roles')"
       >
+        {{ 'roles' | translate }}
+      </button>
+      <button
+        *ngIf="hasViewRolesPermission()"
+        class="tab-button"
+        [class.active]="activeTab === 'permissions'"
+        (click)="switchTab('permissions')"
+      >
         {{ 'rolesPermissions' | translate }}
       </button>
     </div>
   </div>
   <div class="settings-content">
     <app-user-editor *ngIf="activeTab === 'users' && hasViewUsersPermission()"></app-user-editor>
-    <app-role-permissions-editor *ngIf="activeTab === 'roles' && hasViewRolesPermission()"></app-role-permissions-editor>
+    <app-role-editor *ngIf="activeTab === 'roles' && hasViewRolesPermission()"></app-role-editor>
+    <app-role-permissions-editor *ngIf="activeTab === 'permissions' && hasViewRolesPermission()"></app-role-permissions-editor>
   </div>
 </div>
 

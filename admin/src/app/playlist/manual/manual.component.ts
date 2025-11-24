@@ -108,6 +108,14 @@ export class ManualComponent implements OnInit, OnDestroy {
         page: page
       };
       this.websocketService.send(JSON.stringify(changeMessage));
+      
+      // Send selection sync message
+      const selectMessage = {
+        type: "SelectLibraryItem",
+        guid: this.libraryItem.guid,
+        page: page
+      };
+      this.websocketService.send(JSON.stringify(selectMessage));
       console.log("Sent Change message for GUID:", this.libraryItem.guid, " and page:", page);
     }
   }
@@ -167,6 +175,14 @@ export class ManualComponent implements OnInit, OnDestroy {
                   page: 1
                 };
                 this.websocketService.send(JSON.stringify(changeMessage));
+                
+                // Send selection sync message
+                const selectMessage = {
+                  type: "SelectLibraryItem",
+                  guid: item.guid,
+                  page: 1
+                };
+                this.websocketService.send(JSON.stringify(selectMessage));
                 console.log("Sent Change message for GUID:", item.guid, " and page: 1");
         } else {
           this.libraryItem = null;

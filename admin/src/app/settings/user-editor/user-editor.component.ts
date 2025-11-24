@@ -184,7 +184,7 @@ export class UserEditorComponent implements OnInit {
       const currentIsAdmin = this.isAdministrator(currentUser);
       const targetIsAdmin = this.isUserAdministrator(this.editingUser);
       const newRole = this.roles.find(r => r.guid === this.userRole);
-      const wouldBeAdmin = newRole && newRole.name && newRole.name.toLowerCase() === 'administrator';
+      const wouldBeAdmin = newRole ? newRole.is_admin === 1 : false;
 
       // Check if trying to set/remove administrator role
       if ((targetIsAdmin || wouldBeAdmin) && !currentIsAdmin) {
@@ -292,10 +292,19 @@ export class UserEditorComponent implements OnInit {
   }
 
   isAdministrator(user: any): boolean {
-    if (!user || !user.role || !user.role.name) {
+    if (!user || !user.role) {
       return false;
     }
-    return user.role.name.toLowerCase() === 'administrator';
+    // Check if user.role is an object with is_admin field
+    if (typeof user.role === 'object' && user.role.is_admin !== undefined) {
+      return user.role.is_admin === 1;
+    }
+    // Fallback: find role by guid if role is just a number
+    if (typeof user.role === 'number') {
+      const role = this.roles.find(r => r.guid === user.role);
+      return role ? role.is_admin === 1 : false;
+    }
+    return false;
   }
 
   isUserAdministrator(user: User): boolean {
@@ -303,10 +312,10 @@ export class UserEditorComponent implements OnInit {
       return false;
     }
     const role = this.roles.find(r => r.guid === user.role);
-    if (!role || !role.name) {
+    if (!role) {
       return false;
     }
-    return role.name.toLowerCase() === 'administrator';
+    return role.is_admin === 1;
   }
 
   canModifyUser(user: User): boolean {

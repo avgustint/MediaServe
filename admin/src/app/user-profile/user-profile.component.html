@@ -1,0 +1,181 @@
+<div class="user-profile-container">
+  <div class="profile-header">
+    <h1>{{ 'userProfile' | translate }}</h1>
+  </div>
+
+  <div class="profile-content" *ngIf="user">
+    <!-- User Information Display -->
+    <div class="info-section" *ngIf="!isEditing && !showPasswordChange">
+      <div class="info-item">
+        <label>{{ 'name' | translate }}:</label>
+        <span>{{ user.name }}</span>
+      </div>
+      <div class="info-item">
+        <label>{{ 'email' | translate }}:</label>
+        <span>{{ user.email }}</span>
+      </div>
+      <div class="info-item">
+        <label>{{ 'username' | translate }}:</label>
+        <span>{{ user.username }}</span>
+      </div>
+      <div class="info-item">
+        <label>{{ 'role' | translate }}:</label>
+        <span>{{ getRoleName() }}</span>
+      </div>
+      <div class="info-item">
+        <label>{{ 'locale' | translate }}:</label>
+        <span>{{ user.locale || ('noLocale' | translate) }}</span>
+      </div>
+
+      <div class="action-buttons">
+        <button class="btn-primary" (click)="startEdit()">
+          <i class="fas fa-edit"></i> {{ 'editProfile' | translate }}
+        </button>
+        <button class="btn-secondary" (click)="togglePasswordChange()">
+          <i class="fas fa-key"></i> {{ 'changePassword' | translate }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Edit Profile Form -->
+    <div class="edit-section" *ngIf="isEditing">
+      <h2>{{ 'editProfile' | translate }}</h2>
+      <form (ngSubmit)="saveProfile()">
+        <div class="form-group">
+          <label for="editName">{{ 'name' | translate }}:</label>
+          <input
+            type="text"
+            id="editName"
+            [(ngModel)]="editName"
+            name="editName"
+            required
+            [placeholder]="'enterUserName' | translate"
+          />
+        </div>
+        <div class="form-group">
+          <label for="editEmail">{{ 'email' | translate }}:</label>
+          <input
+            type="email"
+            id="editEmail"
+            [(ngModel)]="editEmail"
+            name="editEmail"
+            required
+            [placeholder]="'enterUserEmail' | translate"
+          />
+        </div>
+        <div class="form-group">
+          <label>{{ 'username' | translate }}:</label>
+          <input
+            type="text"
+            [value]="user.username"
+            disabled
+            class="disabled-input"
+          />
+          <small class="help-text">{{ 'usernameCannotBeChanged' | translate }}</small>
+        </div>
+        <div class="form-group">
+          <label for="editLocale">{{ 'locale' | translate }}:</label>
+          <select
+            id="editLocale"
+            [(ngModel)]="editLocale"
+            name="editLocale"
+            class="form-select"
+          >
+            <option [ngValue]="null">{{ 'noLocale' | translate }}</option>
+            <option value="sl-SI">{{ 'slovenian' | translate }}</option>
+            <option value="en-GB">{{ 'ukEnglish' | translate }}</option>
+            <option value="it-IT">{{ 'italian' | translate }}</option>
+          </select>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn-save">
+            <i class="fas fa-check"></i>
+            <span>{{ 'save' | translate }}</span>
+          </button>
+          <button type="button" class="btn-cancel" (click)="cancelEdit()">
+            <i class="fas fa-times"></i>
+            <span>{{ 'cancel' | translate }}</span>
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Change Password Form -->
+    <div class="password-section" *ngIf="showPasswordChange">
+      <h2>{{ 'changePassword' | translate }}</h2>
+      <form (ngSubmit)="changePassword()">
+        <div class="form-group">
+          <label for="currentPassword">{{ 'currentPassword' | translate }}:</label>
+          <input
+            type="password"
+            id="currentPassword"
+            [(ngModel)]="currentPassword"
+            name="currentPassword"
+            required
+            [placeholder]="'enterCurrentPassword' | translate"
+          />
+        </div>
+        <div class="form-group">
+          <label for="newPassword">{{ 'newPassword' | translate }}:</label>
+          <input
+            type="password"
+            id="newPassword"
+            [(ngModel)]="newPassword"
+            name="newPassword"
+            required
+            [placeholder]="'enterNewPassword' | translate"
+          />
+        </div>
+        <div class="form-group">
+          <label for="confirmPassword">{{ 'confirmPassword' | translate }}:</label>
+          <input
+            type="password"
+            id="confirmPassword"
+            [(ngModel)]="confirmPassword"
+            name="confirmPassword"
+            required
+            [placeholder]="'enterConfirmPassword' | translate"
+          />
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn-save">
+            <i class="fas fa-check"></i>
+            <span>{{ 'changePassword' | translate }}</span>
+          </button>
+          <button type="button" class="btn-cancel" (click)="togglePasswordChange()">
+            <i class="fas fa-times"></i>
+            <span>{{ 'cancel' | translate }}</span>
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Logout Button -->
+    <div class="logout-section">
+      <button class="btn-logout" (click)="logout()">
+        <i class="fas fa-sign-out-alt"></i> {{ 'logout' | translate }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Error Popup -->
+<app-error-popup
+  [message]="errorMessage"
+  [show]="showError"
+  (close)="closeErrorPopup()"
+></app-error-popup>
+
+<!-- Logout Confirmation Dialog -->
+<app-confirm-dialog
+  [title]="'confirmLogout' | translate"
+  [message]="'logoutConfirmMessage' | translate"
+  [show]="showLogoutConfirmDialog"
+  [confirmText]="'logout' | translate"
+  [cancelText]="'cancel' | translate"
+  confirmColor="danger"
+  (confirm)="onConfirmLogout()"
+  (cancel)="closeLogoutConfirmDialog()"
+  (close)="closeLogoutConfirmDialog()"
+></app-confirm-dialog>
+

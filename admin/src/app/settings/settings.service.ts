@@ -15,6 +15,7 @@ export interface User {
 export interface Role {
   guid: number;
   name: string;
+  is_admin: number; // 0 or 1, SQLite boolean representation
 }
 
 export interface Permission {
@@ -64,6 +65,24 @@ export class SettingsService {
   // Role operations
   getAllRoles(): Observable<Role[]> {
     return this.http.get<Role[]>(`${this.API_URL}/roles`);
+  }
+
+  createRole(role: Partial<Role>): Observable<Role> {
+    const headers = new HttpHeaders({ "Content-Type": "application/json" });
+    return this.http.post<Role>(`${this.API_URL}/roles`, role, { headers });
+  }
+
+  updateRole(guid: number, role: Partial<Role>): Observable<Role> {
+    const headers = new HttpHeaders({ "Content-Type": "application/json" });
+    return this.http.put<Role>(`${this.API_URL}/roles/${guid}`, role, { headers });
+  }
+
+  deleteRole(guid: number): Observable<{ success: boolean; message: string }> {
+    return this.http.delete<{ success: boolean; message: string }>(`${this.API_URL}/roles/${guid}`);
+  }
+
+  checkRoleUsage(guid: number): Observable<{ isUsed: boolean; isAdmin: boolean; canDelete: boolean }> {
+    return this.http.get<{ isUsed: boolean; isAdmin: boolean; canDelete: boolean }>(`${this.API_URL}/roles/${guid}/usage`);
   }
 
   // Permission operations

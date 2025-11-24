@@ -1,0 +1,100 @@
+<div class="role-editor-container">
+  <div class="search-section">
+    <div class="search-input-wrapper">
+      <input
+        type="text"
+        class="search-input"
+        [(ngModel)]="searchTerm"
+        (input)="onSearchChange()"
+        [placeholder]="'searchRolesPlaceholder' | translate"
+      />
+      <button *ngIf="searchTerm" class="clear-search-btn" (click)="clearSearch()" [title]="'clearSearch' | translate">
+        ×
+      </button>
+    </div>
+  </div>
+
+  <div class="actions-section">
+    <button class="add-button" (click)="addNewRole()" *ngIf="!editingRole && !isNewRole && hasEditRolesPermission">
+      {{ 'addNewRole' | translate }}
+    </button>
+  </div>
+
+  <div class="content-wrapper">
+    <div class="roles-list-section" *ngIf="!editingRole && !isNewRole">
+      <div class="roles-list">
+        <div
+          *ngFor="let role of filteredRoles"
+          class="role-item"
+          [class.clickable]="hasEditRolesPermission"
+          (click)="hasEditRolesPermission && editRole(role)"
+        >
+          <div class="role-info">
+            <div class="role-name-row">
+              <div class="role-name">{{ role.name }}</div>
+              <span *ngIf="isAdminRole(role)" class="admin-badge">{{ 'adminRole' | translate }}</span>
+            </div>
+          </div>
+          <button
+            *ngIf="canDeleteRole(role)"
+            class="delete-button"
+            (click)="deleteRole(role); $event.stopPropagation()"
+            [title]="'deleteRole' | translate"
+          >
+            <i class="fas fa-trash"></i>
+          </button>
+        </div>
+      </div>
+      <div *ngIf="filteredRoles.length === 0" class="no-items">
+        {{ 'noRolesFound' | translate }}
+      </div>
+    </div>
+
+    <div class="role-form-section" *ngIf="editingRole || isNewRole">
+      <div class="form-header">
+        <h3>{{ (isNewRole ? 'addNewRole' : 'editRole') | translate }}</h3>
+      </div>
+      <div class="form-content">
+        <div class="form-group">
+          <label>{{ 'name' | translate }} *</label>
+          <input
+            type="text"
+            class="form-input"
+            [(ngModel)]="roleName"
+            [disabled]="isRoleNameDisabled()"
+            [placeholder]="'enterRoleName' | translate"
+          />
+        </div>
+
+        <div class="form-group" *ngIf="editingRole && isAdminRole(editingRole)">
+          <div class="info-message">
+            {{ 'adminRoleNameOnlyEditable' | translate }}
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button class="btn-save" (click)="saveRole()" [disabled]="!roleName || roleName.trim().length === 0">
+            <i class="fas fa-check"></i>
+            <span>{{ 'save' | translate }}</span>
+          </button>
+          <button class="btn-cancel" (click)="cancelEdit()">
+            <i class="fas fa-times"></i>
+            <span>{{ 'cancel' | translate }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <app-error-popup *ngIf="showError" [message]="errorMessage" (close)="closeErrorPopup()"></app-error-popup>
+
+  <app-confirm-dialog
+    *ngIf="showConfirmDialog"
+    [title]="confirmDialogTitle"
+    [message]="confirmDialogMessage"
+    (confirm)="onConfirmDelete()"
+    (cancel)="closeConfirmDialog()"
+    (close)="closeConfirmDialog()"
+  ></app-confirm-dialog>
+</div>
+

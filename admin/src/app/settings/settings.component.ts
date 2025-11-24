@@ -1,6 +1,7 @@
 import { Component, OnInit } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { UserEditorComponent } from "./user-editor/user-editor.component";
+import { RoleEditorComponent } from "./role-editor/role-editor.component";
 import { RolePermissionsEditorComponent } from "./role-permissions-editor/role-permissions-editor.component";
 import { TranslatePipe } from "../translation.pipe";
 import { UserService } from "../user.service";
@@ -8,12 +9,12 @@ import { UserService } from "../user.service";
 @Component({
   selector: "app-settings",
   standalone: true,
-  imports: [CommonModule, UserEditorComponent, RolePermissionsEditorComponent, TranslatePipe],
+  imports: [CommonModule, UserEditorComponent, RoleEditorComponent, RolePermissionsEditorComponent, TranslatePipe],
   templateUrl: "./settings.component.html",
   styleUrls: ["./settings.component.scss"]
 })
 export class SettingsComponent implements OnInit {
-  activeTab: "users" | "roles" | null = null;
+  activeTab: "users" | "roles" | "permissions" | null = null;
 
   constructor(private userService: UserService) {}
 
@@ -34,7 +35,7 @@ export class SettingsComponent implements OnInit {
     return this.userService.hasPermission("ViewRoles");
   }
 
-  switchTab(tab: "users" | "roles"): void {
+  switchTab(tab: "users" | "roles" | "permissions"): void {
     this.activeTab = tab;
   }
 }

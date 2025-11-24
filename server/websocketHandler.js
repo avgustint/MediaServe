@@ -13,11 +13,54 @@ function setupWebSocket(server, library) {
 
   // Store all connected clients
   const clients = new Set();
+  
+  // Store current selection state
+  let currentPlaylistGuid = null;
+  let currentLibraryItemGuid = null;
+  let currentLibraryItemPage = null;
+  
+  // Store current content being displayed
+  let currentContent = null;
 
   // Handle new client connections
   wss.on('connection', (ws) => {
     console.log('New client connected');
     clients.add(ws);
+    
+    // Send current selection state to newly connected client
+    if (currentPlaylistGuid !== null) {
+      const playlistMessage = JSON.stringify({
+        type: 'SelectPlaylist',
+        guid: currentPlaylistGuid
+      });
+      try {
+        ws.send(playlistMessage);
+      } catch (error) {
+        console.error('Error sending playlist selection to new client:', error);
+      }
+    }
+    
+    if (currentLibraryItemGuid !== null) {
+      const itemMessage = JSON.stringify({
+        type: 'SelectLibraryItem',
+        guid: currentLibraryItemGuid,
+        page: currentLibraryItemPage || undefined
+      });
+      try {
+        ws.send(itemMessage);
+      } catch (error) {
+        console.error('Error sending library item selection to new client:', error);
+      }
+      
+      // Also send the Change message with current content
+      if (currentContent) {
+        try {
+          ws.send(JSON.stringify(currentContent));
+        } catch (error) {
+          console.error('Error sending current content to new client:', error);
+        }
+      }
+    }
 
     // Handle client disconnection
     ws.on('close', () => {
@@ -57,11 +100,14 @@ function setupWebSocket(server, library) {
               }
             }
 
-            // Broadcast the matching item to all connected clients
-            const messageJson = JSON.stringify({
+            // Store current content
+            currentContent = {
               type: matchingItem.type,
               content: matchingItemContent
-            });
+            };
+            
+            // Broadcast the matching item to all connected clients
+            const messageJson = JSON.stringify(currentContent);
             let sentCount = 0;
             
             clients.forEach((client) => {
@@ -87,6 +133,11 @@ function setupWebSocket(server, library) {
         // Check if it's a "Clear" message
         if (message.type === 'Clear') {
           console.log('Received Clear message');
+          
+          // Clear current content and selection
+          currentContent = null;
+          currentLibraryItemGuid = null;
+          currentLibraryItemPage = null;
           
           // Broadcast a message with no content to all connected clients
           const clearMessage = {};
@@ -114,6 +165,66 @@ function setupWebSocket(server, library) {
         if (message.type === 'Action' && message.actionType) {
           console.log('Received Action message with type:', message.actionType);
           handleCecAction(message.actionType);
+        }
+        
+        // Check if it's a "SelectPlaylist" message
+        if (message.type === 'SelectPlaylist' && message.guid !== undefined) {
+          console.log('Received SelectPlaylist message with guid:', message.guid);
+          currentPlaylistGuid = message.guid;
+          
+          // Broadcast to all other clients
+          const playlistMessage = JSON.stringify({
+            type: 'SelectPlaylist',
+            guid: message.guid
+          });
+          let sentCount = 0;
+          
+          clients.forEach((client) => {
+            if (client !== ws && client.readyState === WebSocket.OPEN) {
+              try {
+                client.send(playlistMessage);
+                sentCount++;
+              } catch (error) {
+                console.error('Error sending playlist selection to client:', error);
+                clients.delete(client);
+              }
+            }
+          });
+          
+          if (sentCount > 0) {
+            console.log(`Broadcasted SelectPlaylist message to ${sentCount} client(s)`);
+          }
+        }
+        
+        // Check if it's a "SelectLibraryItem" message
+        if (message.type === 'SelectLibraryItem' && message.guid !== undefined) {
+          console.log('Received SelectLibraryItem message with guid:', message.guid, 'and page:', message.page);
+          currentLibraryItemGuid = message.guid;
+          currentLibraryItemPage = message.page || null;
+          
+          // Broadcast to all other clients
+          const itemMessage = JSON.stringify({
+            type: 'SelectLibraryItem',
+            guid: message.guid,
+            page: message.page || undefined
+          });
+          let sentCount = 0;
+          
+          clients.forEach((client) => {
+            if (client !== ws && client.readyState === WebSocket.OPEN) {
+              try {
+                client.send(itemMessage);
+                sentCount++;
+              } catch (error) {
+                console.error('Error sending library item selection to client:', error);
+                clients.delete(client);
+              }
+            }
+          });
+          
+          if (sentCount > 0) {
+            console.log(`Broadcasted SelectLibraryItem message to ${sentCount} client(s)`);
+          }
         }
       } catch (error) {
         console.error('Error parsing incoming message:', error);

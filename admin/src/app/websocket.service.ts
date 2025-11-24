@@ -2,8 +2,10 @@ import { Injectable } from '@angular/core';
 import { Observable, Subject, BehaviorSubject } from 'rxjs';
 
 export interface WebSocketMessage {
-  type: 'text' | 'image' | 'url';
+  type: 'text' | 'image' | 'url' | 'SelectPlaylist' | 'SelectLibraryItem';
   content: string;
+  guid?: number;
+  page?: number;
 }
 
 export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected';

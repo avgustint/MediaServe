@@ -59,7 +59,8 @@ function getUserWithPermissions(user) {
     username: user.username,
     role: userRole ? {
       guid: userRole.guid,
-      name: userRole.name
+      name: userRole.name,
+      is_admin: userRole.is_admin || 0
     } : null,
     guid: user.guid,
     permissions: permissionNames,
@@ -75,7 +76,7 @@ function isAdministrator(user) {
     return false;
   }
   const role = dbOps.getRole(user.role);
-  return role && role.name && role.name.toLowerCase() === 'administrator';
+  return role && role.is_admin === 1;
 }
 
 /**
@@ -866,7 +867,7 @@ function setupHttpEndpoints(data) {
           const currentIsAdmin = isAdministrator(currentUser);
           const newRole = userData.role !== undefined ? userData.role : targetUser.role;
           const newRoleObj = newRole ? dbOps.getRole(newRole) : null;
-          const wouldBeAdmin = newRoleObj && newRoleObj.name && newRoleObj.name.toLowerCase() === 'administrator';
+          const wouldBeAdmin = newRoleObj && newRoleObj.is_admin === 1;
 
           // Only administrators can set/remove administrator role
           if ((targetIsAdmin || wouldBeAdmin) && !currentIsAdmin) {
@@ -875,8 +876,32 @@ function setupHttpEndpoints(data) {
             return;
           }
 
+          // Verify current password if password is being changed
+          if (userData.password && userData.currentPassword) {
+            // User is changing their own password - verify current password
+            if (targetUser.guid === currentUser.guid) {
+              if (targetUser.password !== userData.currentPassword) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: false, message: 'Current password is incorrect' }));
+                return;
+              }
+            } else {
+              // Admin is changing another user's password - no current password verification needed
+              // Remove currentPassword from userData as it's not needed
+              delete userData.currentPassword;
+            }
+          } else if (userData.password && targetUser.guid === currentUser.guid) {
+            // Password is being changed but no current password provided
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, message: 'Current password is required to change password' }));
+            return;
+          }
+
+          // Remove currentPassword from userData before passing to updateUser
+          const { currentPassword, ...updateData } = userData;
+
           // Email and password are already encoded from frontend (base64 and MD5)
-          const updatedUser = dbOps.updateUser(guid, userData);
+          const updatedUser = dbOps.updateUser(guid, updateData);
           if (updatedUser) {
             // Decode email from base64 for response
             let decodedEmail = updatedUser.email;
@@ -980,6 +1005,146 @@ function setupHttpEndpoints(data) {
         res.end(JSON.stringify(roles));
       } catch (error) {
         console.error('Get all roles error:', error);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, message: 'Server error' }));
+      }
+      return;
+    }
+    // POST /roles - Create new role
+    else if (req.url === '/roles' && req.method === 'POST') {
+      try {
+        readRequestBody(req).then((roleData) => {
+          if (!roleData.name || roleData.name.trim().length === 0) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, message: 'Role name is required' }));
+            return;
+          }
+
+          const newRole = dbOps.createRole({
+            name: roleData.name.trim(),
+            is_admin: roleData.is_admin || 0
+          });
+
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(newRole));
+        }).catch((error) => {
+          console.error('Create role request error:', error);
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, message: 'Invalid request format' }));
+        });
+      } catch (error) {
+        console.error('Create role error:', error);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, message: 'Server error' }));
+      }
+      return;
+    }
+    // PUT /roles/:guid - Update role
+    else if (req.url && req.url.match(/^\/roles\/\d+$/) && req.method === 'PUT') {
+      try {
+        const urlParts = req.url.split('/');
+        const guid = parseInt(urlParts[2], 10);
+
+        if (isNaN(guid)) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, message: 'Invalid role GUID' }));
+          return;
+        }
+
+        readRequestBody(req).then((roleData) => {
+          const existingRole = dbOps.getRole(guid);
+          if (!existingRole) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, message: 'Role not found' }));
+            return;
+          }
+
+          if (!roleData.name || roleData.name.trim().length === 0) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, message: 'Role name is required' }));
+            return;
+          }
+
+          const updatedRole = dbOps.updateRole(guid, {
+            name: roleData.name.trim(),
+            is_admin: roleData.is_admin !== undefined ? roleData.is_admin : existingRole.is_admin
+          });
+
+          if (updatedRole) {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(updatedRole));
+          } else {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, message: 'Role not found' }));
+          }
+        }).catch((error) => {
+          console.error('Update role request error:', error);
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, message: 'Invalid request format' }));
+        });
+      } catch (error) {
+        console.error('Update role error:', error);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, message: 'Server error' }));
+      }
+      return;
+    }
+    // DELETE /roles/:guid - Delete role
+    else if (req.url && req.url.match(/^\/roles\/\d+$/) && req.method === 'DELETE') {
+      try {
+        const urlParts = req.url.split('/');
+        const guid = parseInt(urlParts[2], 10);
+
+        if (isNaN(guid)) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, message: 'Invalid role GUID' }));
+          return;
+        }
+
+        try {
+          const deleted = dbOps.deleteRole(guid);
+          if (deleted) {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: true, message: 'Role deleted successfully' }));
+          } else {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, message: 'Role not found' }));
+          }
+        } catch (deleteError) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, message: deleteError.message }));
+        }
+      } catch (error) {
+        console.error('Delete role error:', error);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, message: 'Server error' }));
+      }
+      return;
+    }
+    // GET /roles/:guid/usage - Check if role is used by any users
+    else if (req.url && req.url.match(/^\/roles\/\d+\/usage$/) && req.method === 'GET') {
+      try {
+        const urlParts = req.url.split('/');
+        const guid = parseInt(urlParts[2], 10);
+
+        if (isNaN(guid)) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, message: 'Invalid role GUID' }));
+          return;
+        }
+
+        const isUsed = dbOps.checkRoleUsage(guid);
+        const role = dbOps.getRole(guid);
+        const isAdmin = role && role.is_admin === 1;
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ 
+          isUsed,
+          isAdmin,
+          canDelete: !isAdmin && !isUsed
+        }));
+      } catch (error) {
+        console.error('Check role usage error:', error);
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: false, message: 'Server error' }));
       }

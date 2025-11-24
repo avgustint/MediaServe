@@ -109,6 +109,10 @@ export class AppComponent implements OnInit, OnDestroy {
     return this.userService.hasPermission('ViewSettings');
   }
 
+  hasViewDisplayPermission(): boolean {
+    return this.userService.hasPermission('ViewDisplay');
+  }
+
   shouldShowPlaylistButton(): boolean {
     return this.hasViewEditorPermission() || this.hasViewSettingsPermission();
   }
@@ -128,6 +132,11 @@ export class AppComponent implements OnInit, OnDestroy {
 
   navigateToDisplay(): void {
     this.router.navigate(["/display"]);
+    this.mobileMenuOpen = false;
+  }
+
+  navigateToUser(): void {
+    this.router.navigate(["/user"]);
     this.mobileMenuOpen = false;
   }
 

@@ -167,8 +167,14 @@
       </div>
 
       <div class="form-actions">
-        <button class="save-button" (click)="saveItem()">{{ 'save' | translate }}</button>
-        <button class="cancel-button" (click)="cancelEdit()">{{ 'cancel' | translate }}</button>
+        <button class="btn-save" (click)="saveItem()">
+          <i class="fas fa-check"></i>
+          <span>{{ 'save' | translate }}</span>
+        </button>
+        <button class="btn-cancel" (click)="cancelEdit()">
+          <i class="fas fa-times"></i>
+          <span>{{ 'cancel' | translate }}</span>
+        </button>
         <button 
           *ngIf="!isNewItem && editingItem && hasDeletePermission()" 
           class="delete-button" 

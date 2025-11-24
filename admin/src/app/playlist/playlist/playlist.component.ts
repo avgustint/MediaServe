@@ -21,6 +21,7 @@ export class PlaylistComponent implements OnInit, OnDestroy, AfterViewInit {
 
   currentContent: WebSocketMessage | null = null;
   private subscription?: Subscription;
+  private selectionSubscription?: Subscription;
   activeTab: "playlist" | "manual" = "playlist";
   selectedPlaylistGuid?: number;
   
@@ -30,6 +31,9 @@ export class PlaylistComponent implements OnInit, OnDestroy, AfterViewInit {
   currentItemName?: string;
   playlistItems: LibraryItem[] = [];
   currentItemIndex: number = -1;
+  
+  // Flag to prevent sending selection messages when receiving them
+  private isReceivingSelection: boolean = false;
   private resizeHandler = () => {
     if (this.currentContent?.type === "text") {
       this.adjustTextSize();
@@ -58,11 +62,25 @@ export class PlaylistComponent implements OnInit, OnDestroy, AfterViewInit {
 
     // Subscribe to WebSocket messages
     this.subscription = this.websocketService.messages$.subscribe((message: WebSocketMessage) => {
-      this.currentContent = message;
+      // Handle selection sync messages
+      if (message.type === 'SelectPlaylist' && message.guid !== undefined) {
+        this.handlePlaylistSelection(message.guid, true);
+        return;
+      }
+      
+      if (message.type === 'SelectLibraryItem' && message.guid !== undefined) {
+        this.handleLibraryItemSelection(message.guid, message.page, true);
+        return;
+      }
 
-      // Adjust font size for text after view update
-      if (message.type === "text") {
-        setTimeout(() => this.adjustTextSize(), 100);
+      // Handle content messages
+      if (message.type === 'text' || message.type === 'image' || message.type === 'url') {
+        this.currentContent = message;
+
+        // Adjust font size for text after view update
+        if (message.type === "text") {
+          setTimeout(() => this.adjustTextSize(), 100);
+        }
       }
       
       // If message is empty object, it's a clear message
@@ -82,6 +100,7 @@ export class PlaylistComponent implements OnInit, OnDestroy, AfterViewInit {
 
   ngOnDestroy(): void {
     this.subscription?.unsubscribe();
+    this.selectionSubscription?.unsubscribe();
     window.removeEventListener("resize", this.resizeHandler);
   }
 
@@ -105,9 +124,26 @@ export class PlaylistComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   onPlaylistSelected(guid: number): void {
+    this.handlePlaylistSelection(guid, false);
+  }
+  
+  handlePlaylistSelection(guid: number, fromSync: boolean = false): void {
+    this.isReceivingSelection = fromSync;
+    
     this.selectedPlaylistGuid = guid;
     // Save to localStorage to remember selection
     localStorage.setItem("selectedPlaylistGuid", guid.toString());
+    
+    // Send selection sync message if not from sync
+    if (!fromSync) {
+      const selectMessage = {
+        type: 'SelectPlaylist',
+        guid: guid
+      };
+      this.websocketService.send(JSON.stringify(selectMessage));
+    }
+    
+    this.isReceivingSelection = false;
   }
 
   adjustTextSize(): void {
@@ -196,44 +232,76 @@ export class PlaylistComponent implements OnInit, OnDestroy, AfterViewInit {
 
   onPlaylistItemClick(item: LibraryItem): void {
     if (item.guid) {
-      this.currentItemGuid = item.guid;
-      this.currentPage = 1;
-      this.currentItemName = item.name;
-      this.currentItemIndex = this.playlistItems.findIndex(i => i.guid === item.guid);
-      
-      const changeMessage = {
-        type: "Change",
-        guid: item.guid,
-        page: 1
-      };
-      this.websocketService.send(JSON.stringify(changeMessage));
-      console.log("Sent Change message for GUID:", item.guid);
-    } else {
-      console.warn("Playlist item does not have a GUID");
+      this.handleLibraryItemSelection(item.guid, 1, false, item);
     }
+  }
+  
+  handleLibraryItemSelection(guid: number, page: number | undefined, fromSync: boolean = false, item?: LibraryItem): void {
+    if (!guid) {
+      return;
+    }
+    
+    // Find item in playlist or use provided item
+    let selectedItem = item;
+    if (!selectedItem) {
+      selectedItem = this.playlistItems.find(i => i.guid === guid);
+    }
+    
+    // If still not found, load it
+    if (!selectedItem) {
+      this.playlistService.getLibraryItemByGuid(guid).subscribe({
+        next: (loadedItem) => {
+          if (loadedItem) {
+            this.updateItemSelection(guid, page || 1, loadedItem, fromSync);
+          }
+        },
+        error: (error) => {
+          console.error("Error loading library item:", error);
+        }
+      });
+      return;
+    }
+    
+    this.updateItemSelection(guid, page || 1, selectedItem, fromSync);
+  }
+  
+  updateItemSelection(guid: number, page: number, item: LibraryItem, fromSync: boolean): void {
+    this.isReceivingSelection = fromSync;
+    
+    this.currentItemGuid = guid;
+    this.currentPage = page;
+    this.currentItemName = item.name;
+    this.currentItemIndex = this.playlistItems.findIndex(i => i.guid === guid);
+    
+    // Send Change message for content display
+    const changeMessage = {
+      type: "Change",
+      guid: guid,
+      page: page
+    };
+    this.websocketService.send(JSON.stringify(changeMessage));
+    
+    // Send SelectLibraryItem message for sync (if not from sync)
+    if (!fromSync) {
+      const selectMessage = {
+        type: "SelectLibraryItem",
+        guid: guid,
+        page: page
+      };
+      this.websocketService.send(JSON.stringify(selectMessage));
+    }
+    
+    this.isReceivingSelection = false;
   }
 
   onPlaylistItemPageClick(event: { item: LibraryItem; page: number }): void {
     if (event.item.guid) {
-      this.currentItemGuid = event.item.guid;
-      this.currentPage = event.page;
-      this.currentItemName = event.item.name;
-      this.currentItemIndex = this.playlistItems.findIndex(i => i.guid === event.item.guid);
-      
-      const changeMessage = {
-        type: "Change",
-        guid: event.item.guid,
-        page: event.page
-      };
-      this.websocketService.send(JSON.stringify(changeMessage));
-      console.log("Sent Change message for GUID:", event.item.guid, " and page:", event.page);
+      this.handleLibraryItemSelection(event.item.guid, event.page, false, event.item);
     }
   }
   
   onManualItemSelected(item: LibraryItem, page: number = 1): void {
-    this.currentItemGuid = item.guid;
-    this.currentPage = page;
-    this.currentItemName = item.name;
+    this.handleLibraryItemSelection(item.guid, page, false, item);
     this.currentItemIndex = -1; // Not in playlist
     
     // Fetch full library item details to get pages information

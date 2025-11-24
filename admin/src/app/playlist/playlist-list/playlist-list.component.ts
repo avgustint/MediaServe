@@ -66,9 +66,10 @@ export class PlaylistListComponent implements OnInit, OnDestroy, OnChanges {
 
   ngOnChanges(changes: SimpleChanges): void {
     // Reload playlist if selectedPlaylistGuid changes
-    if (changes['selectedPlaylistGuid'] && !changes['selectedPlaylistGuid'].firstChange) {
+    if (changes['selectedPlaylistGuid']) {
       if (this.selectedPlaylistGuid) {
-        this.loadPlaylist(this.selectedPlaylistGuid);
+        // Don't emit selection event when change comes from parent (to avoid loops)
+        this.loadPlaylist(this.selectedPlaylistGuid, false);
       } else {
         this.loadPlaylist();
       }
@@ -112,6 +113,7 @@ export class PlaylistListComponent implements OnInit, OnDestroy, OnChanges {
     this.showSearchResults = false;
     this.searchResults = [];
     this.loadPlaylist(result.guid, true);
+    // Note: Selection sync message is sent by parent component
   }
 
   clearSearch(): void {

@@ -22,7 +22,10 @@
     <div class="permissions-section" *ngIf="selectedRole">
       <div class="permissions-header">
         <h3>{{ 'permissionsFor' | translate }} {{ selectedRole.name }}</h3>
-        <button *ngIf="hasEditRolesPermission && !isRoleReadOnly()" class="save-button" (click)="saveRolePermissions()">{{ 'savePermissions' | translate }}</button>
+        <button *ngIf="hasEditRolesPermission && !isRoleReadOnly()" class="btn-save" (click)="saveRolePermissions()">
+          <i class="fas fa-check"></i>
+          <span>{{ 'savePermissions' | translate }}</span>
+        </button>
         <span *ngIf="!hasEditRolesPermission || isRoleReadOnly()" class="readonly-badge">
           {{ isRoleReadOnly() ? ('administratorRoleCannotBeModified' | translate) : ('readOnly' | translate) }}
         </span>

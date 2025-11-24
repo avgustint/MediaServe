@@ -175,6 +175,38 @@ export interface TranslationKeys {
     deleteUserConfirm: string;
     thisActionCannotBeUndone: string;
     searchUsersPlaceholder: string;
+    searchRolesPlaceholder: string;
+    addNewRole: string;
+    editRole: string;
+    roleSaved: string;
+    errorSavingRole: string;
+    deleteRole: string;
+    deleteRoleConfirm: string;
+    cannotDeleteAdminRole: string;
+    roleUsedByUsers: string;
+    errorDeletingRole: string;
+    enterRoleName: string;
+    isAdminRole: string;
+    adminRoleNameOnlyEditable: string;
+    adminRole: string;
+    noRolesFound: string;
+    
+    // User Profile
+    userProfile: string;
+    editProfile: string;
+    changePassword: string;
+    currentPassword: string;
+    newPassword: string;
+    confirmPassword: string;
+    usernameCannotBeChanged: string;
+    passwordsDoNotMatch: string;
+    passwordTooShort: string;
+    invalidCurrentPassword: string;
+    errorChangingPassword: string;
+    enterCurrentPassword: string;
+    enterNewPassword: string;
+    enterConfirmPassword: string;
+    noLocale: string;
 }
 
 const translations: Record<SupportedLocale, TranslationKeys> = {
@@ -349,7 +381,39 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     searchUsersPlaceholder: 'Search users by name, email, or username...',
     errorLoadingData: 'Error loading data. Please try again.',
     errorSavingRolePermissions: 'Error saving role permissions. Please try again.',
-    cannotModifyPermissionsForAdminRole: 'Cannot modify permissions for the administrator role.'
+    cannotModifyPermissionsForAdminRole: 'Cannot modify permissions for the administrator role.',
+    searchRolesPlaceholder: 'Search roles...',
+    addNewRole: 'Add New Role',
+    editRole: 'Edit Role',
+    roleSaved: 'Role saved successfully',
+    errorSavingRole: 'Error saving role. Please try again.',
+    deleteRole: 'Delete Role',
+    deleteRoleConfirm: 'Are you sure you want to delete role',
+    cannotDeleteAdminRole: 'Cannot delete administrator role.',
+    roleUsedByUsers: 'Role is used by one or more users and cannot be deleted.',
+    errorDeletingRole: 'Error deleting role. Please try again.',
+    enterRoleName: 'Enter role name',
+    isAdminRole: 'Is Administrator Role',
+    adminRoleNameOnlyEditable: 'For administrator roles, only the name can be edited.',
+    adminRole: 'Admin Role',
+    noRolesFound: 'No roles found',
+    
+    // User Profile
+    userProfile: 'User Profile',
+    editProfile: 'Edit Profile',
+    changePassword: 'Change Password',
+    currentPassword: 'Current Password',
+    newPassword: 'New Password',
+    confirmPassword: 'Confirm Password',
+    usernameCannotBeChanged: 'Username cannot be changed',
+    passwordsDoNotMatch: 'Passwords do not match',
+    passwordTooShort: 'Password must be at least 6 characters long',
+    invalidCurrentPassword: 'Invalid current password',
+    errorChangingPassword: 'Error changing password. Please try again.',
+    enterCurrentPassword: 'Enter current password',
+    enterNewPassword: 'Enter new password',
+    enterConfirmPassword: 'Confirm new password',
+    noLocale: 'No locale'
   },
   'sl-SI': {
     // Login
@@ -522,7 +586,39 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     searchUsersPlaceholder: 'Iskanje uporabnikov po imenu, e-pošti ali uporabniškem imenu...',
     errorLoadingData: 'Napaka pri nalaganju podatkov. Prosimo, poskusite znova.',
     errorSavingRolePermissions: 'Napaka pri shranjevanju dovoljenj vloge. Prosimo, poskusite znova.',
-    cannotModifyPermissionsForAdminRole: 'Dovoljenj vloge administratorja ni mogoče spremeniti.'
+    cannotModifyPermissionsForAdminRole: 'Dovoljenj vloge administratorja ni mogoče spremeniti.',
+    searchRolesPlaceholder: 'Iskanje vlog...',
+    addNewRole: 'Dodaj Novo Vlogo',
+    editRole: 'Uredi Vlogo',
+    roleSaved: 'Vloga je bila uspešno shranjena',
+    errorSavingRole: 'Napaka pri shranjevanju vloge. Poskusite znova.',
+    deleteRole: 'Izbriši Vlogo',
+    deleteRoleConfirm: 'Ali ste prepričani, da želite izbrisati vlogo',
+    cannotDeleteAdminRole: 'Vloge administratorja ni mogoče izbrisati.',
+    roleUsedByUsers: 'Vloga se uporablja pri enem ali več uporabnikih in je ni mogoče izbrisati.',
+    errorDeletingRole: 'Napaka pri brisanju vloge. Poskusite znova.',
+    enterRoleName: 'Vnesite ime vloge',
+    isAdminRole: 'Je Administratorska Vloga',
+    adminRoleNameOnlyEditable: 'Za administratorske vloge je mogoče urejati samo ime.',
+    adminRole: 'Administratorska Vloga',
+    noRolesFound: 'Ni najdenih vlog',
+    
+    // User Profile
+    userProfile: 'Uporabniški Profil',
+    editProfile: 'Uredi Profil',
+    changePassword: 'Spremeni Geslo',
+    currentPassword: 'Trenutno Geslo',
+    newPassword: 'Novo Geslo',
+    confirmPassword: 'Potrdi Geslo',
+    usernameCannotBeChanged: 'Uporabniškega imena ni mogoče spremeniti',
+    passwordsDoNotMatch: 'Gesli se ne ujemata',
+    passwordTooShort: 'Geslo mora biti dolgo vsaj 6 znakov',
+    invalidCurrentPassword: 'Napačno trenutno geslo',
+    errorChangingPassword: 'Napaka pri spreminjanju gesla. Prosimo, poskusite znova.',
+    enterCurrentPassword: 'Vnesite trenutno geslo',
+    enterNewPassword: 'Vnesite novo geslo',
+    enterConfirmPassword: 'Potrdite novo geslo',
+    noLocale: 'Brez jezika'
   },
   'it-IT': {
     // Login
@@ -695,7 +791,39 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     searchUsersPlaceholder: 'Cerca utenti per nome, email o nome utente...',
     errorLoadingData: 'Errore nel caricamento dei dati. Riprova.',
     errorSavingRolePermissions: 'Errore nel salvare i permessi del ruolo. Riprova.',
-    cannotModifyPermissionsForAdminRole: 'Non è possibile modificare i permessi del ruolo amministratore.'
+    cannotModifyPermissionsForAdminRole: 'Non è possibile modificare i permessi del ruolo amministratore.',
+    searchRolesPlaceholder: 'Cerca ruoli...',
+    addNewRole: 'Aggiungi Nuovo Ruolo',
+    editRole: 'Modifica Ruolo',
+    roleSaved: 'Ruolo salvato con successo',
+    errorSavingRole: 'Errore nel salvare il ruolo. Riprova.',
+    deleteRole: 'Elimina Ruolo',
+    deleteRoleConfirm: 'Sei sicuro di voler eliminare il ruolo',
+    cannotDeleteAdminRole: 'Non è possibile eliminare il ruolo amministratore.',
+    roleUsedByUsers: 'Il ruolo è utilizzato da uno o più utenti e non può essere eliminato.',
+    errorDeletingRole: 'Errore nell\'eliminazione del ruolo. Riprova.',
+    enterRoleName: 'Inserisci nome ruolo',
+    isAdminRole: 'È Ruolo Amministratore',
+    adminRoleNameOnlyEditable: 'Per i ruoli amministratore, è possibile modificare solo il nome.',
+    adminRole: 'Ruolo Amministratore',
+    noRolesFound: 'Nessun ruolo trovato',
+    
+    // User Profile
+    userProfile: 'Profilo Utente',
+    editProfile: 'Modifica Profilo',
+    changePassword: 'Cambia Password',
+    currentPassword: 'Password Attuale',
+    newPassword: 'Nuova Password',
+    confirmPassword: 'Conferma Password',
+    usernameCannotBeChanged: 'Il nome utente non può essere modificato',
+    passwordsDoNotMatch: 'Le password non corrispondono',
+    passwordTooShort: 'La password deve essere lunga almeno 6 caratteri',
+    invalidCurrentPassword: 'Password attuale non valida',
+    errorChangingPassword: 'Errore durante la modifica della password. Riprova.',
+    enterCurrentPassword: 'Inserisci password attuale',
+    enterNewPassword: 'Inserisci nuova password',
+    enterConfirmPassword: 'Conferma nuova password',
+    noLocale: 'Nessuna lingua'
   }
 };
 
