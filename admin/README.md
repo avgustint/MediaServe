@@ -31,6 +31,23 @@ Angular web application for managing the MediaServer system. Provides a comprehe
 npm install
 ```
 
+### Configuration
+
+The server endpoints can be configured in the environment files:
+
+- **Development**: `src/environments/environment.ts`
+- **Production**: `src/environments/environment.prod.ts`
+
+```typescript
+export const environment = {
+  production: false,
+  apiUrl: 'http://localhost:8080',  // API base URL
+  wsUrl: 'ws://localhost:8080'       // WebSocket URL
+};
+```
+
+To change the server address, update both `apiUrl` (HTTP/HTTPS) and `wsUrl` (WS/WSS) in the appropriate environment file.
+
 ### Development Server
 
 ```bash

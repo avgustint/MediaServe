@@ -1,10 +1,12 @@
 const WebSocket = require('ws');
 const { exec } = require('child_process');
+const { loadLibrary } = require('./dataLoader');
+const dbOps = require('./dbOperations');
 
 /**
  * Sets up WebSocket server and handles all WebSocket connections
  * @param {Object} server - HTTP server instance
- * @param {Array} library - Library items array
+ * @param {Array} library - Library items array (initial load, will be reloaded on demand)
  * @returns {WebSocket.Server} WebSocket server instance
  */
 function setupWebSocket(server, library) {
@@ -13,59 +15,55 @@ function setupWebSocket(server, library) {
 
   // Store all connected clients
   const clients = new Set();
+  // Track which clients are admin apps (send SelectLibraryItem/SelectPlaylist messages)
+  const adminClients = new WeakSet();
+  // Track locationId for each client
+  const clientLocations = new Map();
   
-  // Store current selection state
-  let currentPlaylistGuid = null;
-  let currentLibraryItemGuid = null;
-  let currentLibraryItemPage = null;
+  // Store current selection state per location
+  const locationStates = new Map();
   
-  // Store current content being displayed
-  let currentContent = null;
+  // Store current content being displayed per location
+  const locationContent = new Map();
 
   // Handle new client connections
-  wss.on('connection', (ws) => {
+  // Note: request is available to read query parameters (e.g., locationId)
+  wss.on('connection', (ws, request) => {
     console.log('New client connected');
     clients.add(ws);
     
-    // Send current selection state to newly connected client
-    if (currentPlaylistGuid !== null) {
-      const playlistMessage = JSON.stringify({
-        type: 'SelectPlaylist',
-        guid: currentPlaylistGuid
-      });
-      try {
-        ws.send(playlistMessage);
-      } catch (error) {
-        console.error('Error sending playlist selection to new client:', error);
-      }
-    }
-    
-    if (currentLibraryItemGuid !== null) {
-      const itemMessage = JSON.stringify({
-        type: 'SelectLibraryItem',
-        guid: currentLibraryItemGuid,
-        page: currentLibraryItemPage || undefined
-      });
-      try {
-        ws.send(itemMessage);
-      } catch (error) {
-        console.error('Error sending library item selection to new client:', error);
-      }
-      
-      // Also send the Change message with current content
-      if (currentContent) {
-        try {
-          ws.send(JSON.stringify(currentContent));
-        } catch (error) {
-          console.error('Error sending current content to new client:', error);
+    // Try to read locationId from WebSocket URL query parameters so display clients
+    // can register their location without sending Change/Clear messages.
+    try {
+      if (request && request.url) {
+        const url = new URL(request.url, 'ws://localhost');
+        const locationParam = url.searchParams.get('locationId') || url.searchParams.get('location');
+        if (locationParam) {
+          const locationIdFromUrl = parseInt(locationParam, 10);
+          if (!isNaN(locationIdFromUrl)) {
+            clientLocations.set(ws, locationIdFromUrl);
+            console.log('Client registered locationId from URL:', locationIdFromUrl);
+          }
         }
       }
+    } catch (err) {
+      console.warn('Failed to parse WebSocket URL for locationId:', err);
     }
+    
+    // Note: Location ID will also be set/updated when client sends Change/Clear message with locationId
+    
+    // Note: Selection sync messages (SelectLibraryItem, SelectPlaylist) are only sent to admin clients
+    // Admin clients are identified when they send such messages themselves
 
     // Handle client disconnection
     ws.on('close', () => {
       console.log('Client disconnected');
       clients.delete(ws);
+      // Clean up location tracking
+      const locationId = clientLocations.get(ws);
+      if (locationId) {
+        clientLocations.delete(ws);
+      }
     });
 
     // Handle errors
@@ -81,49 +79,125 @@ function setupWebSocket(server, library) {
         
         // Check if it's a "Change" message with guid
         if (message.type === 'Change' && message.guid) {
-          console.log('Received Change message with guid:', message.guid, ' and page:', message.page);
+          const locationId = message.locationId ? parseInt(message.locationId, 10) : null;
           
-          // Find item in library with matching guid
-          const matchingItem = library.find(item => item.guid === message.guid);
+          if (!locationId) {
+            console.warn('Received Change message without locationId, ignoring');
+            return;
+          }
+          
+          // Store location for this client
+          clientLocations.set(ws, locationId);
+          
+          console.log('Received Change message with guid:', message.guid, ', page:', message.page, ', locationId:', locationId);
+          
+          // Get library item using dbOps to ensure pages are loaded correctly
+          const rawItem = dbOps.getLibraryItem(message.guid);
+          const matchingItem = rawItem ? dbOps.formatLibraryItem(rawItem) : null;
           
           if (matchingItem) {
-            console.log('Found matching item:', matchingItem);
+            console.log('Found matching item:', JSON.stringify(matchingItem, null, 2).substring(0, 500));
             let matchingItemContent = matchingItem.content;
+            console.log('Initial content type:', typeof matchingItemContent, 'isArray:', Array.isArray(matchingItemContent));
           
-            if (message.page && matchingItem.type === 'text' && matchingItemContent.length > 0) {
-              matchingItemContent = matchingItemContent.find(item => item.page === message.page)?.content;
-              if (matchingItemContent) {
-                console.log('Found matching page content:', matchingItemContent);
+            // Handle text items with pages
+            if (matchingItem.type === 'text' && Array.isArray(matchingItemContent) && matchingItemContent.length > 0) {
+              console.log('Content array length:', matchingItemContent.length, 'Requested page:', message.page);
+              if (message.page !== undefined && message.page !== null) {
+                // Find specific page - ensure both are numbers for comparison
+                const requestedPage = typeof message.page === 'string' ? parseInt(message.page, 10) : message.page;
+                const pageItem = matchingItemContent.find(item => {
+                  const itemPage = typeof item.page === 'string' ? parseInt(item.page, 10) : item.page;
+                  return itemPage === requestedPage;
+                });
+                console.log('Page item found:', pageItem ? 'yes' : 'no', pageItem);
+                if (pageItem && pageItem.content !== undefined && pageItem.content !== null) {
+                  matchingItemContent = pageItem.content;
+                  console.log('Found matching page content for page:', requestedPage, 'Content length:', matchingItemContent.length);
+                } else {
+                  console.warn(`No page found in library with guid: ${message.guid} and page: ${requestedPage}. Available pages:`, matchingItemContent.map(p => p.page));
+                  matchingItemContent = '';
+                }
               } else {
-                console.warn(`No item found in library with guid: ${message.guid} and page: ${message.page}`);
-                matchingItemContent = '';
+                // No page specified, use first page's content
+                matchingItemContent = matchingItemContent[0].content || '';
+                console.log('No page specified, using first page content. Content length:', matchingItemContent.length);
               }
+            } else if (matchingItem.type === 'text' && !Array.isArray(matchingItemContent)) {
+              // Legacy format: content is a string, not an array
+              matchingItemContent = matchingItemContent || '';
+              console.log('Legacy format, using content as string. Content length:', matchingItemContent.length);
+            } else {
+              console.warn('Content extraction issue - type:', matchingItem.type, 'content type:', typeof matchingItemContent, 'isArray:', Array.isArray(matchingItemContent), 'length:', Array.isArray(matchingItemContent) ? matchingItemContent.length : 'N/A');
             }
 
-            // Store current content
-            currentContent = {
-              type: matchingItem.type,
-              content: matchingItemContent
-            };
+            // Get colors from item or general settings
+            let backgroundColor = matchingItem.background_color;
+            let fontColor = matchingItem.font_color;
             
-            // Broadcast the matching item to all connected clients
-            const messageJson = JSON.stringify(currentContent);
+            // If colors not set on item, get from general settings
+            if (!backgroundColor || !fontColor) {
+              const settings = dbOps.getAllSettings();
+              if (!backgroundColor) {
+                backgroundColor = settings.defaultBackgroundColor || '#000000';
+              }
+              if (!fontColor) {
+                fontColor = settings.defaultFontColor || '#FFFFFF';
+              }
+            }
+            
+            // Store current content for this location
+            const locationContentData = {
+              type: matchingItem.type,
+              content: matchingItemContent,
+              background_color: backgroundColor,
+              font_color: fontColor
+            };
+            console.log('Final content data:', {
+              type: locationContentData.type,
+              contentLength: typeof locationContentData.content === 'string' ? locationContentData.content.length : 'not a string',
+              contentPreview: typeof locationContentData.content === 'string' ? locationContentData.content.substring(0, 100) : locationContentData.content
+            });
+            locationContent.set(locationId, locationContentData);
+            
+            // Broadcast the matching item only to clients with matching locationId
+            const messageJson = JSON.stringify(locationContentData);
             let sentCount = 0;
             
+            // Always send to the sender first (admin app that requested the change)
+            if (ws.readyState === WebSocket.OPEN) {
+              try {
+                ws.send(messageJson);
+                sentCount++;
+              } catch (error) {
+                console.error('Error sending message to sender:', error);
+                clients.delete(ws);
+                clientLocations.delete(ws);
+              }
+            }
+            
+            // Then broadcast to all other clients with matching locationId
             clients.forEach((client) => {
-              if (client.readyState === WebSocket.OPEN) {
+              // Skip the sender (already sent above)
+              if (client === ws) {
+                return;
+              }
+              
+              const clientLocationId = clientLocations.get(client);
+              if (client.readyState === WebSocket.OPEN && clientLocationId === locationId) {
                 try {
                   client.send(messageJson);
                   sentCount++;
                 } catch (error) {
                   console.error('Error sending message to client:', error);
                   clients.delete(client);
+                  clientLocations.delete(client);
                 }
               }
             });
             
             if (sentCount > 0) {
-              console.log(`Broadcasted item with guid ${message.guid} to ${sentCount} client(s)`);
+              console.log(`Broadcasted item with guid ${message.guid} to ${sentCount} client(s) for location ${locationId}`);
             }
           } else {
             console.warn(`No item found in library with guid: ${message.guid}`);
@@ -132,32 +206,143 @@ function setupWebSocket(server, library) {
         
         // Check if it's a "Clear" message
         if (message.type === 'Clear') {
-          console.log('Received Clear message');
+          const locationId = message.locationId ? parseInt(message.locationId, 10) : null;
           
-          // Clear current content and selection
-          currentContent = null;
-          currentLibraryItemGuid = null;
-          currentLibraryItemPage = null;
+          if (!locationId) {
+            console.warn('Received Clear message without locationId, ignoring');
+            return;
+          }
           
-          // Broadcast a message with no content to all connected clients
-          const clearMessage = {};
-          const messageJson = JSON.stringify(clearMessage);
-          let sentCount = 0;
+          // Store location for this client
+          clientLocations.set(ws, locationId);
           
-          clients.forEach((client) => {
-            if (client.readyState === WebSocket.OPEN) {
-              try {
-                client.send(messageJson);
-                sentCount++;
-              } catch (error) {
-                console.error('Error sending message to client:', error);
-                clients.delete(client);
+          console.log('Received Clear message for location:', locationId);
+          
+          // Clear current selection for this location
+          const locationState = locationStates.get(locationId) || {};
+          locationState.libraryItemGuid = null;
+          locationState.libraryItemPage = null;
+          locationStates.set(locationId, locationState);
+          
+          // Check if default blank page is set
+          const settings = dbOps.getAllSettings();
+          const defaultBlankPageGuid = settings.defaultBlankPage;
+          
+          if (defaultBlankPageGuid && defaultBlankPageGuid.trim() !== '') {
+            // Load library and find the default blank page item
+            const currentLibrary = loadLibrary();
+            // Convert GUID to number for comparison (settings store as string, but item.guid is number)
+            const defaultBlankPageGuidNum = parseInt(defaultBlankPageGuid, 10);
+            const blankPageItem = currentLibrary.find(item => item.guid === defaultBlankPageGuidNum);
+            
+            if (blankPageItem) {
+              console.log('Found default blank page item:', blankPageItem);
+              
+              // Format the item to ensure content is properly parsed
+              const formattedItem = dbOps.formatLibraryItem(blankPageItem);
+              let blankPageContent = formattedItem.content;
+              
+              // For text items, get the first page if it's an array
+              if (formattedItem.type === 'text' && Array.isArray(blankPageContent) && blankPageContent.length > 0) {
+                blankPageContent = blankPageContent[0].content || '';
+              }
+              
+              // Get colors from item or general settings
+              let backgroundColor = formattedItem.background_color;
+              let fontColor = formattedItem.font_color;
+              
+              // If colors not set on item, get from general settings
+              if (!backgroundColor) {
+                backgroundColor = settings.defaultBackgroundColor || '#000000';
+              }
+              if (!fontColor) {
+                fontColor = settings.defaultFontColor || '#FFFFFF';
+              }
+              
+              // Store current content for this location
+              const locationContentData = {
+                type: formattedItem.type,
+                content: blankPageContent,
+                background_color: backgroundColor,
+                font_color: fontColor
+              };
+              locationContent.set(locationId, locationContentData);
+              
+              // Broadcast the default blank page only to clients with matching locationId
+              const messageJson = JSON.stringify(locationContentData);
+              let sentCount = 0;
+              
+              clients.forEach((client) => {
+                const clientLocationId = clientLocations.get(client);
+                if (client.readyState === WebSocket.OPEN && clientLocationId === locationId) {
+                  try {
+                    client.send(messageJson);
+                    sentCount++;
+                  } catch (error) {
+                    console.error('Error sending message to client:', error);
+                    clients.delete(client);
+                    clientLocations.delete(client);
+                  }
+                }
+              });
+              
+              if (sentCount > 0) {
+                console.log(`Broadcasted default blank page (guid: ${defaultBlankPageGuid}) to ${sentCount} client(s) for location ${locationId}`);
+              }
+            } else {
+              console.warn(`Default blank page item with guid ${defaultBlankPageGuid} not found in library`);
+              // Fall through to send empty content
+              locationContent.delete(locationId);
+              
+              // Broadcast a message with no content only to clients with matching locationId
+              const clearMessage = {};
+              const messageJson = JSON.stringify(clearMessage);
+              let sentCount = 0;
+              
+              clients.forEach((client) => {
+                const clientLocationId = clientLocations.get(client);
+                if (client.readyState === WebSocket.OPEN && clientLocationId === locationId) {
+                  try {
+                    client.send(messageJson);
+                    sentCount++;
+                  } catch (error) {
+                    console.error('Error sending message to client:', error);
+                    clients.delete(client);
+                    clientLocations.delete(client);
+                  }
+                }
+              });
+              
+              if (sentCount > 0) {
+                console.log(`Broadcasted Clear message (empty content) to ${sentCount} client(s) for location ${locationId}`);
               }
             }
-          });
-          
-          if (sentCount > 0) {
-            console.log(`Broadcasted Clear message to ${sentCount} client(s)`);
+          } else {
+            // No default blank page set, send empty content
+            locationContent.delete(locationId);
+            
+            // Broadcast a message with no content only to clients with matching locationId
+            const clearMessage = {};
+            const messageJson = JSON.stringify(clearMessage);
+            let sentCount = 0;
+            
+            clients.forEach((client) => {
+              const clientLocationId = clientLocations.get(client);
+              if (client.readyState === WebSocket.OPEN && clientLocationId === locationId) {
+                try {
+                  client.send(messageJson);
+                  sentCount++;
+                } catch (error) {
+                  console.error('Error sending message to client:', error);
+                  clients.delete(client);
+                  clientLocations.delete(client);
+                }
+              }
+            });
+            
+            if (sentCount > 0) {
+              console.log(`Broadcasted Clear message (empty content) to ${sentCount} client(s) for location ${locationId}`);
+            }
           }
         }
         
@@ -170,60 +355,174 @@ function setupWebSocket(server, library) {
         // Check if it's a "SelectPlaylist" message
         if (message.type === 'SelectPlaylist' && message.guid !== undefined) {
           console.log('Received SelectPlaylist message with guid:', message.guid);
-          currentPlaylistGuid = message.guid;
           
-          // Broadcast to all other clients
+          // Get locationId from message or client's stored locationId
+          const locationId = message.locationId ? parseInt(message.locationId, 10) : clientLocations.get(ws);
+          
+          if (!locationId) {
+            console.warn('Received SelectPlaylist message without locationId, ignoring');
+            return;
+          }
+          
+          // Store location for this client if not already set
+          if (!clientLocations.has(ws)) {
+            clientLocations.set(ws, locationId);
+          }
+          
+          // Mark this client as an admin client
+          const isNewAdmin = !adminClients.has(ws);
+          adminClients.add(ws);
+          
+          // Get or create location state
+          const locationState = locationStates.get(locationId) || {};
+          
+          // If this is a newly identified admin client, send current selection state for this location
+          if (isNewAdmin) {
+            if (locationState.currentPlaylistGuid !== null && locationState.currentPlaylistGuid !== undefined) {
+              const playlistMessage = JSON.stringify({
+                type: 'SelectPlaylist',
+                guid: locationState.currentPlaylistGuid,
+                locationId: locationId
+              });
+              try {
+                ws.send(playlistMessage);
+              } catch (error) {
+                console.error('Error sending current playlist selection to new admin client:', error);
+              }
+            }
+            if (locationState.currentLibraryItemGuid !== null && locationState.currentLibraryItemGuid !== undefined) {
+              const itemMessage = JSON.stringify({
+                type: 'SelectLibraryItem',
+                guid: locationState.currentLibraryItemGuid,
+                page: locationState.currentLibraryItemPage || undefined,
+                locationId: locationId
+              });
+              try {
+                ws.send(itemMessage);
+              } catch (error) {
+                console.error('Error sending current library item selection to new admin client:', error);
+              }
+            }
+          }
+          
+          // Update location state
+          locationState.currentPlaylistGuid = message.guid;
+          locationStates.set(locationId, locationState);
+          
+          // Broadcast to all other admin clients with matching locationId
           const playlistMessage = JSON.stringify({
             type: 'SelectPlaylist',
-            guid: message.guid
+            guid: message.guid,
+            locationId: locationId
           });
           let sentCount = 0;
           
           clients.forEach((client) => {
-            if (client !== ws && client.readyState === WebSocket.OPEN) {
-              try {
-                client.send(playlistMessage);
-                sentCount++;
-              } catch (error) {
-                console.error('Error sending playlist selection to client:', error);
-                clients.delete(client);
+            if (client !== ws && client.readyState === WebSocket.OPEN && adminClients.has(client)) {
+              const clientLocationId = clientLocations.get(client);
+              // Only send to clients with matching locationId
+              if (clientLocationId === locationId) {
+                try {
+                  client.send(playlistMessage);
+                  sentCount++;
+                } catch (error) {
+                  console.error('Error sending playlist selection to client:', error);
+                  clients.delete(client);
+                }
               }
             }
           });
           
           if (sentCount > 0) {
-            console.log(`Broadcasted SelectPlaylist message to ${sentCount} client(s)`);
+            console.log(`Broadcasted SelectPlaylist message to ${sentCount} admin client(s) for location ${locationId}`);
           }
         }
         
         // Check if it's a "SelectLibraryItem" message
         if (message.type === 'SelectLibraryItem' && message.guid !== undefined) {
           console.log('Received SelectLibraryItem message with guid:', message.guid, 'and page:', message.page);
-          currentLibraryItemGuid = message.guid;
-          currentLibraryItemPage = message.page || null;
           
-          // Broadcast to all other clients
+          // Get locationId from message or client's stored locationId
+          const locationId = message.locationId ? parseInt(message.locationId, 10) : clientLocations.get(ws);
+          
+          if (!locationId) {
+            console.warn('Received SelectLibraryItem message without locationId, ignoring');
+            return;
+          }
+          
+          // Store location for this client if not already set
+          if (!clientLocations.has(ws)) {
+            clientLocations.set(ws, locationId);
+          }
+          
+          // Mark this client as an admin client
+          const isNewAdmin = !adminClients.has(ws);
+          adminClients.add(ws);
+          
+          // Get or create location state
+          const locationState = locationStates.get(locationId) || {};
+          
+          // If this is a newly identified admin client, send current selection state for this location
+          if (isNewAdmin) {
+            if (locationState.currentPlaylistGuid !== null && locationState.currentPlaylistGuid !== undefined) {
+              const playlistMessage = JSON.stringify({
+                type: 'SelectPlaylist',
+                guid: locationState.currentPlaylistGuid,
+                locationId: locationId
+              });
+              try {
+                ws.send(playlistMessage);
+              } catch (error) {
+                console.error('Error sending current playlist selection to new admin client:', error);
+              }
+            }
+            if (locationState.currentLibraryItemGuid !== null && locationState.currentLibraryItemGuid !== undefined && locationState.currentLibraryItemGuid !== message.guid) {
+              const itemMessage = JSON.stringify({
+                type: 'SelectLibraryItem',
+                guid: locationState.currentLibraryItemGuid,
+                page: locationState.currentLibraryItemPage || undefined,
+                locationId: locationId
+              });
+              try {
+                ws.send(itemMessage);
+              } catch (error) {
+                console.error('Error sending current library item selection to new admin client:', error);
+              }
+            }
+          }
+          
+          // Update location state
+          locationState.currentLibraryItemGuid = message.guid;
+          locationState.currentLibraryItemPage = message.page || null;
+          locationStates.set(locationId, locationState);
+          
+          // Broadcast to all other admin clients with matching locationId
           const itemMessage = JSON.stringify({
             type: 'SelectLibraryItem',
             guid: message.guid,
-            page: message.page || undefined
+            page: message.page || undefined,
+            locationId: locationId
           });
           let sentCount = 0;
           
           clients.forEach((client) => {
-            if (client !== ws && client.readyState === WebSocket.OPEN) {
-              try {
-                client.send(itemMessage);
-                sentCount++;
-              } catch (error) {
-                console.error('Error sending library item selection to client:', error);
-                clients.delete(client);
+            if (client !== ws && client.readyState === WebSocket.OPEN && adminClients.has(client)) {
+              const clientLocationId = clientLocations.get(client);
+              // Only send to clients with matching locationId
+              if (clientLocationId === locationId) {
+                try {
+                  client.send(itemMessage);
+                  sentCount++;
+                } catch (error) {
+                  console.error('Error sending library item selection to client:', error);
+                  clients.delete(client);
+                }
               }
             }
           });
           
           if (sentCount > 0) {
-            console.log(`Broadcasted SelectLibraryItem message to ${sentCount} client(s)`);
+            console.log(`Broadcasted SelectLibraryItem message to ${sentCount} admin client(s) for location ${locationId}`);
           }
         }
       } catch (error) {

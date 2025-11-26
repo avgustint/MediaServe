@@ -17,11 +17,29 @@
       >
         {{ 'playlistEditor' | translate }}
       </button>
+      <button
+        *ngIf="hasTagsEditorPermission()"
+        class="tab-button"
+        [class.active]="activeTab === 'tags'"
+        (click)="switchTab('tags')"
+      >
+        {{ 'tags' | translate }}
+      </button>
+      <button
+        *ngIf="hasCollectionsEditorPermission()"
+        class="tab-button"
+        [class.active]="activeTab === 'collections'"
+        (click)="switchTab('collections')"
+      >
+        {{ 'collections' | translate }}
+      </button>
     </div>
   </div>
   <div class="editor-content">
     <app-library-editor *ngIf="activeTab === 'library' && hasLibraryEditorPermission()"></app-library-editor>
     <app-playlist-editor *ngIf="activeTab === 'playlist' && hasPlaylistEditorPermission()"></app-playlist-editor>
+    <app-tags-editor *ngIf="activeTab === 'tags' && hasTagsEditorPermission()"></app-tags-editor>
+    <app-collections-editor *ngIf="activeTab === 'collections' && hasCollectionsEditorPermission()"></app-collections-editor>
   </div>
 </div>
 

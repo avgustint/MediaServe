@@ -3,14 +3,13 @@
     <div class="search-input-wrapper">
       <input
         type="text"
+        pInputText
         class="search-input"
         [(ngModel)]="searchTerm"
         (input)="onSearchChange()"
         [placeholder]="'searchLibraryItems' | translate"
       />
-      <button *ngIf="searchTerm" class="clear-search-btn" (click)="clearSearch()" [title]="'clearSearch' | translate">
-        ×
-      </button>
+      <button *ngIf="searchTerm" class="clear-search-btn" (click)="clearSearch()" [title]="'clearSearch' | translate"></button>
     </div>
     <div class="search-results" *ngIf="showSearchResults">
       <div
@@ -22,7 +21,8 @@
       <div
         *ngFor="let result of searchResults"
         class="search-result-item"
-        (click)="onSearchResultSelect(result)"
+        (click)="hasManageLibraryPermission() ? onSearchResultSelect(result) : null"
+        [class.clickable]="hasManageLibraryPermission()"
       >
         <div class="search-result-name">{{ result.name }}</div>
         <div class="search-result-type">{{ 'typeColon' | translate }} {{ result.type }}</div>
@@ -34,7 +34,7 @@
   </div>
 
   <div class="actions-section">
-    <button class="add-button" (click)="addNewItem()" *ngIf="!editingItem && !isNewItem">
+    <button class="add-button" (click)="addNewItem()" *ngIf="!editingItem && !isNewItem && hasManageLibraryPermission()">
       {{ 'addNewLibraryItem' | translate }}
     </button>
   </div>
@@ -45,7 +45,8 @@
       <div
         *ngFor="let item of recentItems"
         class="recent-item"
-        (click)="editItem(item)"
+        (click)="hasManageLibraryPermission() ? editItem(item) : null"
+        [class.clickable]="hasManageLibraryPermission()"
       >
         <div class="item-guid-badge">{{ item.guid }}</div>
         <div class="item-info">
@@ -82,9 +83,10 @@
         <input
           id="itemName"
           type="text"
-          class="form-control"
+          pInputText
           [(ngModel)]="itemName"
           [placeholder]="'enterItemName' | translate"
+          styleClass="w-full"
         />
       </div>
 
@@ -93,51 +95,99 @@
         <input
           id="itemDescription"
           type="text"
-          class="form-control"
+          pInputText
           [(ngModel)]="itemDescription"
           [placeholder]="'enterItemDescription' | translate"
+          styleClass="w-full"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="itemAuthor">{{ 'author' | translate }}</label>
+        <input
+          id="itemAuthor"
+          type="text"
+          pInputText
+          [(ngModel)]="itemAuthor"
+          [placeholder]="'enterAuthor' | translate"
+          styleClass="w-full"
         />
       </div>
 
       <div class="form-group">
         <label for="itemType">{{ 'type' | translate }} *</label>
-        <select
+        <p-select
           id="itemType"
-          class="form-control"
           [(ngModel)]="itemType"
-          (change)="onTypeChange()"
-        >
-          <option value="text">{{ 'text' | translate }}</option>
-          <option value="image">{{ 'image' | translate }}</option>
-          <option value="url">{{ 'url' | translate }}</option>
-        </select>
+          [options]="typeOptions"
+          optionLabel="label"
+          optionValue="value"
+          (onChange)="onTypeChange()"
+          [placeholder]="'selectType' | translate"
+          styleClass="w-full"
+        ></p-select>
       </div>
 
-      <!-- Text Type Content -->
+      <!-- Text Type Content - New Page Management System -->
       <div class="form-group" *ngIf="itemType === 'text'">
         <label>{{ 'contentPages' | translate }}</label>
-        <div class="pages-container">
-          <div *ngFor="let page of textPages; let i = index" class="page-item">
-            <div class="page-header">
-              <span class="page-number">{{ 'page' | translate }} {{ page.page }}</span>
-              <button
-                *ngIf="textPages.length > 1"
-                class="remove-page-btn"
-                (click)="removePage(page.page)"
-                [title]="'removePage' | translate"
-              >
-                ×
-              </button>
-            </div>
-            <textarea
-              class="form-control page-content"
-              [(ngModel)]="page.content"
-              [placeholder]="('enterContentForPage' | translate) + ' ' + page.page"
-              rows="5"
-            ></textarea>
+        
+        <!-- Page Management (New System) -->
+        <div class="page-management-section">
+          <div class="page-actions-header">
+            <button type="button" pButton [label]="'addPage' | translate" (click)="openPageManageDialog(-1)" class="p-button-primary"></button>
           </div>
-          <button class="add-page-btn" (click)="addPage()">{{ 'addPage' | translate }}</button>
+          
+          <!-- Page References List -->
+          <div class="page-references-list" *ngIf="pageReferences.length > 0">
+            <div *ngFor="let ref of pageReferences; let i = index" class="page-reference-item" (click)="openPageManageDialog(i)" style="cursor: pointer;">
+              <div class="page-reference-header">
+                <span class="order-number">{{ 'orderNumber' | translate }}: {{ ref.orderNumber }}</span>
+                <div class="page-reference-actions" (click)="$event.stopPropagation()">
+                  <button type="button" class="btn-move-up" (click)="movePageUp(i)" [disabled]="i === 0" [title]="'moveUp' | translate">
+                    <i class="fas fa-arrow-up"></i>
+                  </button>
+                  <button type="button" class="btn-move-down" (click)="movePageDown(i)" [disabled]="i === pageReferences.length - 1" [title]="'moveDown' | translate">
+                    <i class="fas fa-arrow-down"></i>
+                  </button>
+                  <button type="button" class="btn-remove-page" (click)="removePageReference(i)" [title]="'remove' | translate">
+                    <i class="fas fa-times"></i>
+                  </button>
+                </div>
+              </div>
+              <div class="page-reference-content">
+                <div class="page-info">
+                  <strong>{{ 'page' | translate }} #{{ ref.orderNumber }}</strong>
+                  <div class="page-preview" [innerHTML]="getPageContent(ref.pageGuid) || '(empty)'"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
         </div>
+      </div>
+      
+      <!-- Tags Selection -->
+      <div class="form-group" *ngIf="itemType === 'text' || itemType === 'image' || itemType === 'url'">
+        <label>{{ 'tags' | translate }}</label>
+        <p-multiSelect
+          [options]="allAvailableTags"
+          [(ngModel)]="selectedTags"
+          optionLabel="name"
+          [placeholder]="'selectTags' | translate"
+          [filter]="true"
+          [showClear]="true"
+          styleClass="w-full"
+          [displaySelectedLabel]="true"
+          [selectedItemsLabel]="'{0} ' + ('tagsSelected' | translate)"
+        >
+          <ng-template let-tag pTemplate="item">
+            <div>
+              <div>{{ tag.name }}</div>
+              <small *ngIf="tag.description" class="text-muted">{{ tag.description }}</small>
+            </div>
+          </ng-template>
+        </p-multiSelect>
       </div>
 
       <!-- Image Type Content -->
@@ -160,14 +210,54 @@
         <input
           id="urlContent"
           type="url"
-          class="form-control"
+          pInputText
           [(ngModel)]="urlContent"
           [placeholder]="'enterUrl' | translate"
+          styleClass="w-full"
         />
       </div>
 
+      <!-- Color Settings -->
+      <div class="form-group">
+        <label for="backgroundColor">{{ 'backgroundColor' | translate }}</label>
+        <div class="color-input-wrapper">
+          <input
+            type="color"
+            id="backgroundColor"
+            [(ngModel)]="backgroundColor"
+          />
+          <input
+            type="text"
+            pInputText
+            class="color-text-input"
+            [(ngModel)]="backgroundColor"
+            placeholder="#000000"
+          />
+        </div>
+        <p class="form-help">{{ 'backgroundColorHelp' | translate }}</p>
+      </div>
+
+      <div class="form-group">
+        <label for="fontColor">{{ 'fontColor' | translate }}</label>
+        <div class="color-input-wrapper">
+          <input
+            type="color"
+            id="fontColor"
+            [(ngModel)]="fontColor"
+          />
+          <input
+            type="text"
+            pInputText
+            class="color-text-input"
+            [(ngModel)]="fontColor"
+            placeholder="#FFFFFF"
+          />
+        </div>
+        <p class="form-help">{{ 'fontColorHelp' | translate }}</p>
+      </div>
+
       <div class="form-actions">
-        <button class="btn-save" (click)="saveItem()">
+        <button class="btn-save" (click)="saveItem()" *ngIf="hasManageLibraryPermission()">
           <i class="fas fa-check"></i>
           <span>{{ 'save' | translate }}</span>
         </button>
@@ -203,4 +293,141 @@
     (cancel)="closeConfirmDialog()"
     (close)="closeConfirmDialog()"
   ></app-confirm-dialog>
+  
+  <!-- Page Selector Modal -->
+  <div class="page-selector-overlay" *ngIf="showPageSelector" (click)="closePageSelector()">
+    <div class="page-selector-modal" (click)="$event.stopPropagation()">
+      <div class="page-selector-header">
+        <h3>{{ 'selectPage' | translate }}</h3>
+        <button type="button" class="close-btn" (click)="closePageSelector()">×</button>
+      </div>
+      <div class="page-selector-content">
+        <div class="pages-list">
+          <div 
+            *ngFor="let page of getAvailablePagesForSelector()" 
+            class="page-selector-item"
+            (click)="addExistingPage(page.guid)"
+          >
+            <div class="page-preview-small" [innerHTML]="page.content || '(empty)'"></div>
+            <div class="page-guid">
+              <span *ngIf="page.isTemporal">(New) </span>
+              Page #{{ page.guid }}
+            </div>
+          </div>
+          <div *ngIf="getAvailablePagesForSelector().length === 0" class="no-pages-message">
+            {{ 'noPagesFound' | translate }}
+          </div>
+        </div>
+        <div class="page-selector-footer">
+          <button type="button" pButton [label]="'createNewPage' | translate" (click)="openPageDialogFromSelector()" class="p-button-primary"></button>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Page Manage Dialog with Tabs -->
+  <p-dialog
+    [(visible)]="showPageManageDialog"
+    [header]="getPageDialogHeader()"
+    [modal]="true"
+    [style]="{ width: '700px' }"
+    [styleClass]="'page-manage-dialog'"
+    (onHide)="closePageManageDialog()"
+  >
+    <p-tabs [(value)]="activeTabIndex" (valueChange)="onTabChange($event)">
+      <p-tablist>
+        <p-tab [value]="0">{{ 'createNewPage' | translate }}</p-tab>
+        <p-tab [value]="1">{{ 'reusePage' | translate }}</p-tab>
+      </p-tablist>
+      <p-tabpanels>
+        <!-- Create New Page Tab -->
+        <p-tabpanel [value]="0">
+          <div class="page-dialog-content">
+            <div class="form-group">
+              <label>{{ 'content' | translate }}</label>
+              <div class="formatting-toolbar">
+                <button
+                  type="button"
+                  class="format-btn"
+                  (click)="applyPageDialogFormatting('bold')"
+                  [title]="'bold' | translate"
+                >
+                  <i class="fas fa-bold"></i>
+                </button>
+                <button
+                  type="button"
+                  class="format-btn"
+                  (click)="applyPageDialogFormatting('italic')"
+                  [title]="'italic' | translate"
+                >
+                  <i class="fas fa-italic"></i>
+                </button>
+              </div>
+              <div
+                #pageContentEditable
+                class="form-control page-content-editable"
+                contenteditable="true"
+                [attr.data-placeholder]="'enterPageContent' | translate"
+                (input)="onPageDialogContentInput($event)"
+                (blur)="onPageDialogBlur($event)"
+              ></div>
+            </div>
+          </div>
+        </p-tabpanel>
+        
+        <!-- Reuse Existing Page Tab -->
+        <p-tabpanel [value]="1">
+          <div class="page-dialog-content">
+            <div class="pages-list">
+              <div 
+                *ngFor="let page of getAvailablePagesForSelector()" 
+                class="page-selector-item"
+                [class.selected]="isPageSelected(page.guid)"
+                (click)="selectExistingPage(page.guid)"
+              >
+                <div class="page-preview-small">{{ getPagePreviewText(page.content) }}</div>
+                <div class="page-guid">
+                  <span *ngIf="page.isTemporal">(New) </span>
+                  Page #{{ page.guid }}
+                </div>
+              </div>
+              <div *ngIf="getAvailablePagesForSelector().length === 0" class="no-pages-message">
+                {{ 'noPagesFound' | translate }}
+              </div>
+            </div>
+          </div>
+        </p-tabpanel>
+      </p-tabpanels>
+    </p-tabs>
+    
+    <ng-template pTemplate="footer">
+      <button type="button" pButton [label]="'cancel' | translate" (click)="closePageManageDialog()" class="p-button-secondary"></button>
+      <button type="button" pButton [label]="'save' | translate" (click)="savePageFromDialog()" class="p-button-primary" [disabled]="!canSavePageFromDialog()"></button>
+    </ng-template>
+  </p-dialog>
+  
+  <!-- Legacy New Page Dialog (keep for backward compatibility, but will be replaced) -->
+  <p-dialog
+    [(visible)]="showPageDialog"
+    [header]="'createNewPage' | translate"
+    [modal]="true"
+    [style]="{ width: '600px' }"
+    (onHide)="closePageDialog()"
+  >
+    <div class="form-group">
+      <label for="newPageContent">{{ 'content' | translate }}</label>
+      <textarea
+        id="newPageContent"
+        pInputTextarea
+        [(ngModel)]="newPageContent"
+        [placeholder]="'enterPageContent' | translate"
+        rows="10"
+        styleClass="w-full"
+      ></textarea>
+    </div>
+    <ng-template pTemplate="footer">
+      <button type="button" pButton [label]="'cancel' | translate" (click)="closePageDialog()" class="p-button-secondary"></button>
+      <button type="button" pButton [label]="'save' | translate" (click)="saveNewPage()" class="p-button-primary"></button>
+    </ng-template>
+  </p-dialog>
 </div>

@@ -4,28 +4,37 @@ import { FormsModule } from "@angular/forms";
 import { UserService, User } from "../user.service";
 import { AuthService } from "../auth.service";
 import { SettingsService } from "../settings/settings.service";
+import { LocationsService, Location } from "../locations.service";
 import { ErrorPopupComponent } from "../shared/error-popup/error-popup.component";
 import { ConfirmDialogComponent } from "../shared/confirm-dialog/confirm-dialog.component";
 import { TranslatePipe } from "../translation.pipe";
 import { TranslationService } from "../translation.service";
 import { HttpErrorResponse } from "@angular/common/http";
-import * as CryptoJS from "crypto-js";
+import { InputTextModule } from "primeng/inputtext";
+import { PasswordModule } from "primeng/password";
+import { SelectModule } from "primeng/select";
 
 @Component({
   selector: "app-user-profile",
   standalone: true,
-  imports: [CommonModule, FormsModule, ErrorPopupComponent, ConfirmDialogComponent, TranslatePipe],
+  imports: [CommonModule, FormsModule, ErrorPopupComponent, ConfirmDialogComponent, TranslatePipe, InputTextModule, PasswordModule, SelectModule],
   templateUrl: "./user-profile.component.html",
   styleUrls: ["./user-profile.component.scss"]
 })
 export class UserProfileComponent implements OnInit {
   user: User | null = null;
   
+  // For PrimeNG Dropdown
+  localeOptions: Array<{ label: string; value: string | null }> = [];
+  locations: Location[] = [];
+  loadingLocations: boolean = false;
+  
   // Edit mode
   isEditing: boolean = false;
   editName: string = "";
   editEmail: string = "";
   editLocale: string | null = null;
+  editLocationId: number | null = null;
   
   // Password change
   showPasswordChange: boolean = false;
@@ -44,11 +53,34 @@ export class UserProfileComponent implements OnInit {
     private userService: UserService,
     private authService: AuthService,
     private settingsService: SettingsService,
-    private translationService: TranslationService
+    private translationService: TranslationService,
+    private locationsService: LocationsService
   ) {}
 
   ngOnInit(): void {
+    // Initialize locale options with translations
+    this.localeOptions = [
+      { label: this.translationService.translate('noLocale'), value: null },
+      { label: this.translationService.translate('slovenian'), value: 'sl-SI' },
+      { label: this.translationService.translate('ukEnglish'), value: 'en-GB' },
+      { label: this.translationService.translate('italian'), value: 'it-IT' }
+    ];
+    this.loadLocations();
     this.loadUserData();
+  }
+
+  loadLocations(): void {
+    this.loadingLocations = true;
+    this.locationsService.getAllLocations().subscribe({
+      next: (locations) => {
+        this.locations = locations;
+        this.loadingLocations = false;
+      },
+      error: (error) => {
+        console.error('Error loading locations:', error);
+        this.loadingLocations = false;
+      }
+    });
   }
 
   loadUserData(): void {
@@ -57,6 +89,7 @@ export class UserProfileComponent implements OnInit {
       this.editName = this.user.name;
       this.editEmail = this.user.email;
       this.editLocale = this.user.locale || null;
+      this.editLocationId = this.user.locationId || null;
     }
   }
 
@@ -71,6 +104,7 @@ export class UserProfileComponent implements OnInit {
       this.editName = this.user.name;
       this.editEmail = this.user.email;
       this.editLocale = this.user.locale || null;
+      this.editLocationId = this.user.locationId || null;
     }
   }
 
@@ -105,11 +139,18 @@ export class UserProfileComponent implements OnInit {
         // Update local user data
         const currentUser = this.userService.getUser();
         if (currentUser) {
+          // Get the selected location object
+          const selectedLocation = this.editLocationId 
+            ? this.locations.find(loc => loc.guid === this.editLocationId)
+            : null;
+          
           const updatedUserData: User = {
             ...currentUser,
             name: updatedUser.name,
             email: updatedUser.email,
-            locale: updatedUser.locale || null
+            locale: updatedUser.locale || null,
+            locationId: this.editLocationId || undefined,
+            location: selectedLocation || undefined
           };
           this.userService.setUser(updatedUserData);
           this.user = updatedUserData;
@@ -159,13 +200,10 @@ export class UserProfileComponent implements OnInit {
       return;
     }
 
-    // Hash both current and new passwords
-    const currentPasswordHash = CryptoJS.MD5(this.currentPassword).toString();
-    const newPasswordHash = CryptoJS.MD5(this.newPassword).toString();
-    
+    // Send plain passwords - server will hash new password with bcrypt and verify current password
     const userData: any = {
-      currentPassword: currentPasswordHash,
-      password: newPasswordHash
+      currentPassword: this.currentPassword,
+      password: this.newPassword
     };
 
     this.settingsService.updateUser(this.user!.guid, userData).subscribe({

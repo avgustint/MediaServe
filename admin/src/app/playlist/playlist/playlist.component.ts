@@ -5,24 +5,28 @@ import { WebSocketService, WebSocketMessage } from "../../websocket.service";
 import { LibraryItem, PlaylistService } from "../../playlist.service";
 import { PlaylistListComponent } from "../playlist-list/playlist-list.component";
 import { ManualComponent } from "../manual/manual.component";
+import { SearchComponent } from "../search/search.component";
 import { TranslatePipe } from "../../translation.pipe";
+import { FormatTextPipe } from "../../format-text.pipe";
+import { UserService } from "../../user.service";
 import { Subscription } from "rxjs";
 
 @Component({
   selector: "app-playlist",
   standalone: true,
-  imports: [CommonModule, PlaylistListComponent, ManualComponent, TranslatePipe],
+  imports: [CommonModule, PlaylistListComponent, ManualComponent, SearchComponent, TranslatePipe, FormatTextPipe],
   templateUrl: "./playlist.component.html",
   styleUrls: ["./playlist.component.scss"]
 })
 export class PlaylistComponent implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild("textContainer", { static: false }) textContainer!: ElementRef<HTMLDivElement>;
   @ViewChild("imageContainer", { static: false }) imageContainer!: ElementRef<HTMLDivElement>;
+  @ViewChild(ManualComponent, { static: false }) manualComponent!: ManualComponent;
 
   currentContent: WebSocketMessage | null = null;
   private subscription?: Subscription;
   private selectionSubscription?: Subscription;
-  activeTab: "playlist" | "manual" = "playlist";
+  activeTab: "playlist" | "search" | "manual" = "manual";
   selectedPlaylistGuid?: number;
   
   // Current item tracking
@@ -40,17 +44,26 @@ export class PlaylistComponent implements OnInit, OnDestroy, AfterViewInit {
     }
   };
 
+  private keyboardHandler = (event: KeyboardEvent) => {
+    this.handleKeyboardEvent(event);
+  };
+
   // Manual tab item tracking
   manualItem: LibraryItem | null = null;
   manualItemPages: number[] = [];
   
   // Mobile sidebar state
   sidebarOpen: boolean = false;
+  sidebarCollapsed: boolean = false;
+
+  // Track if we need to maintain focus for keyboard handling
+  private shouldMaintainFocus: boolean = false;
 
   constructor(
     private websocketService: WebSocketService,
     private sanitizer: DomSanitizer,
-    private playlistService: PlaylistService
+    private playlistService: PlaylistService,
+    private userService: UserService
   ) {}
 
   ngOnInit(): void {
@@ -64,12 +77,20 @@ export class PlaylistComponent implements OnInit, OnDestroy, AfterViewInit {
     this.subscription = this.websocketService.messages$.subscribe((message: WebSocketMessage) => {
       // Handle selection sync messages
       if (message.type === 'SelectPlaylist' && message.guid !== undefined) {
-        this.handlePlaylistSelection(message.guid, true);
+        // Only process if locationId matches (or if no locationId in message)
+        const user = this.userService.getUser();
+        if (!message.locationId || message.locationId === user?.locationId) {
+          this.handlePlaylistSelection(message.guid, true);
+        }
         return;
       }
       
       if (message.type === 'SelectLibraryItem' && message.guid !== undefined) {
-        this.handleLibraryItemSelection(message.guid, message.page, true);
+        // Only process if locationId matches (or if no locationId in message)
+        const user = this.userService.getUser();
+        if (!message.locationId || message.locationId === user?.locationId) {
+          this.handleLibraryItemSelection(message.guid, message.page, true);
+        }
         return;
       }
 
@@ -80,6 +101,17 @@ export class PlaylistComponent implements OnInit, OnDestroy, AfterViewInit {
         // Adjust font size for text after view update
         if (message.type === "text") {
           setTimeout(() => this.adjustTextSize(), 100);
+        }
+
+        // If URL content is loaded, ensure focus stays on main container for keyboard handling
+        if (message.type === "url" && this.activeTab === 'manual') {
+          setTimeout(() => {
+            const mainContainer = document.querySelector('.main-container') as HTMLElement;
+            if (mainContainer) {
+              mainContainer.focus();
+              this.shouldMaintainFocus = true;
+            }
+          }, 100);
         }
       }
       
@@ -96,23 +128,28 @@ export class PlaylistComponent implements OnInit, OnDestroy, AfterViewInit {
   ngAfterViewInit(): void {
     // Listen for window resize to adjust text size
     window.addEventListener("resize", this.resizeHandler);
+    // Listen for keyboard events at window level with capture to catch iframe events
+    // Using capture phase (true) to intercept events before they reach iframe
+    window.addEventListener("keydown", this.keyboardHandler, true);
+    // Also listen at document level as fallback
+    document.addEventListener("keydown", this.keyboardHandler, true);
   }
 
   ngOnDestroy(): void {
     this.subscription?.unsubscribe();
     this.selectionSubscription?.unsubscribe();
     window.removeEventListener("resize", this.resizeHandler);
+    window.removeEventListener("keydown", this.keyboardHandler, true);
+    document.removeEventListener("keydown", this.keyboardHandler, true);
   }
 
-  switchTab(tab: "playlist" | "manual"): void {
+  switchTab(tab: "playlist" | "search" | "manual"): void {
     this.activeTab = tab;
     // Clear manual item tracking when switching tabs
     if (tab === 'playlist') {
       this.manualItem = null;
       this.manualItemPages = [];
     }
-    // Close sidebar on mobile after tab switch
-    this.sidebarOpen = false;
   }
 
   toggleSidebar(): void {
@@ -121,6 +158,10 @@ export class PlaylistComponent implements OnInit, OnDestroy, AfterViewInit {
 
   closeSidebar(): void {
     this.sidebarOpen = false;
+  }
+
+  toggleSidebarCollapse(): void {
+    this.sidebarCollapsed = !this.sidebarCollapsed;
   }
 
   onPlaylistSelected(guid: number): void {
@@ -136,10 +177,14 @@ export class PlaylistComponent implements OnInit, OnDestroy, AfterViewInit {
     
     // Send selection sync message if not from sync
     if (!fromSync) {
-      const selectMessage = {
+      const user = this.userService.getUser();
+      const selectMessage: any = {
         type: 'SelectPlaylist',
         guid: guid
       };
+      if (user?.locationId) {
+        selectMessage.locationId = user.locationId;
+      }
       this.websocketService.send(JSON.stringify(selectMessage));
     }
     
@@ -222,6 +267,32 @@ export class PlaylistComponent implements OnInit, OnDestroy, AfterViewInit {
     return this.currentContent?.type === "text" ? this.currentContent.content : "";
   }
 
+  get backgroundColor(): string {
+    return this.currentContent?.background_color || "#000000";
+  }
+
+  get fontColor(): string {
+    return this.currentContent?.font_color || "#FFFFFF";
+  }
+
+  get textContainerStyle(): { [key: string]: string } {
+    return {
+      'background-color': this.backgroundColor
+    };
+  }
+
+  get textContentStyle(): { [key: string]: string } {
+    return {
+      'color': this.fontColor
+    };
+  }
+
+  get imageContainerStyle(): { [key: string]: string } {
+    return {
+      'background-color': this.backgroundColor
+    };
+  }
+
   getPlaylistItemType(item: LibraryItem): string {
     return item.type.charAt(0).toUpperCase() + item.type.slice(1);
   }
@@ -274,20 +345,28 @@ export class PlaylistComponent implements OnInit, OnDestroy, AfterViewInit {
     this.currentItemIndex = this.playlistItems.findIndex(i => i.guid === guid);
     
     // Send Change message for content display
-    const changeMessage = {
+    const user = this.userService.getUser();
+    const changeMessage: any = {
       type: "Change",
       guid: guid,
       page: page
     };
+    if (user?.locationId) {
+      changeMessage.locationId = user.locationId;
+    }
     this.websocketService.send(JSON.stringify(changeMessage));
     
     // Send SelectLibraryItem message for sync (if not from sync)
     if (!fromSync) {
-      const selectMessage = {
+      const user = this.userService.getUser();
+      const selectMessage: any = {
         type: "SelectLibraryItem",
         guid: guid,
         page: page
       };
+      if (user?.locationId) {
+        selectMessage.locationId = user.locationId;
+      }
       this.websocketService.send(JSON.stringify(selectMessage));
     }
     
@@ -425,11 +504,15 @@ export class PlaylistComponent implements OnInit, OnDestroy, AfterViewInit {
           const nextPage = this.manualItemPages[currentPageIndex + 1];
           this.currentPage = nextPage;
           
-          const changeMessage = {
+          const user = this.userService.getUser();
+          const changeMessage: any = {
             type: "Change",
             guid: this.manualItem.guid,
             page: nextPage
           };
+          if (user?.locationId) {
+            changeMessage.locationId = user.locationId;
+          }
           this.websocketService.send(JSON.stringify(changeMessage));
           return;
         }
@@ -471,11 +554,15 @@ export class PlaylistComponent implements OnInit, OnDestroy, AfterViewInit {
           const prevPage = this.manualItemPages[currentPageIndex - 1];
           this.currentPage = prevPage;
           
-          const changeMessage = {
+          const user = this.userService.getUser();
+          const changeMessage: any = {
             type: "Change",
             guid: this.manualItem.guid,
             page: prevPage
           };
+          if (user?.locationId) {
+            changeMessage.locationId = user.locationId;
+          }
           this.websocketService.send(JSON.stringify(changeMessage));
           return;
         }
@@ -538,11 +625,15 @@ export class PlaylistComponent implements OnInit, OnDestroy, AfterViewInit {
     // Handle manual tab
     if (this.activeTab === 'manual' && this.manualItem) {
       this.currentPage = pageNum;
-      const changeMessage = {
+      const user = this.userService.getUser();
+      const changeMessage: any = {
         type: "Change",
         guid: this.manualItem.guid,
         page: pageNum
       };
+      if (user?.locationId) {
+        changeMessage.locationId = user.locationId;
+      }
       this.websocketService.send(JSON.stringify(changeMessage));
       return;
     }
@@ -552,5 +643,163 @@ export class PlaylistComponent implements OnInit, OnDestroy, AfterViewInit {
     if (!currentItem) return;
     
     this.onPlaylistItemPageClick({ item: currentItem, page: pageNum });
+  }
+
+  handleKeyboardEvent(event: KeyboardEvent): void {
+    const target = event.target as HTMLElement;
+    
+    // Check if the event is coming from an iframe by checking if target is iframe or inside iframe
+    const isFromIframe = target.tagName === 'IFRAME' || 
+                         (target.nodeName && target.nodeName.toLowerCase() === 'iframe') ||
+                         target.closest('iframe') !== null ||
+                         (event.view && event.view !== window);
+
+    // Don't handle keyboard events if user is typing in an input field (unless it's from iframe)
+    if (!isFromIframe) {
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        return;
+      }
+    }
+
+    const key = event.key;
+
+    // Handle arrow keys for page navigation (only when content is displayed)
+    if ((key === 'ArrowRight' || key === 'ArrowDown') && this.currentItemGuid) {
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      this.onNextClick();
+      // Blur iframe to prevent it from capturing focus
+      if (isFromIframe) {
+        this.blurIframe();
+      }
+      return;
+    }
+
+    if ((key === 'ArrowLeft' || key === 'ArrowUp') && this.currentItemGuid) {
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      this.onPreviousClick();
+      // Blur iframe to prevent it from capturing focus
+      if (isFromIframe) {
+        this.blurIframe();
+      }
+      return;
+    }
+
+    // Only handle other keyboard events when manual component is active
+    if (this.activeTab !== 'manual' || !this.manualComponent) {
+      return;
+    }
+
+    // Handle number keys (0-9)
+    if (key >= '0' && key <= '9') {
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      this.manualComponent.onNumberClick(key);
+      // Blur iframe to prevent it from capturing focus
+      if (isFromIframe) {
+        const iframes = document.querySelectorAll('iframe');
+        iframes.forEach((iframe: HTMLIFrameElement) => {
+          try {
+            // Try to blur the iframe's content window
+            if (iframe.contentWindow) {
+              iframe.contentWindow.blur();
+            }
+          } catch (e) {
+            // Cross-origin iframe - can't access contentWindow
+          }
+        });
+        // Blur any active element
+        if (document.activeElement && document.activeElement !== document.body) {
+          (document.activeElement as HTMLElement).blur();
+        }
+      }
+      return;
+    }
+
+    // Handle Enter key
+    if (key === 'Enter') {
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      this.manualComponent.onEnterClick();
+      // Blur iframe to prevent it from capturing focus
+      if (isFromIframe) {
+        const iframes = document.querySelectorAll('iframe');
+        iframes.forEach((iframe: HTMLIFrameElement) => {
+          try {
+            if (iframe.contentWindow) {
+              iframe.contentWindow.blur();
+            }
+          } catch (e) {
+            // Cross-origin iframe - can't access contentWindow
+          }
+        });
+        if (document.activeElement && document.activeElement !== document.body) {
+          (document.activeElement as HTMLElement).blur();
+        }
+      }
+      return;
+    }
+
+    // Handle Backspace key
+    if (key === 'Backspace') {
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      this.manualComponent.onBackspaceClick();
+      // Blur iframe to prevent it from capturing focus
+      if (isFromIframe) {
+        const iframes = document.querySelectorAll('iframe');
+        iframes.forEach((iframe: HTMLIFrameElement) => {
+          try {
+            if (iframe.contentWindow) {
+              iframe.contentWindow.blur();
+            }
+          } catch (e) {
+            // Cross-origin iframe - can't access contentWindow
+          }
+        });
+        if (document.activeElement && document.activeElement !== document.body) {
+          (document.activeElement as HTMLElement).blur();
+        }
+      }
+      return;
+    }
+  }
+
+  private blurIframe(): void {
+    const iframes = document.querySelectorAll('iframe');
+    iframes.forEach((iframe: HTMLIFrameElement) => {
+      try {
+        if (iframe.contentWindow) {
+          iframe.contentWindow.blur();
+        }
+      } catch (e) {
+        // Cross-origin iframe - can't access contentWindow
+      }
+    });
+    if (document.activeElement && document.activeElement !== document.body) {
+      (document.activeElement as HTMLElement).blur();
+    }
+  }
+
+  onMainContainerFocus(): void {
+    // Container is focused - keyboard events should work
+  }
+
+  onMainContainerBlur(): void {
+    // If manual tab is active and URL content is displayed, maintain focus on container
+    if (this.activeTab === 'manual' && this.currentContent?.type === 'url' && this.shouldMaintainFocus) {
+      setTimeout(() => {
+        const mainContainer = document.querySelector('.main-container') as HTMLElement;
+        if (mainContainer && document.activeElement?.tagName === 'IFRAME') {
+          mainContainer.focus();
+        }
+      }, 10);
+    }
   }
 }

@@ -1,50 +1,18 @@
 <div class="manual-container">
-  <div class="search-section">
-    <div class="search-input-wrapper">
-      <input
-        type="text"
-        class="search-input"
-        [(ngModel)]="searchTerm"
-        (input)="onSearchChange()"
-        [placeholder]="'searchLibraryItems' | translate"
-      />
-      <button *ngIf="searchTerm" class="clear-search-btn" (click)="clearSearch()" [title]="'clearSearch' | translate">
-        ×
-      </button>
-    </div>
-    <div class="search-results" *ngIf="showSearchResults">
-      <div
-        *ngIf="searchResults.length === 0 && searchTerm.trim().length > 0"
-        class="no-results"
-      >
-        {{ 'noLibraryItemsFound' | translate }}
-      </div>
-      <div
-        *ngFor="let result of searchResults"
-        class="search-result-item"
-        (click)="onSearchResultSelect(result)"
-      >
-        <div class="search-result-name">{{ result.name }}</div>
-        <div class="search-result-description" *ngIf="result.description">
-          {{ result.description }}
-        </div>
-        <div class="search-result-footer">
-          <div class="search-result-type">{{ 'typeColon' | translate }} {{ result.type }}</div>
-          <div class="item-guid-badge">{{ result.guid }}</div>
-        </div>
-      </div>
-    </div>
-  </div>
-
   <div class="guid-display">
     <div class="guid-badge-container">
-      <div class="guid-badge">{{ enteredGuid || "0" }}</div>
-      <button *ngIf="enteredGuid.length > 0" class="clear-guid-btn" (click)="onClearGuid()" [title]="'clearId' | translate">
+      <div class="guid-badge">
+        {{ getDisplayGuid() }}
+      </div>
+      <button *ngIf="enteredGuid.length > 0 || searchedGuid" class="clear-guid-btn" (click)="onClearGuid()" [title]="'clearId' | translate">
         <i class="fas fa-times"></i>
       </button>
     </div>
     <div class="no-item" *ngIf="!libraryItem && searchedGuid">
       {{ 'noLibraryItemFoundWithId' | translate }} {{ searchedGuid }}
+    </div>
+    <div class="no-item placeholder" *ngIf="!searchedGuid && !libraryItem">
+      {{ 'pleaseEnterItemNumber' | translate }}
     </div>
   </div>
 

@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { Router } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
+import { ApiService } from './api.service';
 import { Observable, map, catchError, of } from 'rxjs';
 import { User } from './user.service';
 
@@ -16,19 +16,15 @@ export interface LoginResponse {
 export class AuthService {
   private readonly STORAGE_KEY = 'admin_authenticated';
   private readonly USERNAME_KEY = 'admin_username';
-  private readonly API_URL = 'http://localhost:8080';
 
   constructor(
     private router: Router,
-    private http: HttpClient
+    private apiService: ApiService
   ) {}
 
-  login(username: string, hashedPassword: string): Observable<LoginResponse | null> {
-    // Password is already hashed in the login component
-    return this.http.post<LoginResponse>(
-      `${this.API_URL}/login`,
-      { username, password: hashedPassword }
-    ).pipe(
+  login(username: string, password: string, locationId: number): Observable<LoginResponse | null> {
+    // Send plain password - server will hash it with bcrypt
+    return this.apiService.post<LoginResponse>('/login', { username, password, locationId }).pipe(
       map(response => {
         if (response.success && response.user) {
           localStorage.setItem(this.STORAGE_KEY, 'true');
@@ -50,9 +46,7 @@ export class AuthService {
       return of(null);
     }
 
-    return this.http.get<{ success: boolean; user?: User }>(
-      `${this.API_URL}/me?username=${encodeURIComponent(username)}`
-    ).pipe(
+    return this.apiService.get<{ success: boolean; user?: User }>('/me', { username }).pipe(
       map(response => {
         if (response.success && response.user) {
           return response.user;

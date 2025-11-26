@@ -763,7 +763,7 @@ function setupHttpEndpoints(data) {
 
     // Handle users endpoints
     // GET /users - Get all users
-    else if (req.url === '/users' && req.method === 'GET') {
+    else if (req.url && req.url.split('?')[0] === '/users' && req.method === 'GET') {
       try {
         const users = dbOps.getAllUsers().map(user => {
           // Decode email
@@ -792,7 +792,7 @@ function setupHttpEndpoints(data) {
       return;
     }
     // POST /users - Create user
-    else if (req.url === '/users' && req.method === 'POST') {
+    else if (req.url && req.url.split('?')[0] === '/users' && req.method === 'POST') {
       readRequestBody(req).then((userData) => {
         try {
           // Email and password are already encoded from frontend (base64 and MD5)
@@ -998,7 +998,7 @@ function setupHttpEndpoints(data) {
     }
     // Handle roles endpoints
     // GET /roles - Get all roles
-    else if (req.url === '/roles' && req.method === 'GET') {
+    else if (req.url && req.url.split('?')[0] === '/roles' && req.method === 'GET') {
       try {
         const roles = dbOps.getAllRoles();
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -1011,7 +1011,7 @@ function setupHttpEndpoints(data) {
       return;
     }
     // POST /roles - Create new role
-    else if (req.url === '/roles' && req.method === 'POST') {
+    else if (req.url && req.url.split('?')[0] === '/roles' && req.method === 'POST') {
       try {
         readRequestBody(req).then((roleData) => {
           if (!roleData.name || roleData.name.trim().length === 0) {
@@ -1152,7 +1152,7 @@ function setupHttpEndpoints(data) {
     }
     // Handle permissions endpoints
     // GET /permissions - Get all permissions
-    else if (req.url === '/permissions' && req.method === 'GET') {
+    else if (req.url && req.url.split('?')[0] === '/permissions' && req.method === 'GET') {
       try {
         const permissions = dbOps.getAllPermissions();
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -1210,6 +1210,93 @@ function setupHttpEndpoints(data) {
         });
       } catch (error) {
         console.error('Update role permissions error:', error);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, message: 'Server error' }));
+      }
+      return;
+    }
+
+    // GET /settings - Get all settings (requires ViewGeneralSettings permission)
+    else if (req.url && req.url.split('?')[0] === '/settings' && req.method === 'GET') {
+      try {
+        const username = getUsernameFromRequest(req);
+        if (!username) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, message: 'Username parameter required' }));
+          return;
+        }
+
+        const user = dbOps.getUserByUsername(username);
+        if (!user) {
+          res.writeHead(401, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, message: 'Unauthorized' }));
+          return;
+        }
+
+        const userWithPermissions = getUserWithPermissions(user);
+        if (!userWithPermissions.permissions.includes('ViewGeneralSettings')) {
+          res.writeHead(403, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, message: 'Forbidden' }));
+          return;
+        }
+
+        const settings = dbOps.getAllSettings();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(settings));
+      } catch (error) {
+        console.error('Get settings error:', error);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, message: 'Server error' }));
+      }
+      return;
+    }
+
+    // PUT /settings - Update settings (requires EditGeneralSettings permission)
+    else if (req.url && req.url.split('?')[0] === '/settings' && req.method === 'PUT') {
+      try {
+        const username = getUsernameFromRequest(req);
+        if (!username) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, message: 'Username parameter required' }));
+          return;
+        }
+
+        const user = dbOps.getUserByUsername(username);
+        if (!user) {
+          res.writeHead(401, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, message: 'Unauthorized' }));
+          return;
+        }
+
+        const userWithPermissions = getUserWithPermissions(user);
+        if (!userWithPermissions.permissions.includes('EditGeneralSettings')) {
+          res.writeHead(403, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, message: 'Forbidden' }));
+          return;
+        }
+
+        readRequestBody(req).then((data) => {
+          // Update each setting
+          if (data.defaultBackgroundColor !== undefined) {
+            dbOps.setSetting('defaultBackgroundColor', data.defaultBackgroundColor || '');
+          }
+          if (data.defaultFontColor !== undefined) {
+            dbOps.setSetting('defaultFontColor', data.defaultFontColor || '');
+          }
+          if (data.defaultBlankPage !== undefined) {
+            dbOps.setSetting('defaultBlankPage', data.defaultBlankPage || '');
+          }
+
+          const allSettings = dbOps.getAllSettings();
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(allSettings));
+        }).catch((error) => {
+          console.error('Update settings request error:', error);
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, message: 'Invalid request format' }));
+        });
+      } catch (error) {
+        console.error('Update settings error:', error);
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: false, message: 'Server error' }));
       }

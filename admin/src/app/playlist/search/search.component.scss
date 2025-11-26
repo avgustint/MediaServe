@@ -1,0 +1,193 @@
+.search-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.filters-section {
+  padding: 1.25rem;
+  background-color: #fff;
+  border-bottom: 1px solid #ddd;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 10;
+  overflow: visible;
+}
+
+.filter-group {
+  margin-bottom: 0.75rem;
+  
+  &:last-child {
+    margin-bottom: 0;
+  }
+
+  label {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    font-size: 0.875rem;
+    color: #666;
+  }
+  
+  // PrimeNG MultiSelect styling - component-specific focus color override
+  ::ng-deep p-multiSelect {
+    .p-multiselect {
+      &:focus,
+      &:focus-within {
+        border-color: #667eea !important;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1) !important;
+      }
+    }
+    
+    // MultiSelect panel styling
+    .p-multiselect-panel {
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+      
+      .p-multiselect-header {
+        padding: 0.75rem;
+        border-bottom: 1px solid #eee;
+        
+        .p-multiselect-filter-container {
+          .p-inputtext {
+            padding: 0.5rem 0.75rem;
+            width: 100%;
+          }
+        }
+      }
+      
+      .p-multiselect-items-wrapper {
+        .p-multiselect-items {
+          padding: 0.25rem;
+          
+          .p-multiselect-item {
+            padding: 0.625rem 0.75rem;
+            margin: 0.125rem 0;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+            
+            &:hover {
+              background-color: #f5f5f5;
+            }
+            
+            &.p-highlight {
+              background-color: #667eea;
+              color: white;
+            }
+            
+            .p-checkbox {
+              margin-right: 0.5rem;
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+// Old styles removed - now using PrimeNG components
+
+.clear-all-filters-btn {
+  width: 100%;
+  margin-top: 0.75rem;
+  padding: 0.5rem;
+  background-color: #f0f0f0;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: #666;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  
+  &:hover {
+    background-color: #e0e0e0;
+  }
+  
+  i {
+    font-size: 0.75rem;
+  }
+}
+
+.search-section {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 1.25rem;
+  min-height: 0;
+}
+
+.search-input-wrapper {
+  position: relative;
+  margin-bottom: 1rem;
+}
+
+
+.search-results {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.no-results {
+  padding: 2rem;
+  text-align: center;
+  color: #dc3545;
+  font-weight: 500;
+}
+
+.search-result-item {
+  padding: 0.75rem;
+  background-color: #fff;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  
+  &:hover {
+    background-color: #f5f5f5;
+    border-color: #667eea;
+  }
+}
+
+.search-result-name {
+  font-weight: 500;
+  margin-bottom: 0.25rem;
+  color: #333;
+}
+
+.search-result-description {
+  font-size: 0.875rem;
+  color: #666;
+  margin-bottom: 0.5rem;
+}
+
+.search-result-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.search-result-type {
+  font-size: 0.75rem;
+  color: #999;
+  text-transform: capitalize;
+}
+
+.item-guid-badge {
+  background-color: #667eea;
+  color: white;
+  padding: 0.125rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+

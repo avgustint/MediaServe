@@ -2,35 +2,70 @@
   <div class="login-card">
     <h1>{{ 'mediaPlayerAdmin' | translate }}</h1>
     <h2>{{ 'login' | translate }}</h2>
-    <form (ngSubmit)="onSubmit()" #loginForm="ngForm">
+    <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" novalidate>
       <div class="form-group">
         <label for="username">{{ 'username' | translate }}</label>
         <input
           type="text"
+          pInputText
           id="username"
           name="username"
-          [(ngModel)]="username"
-          required
-          class="form-control"
+          formControlName="username"
           [placeholder]="'username' | translate"
+          [class.is-invalid]="f['username'].invalid && f['username'].touched"
+          [class.p-invalid]="f['username'].invalid && f['username'].touched"
+          aria-describedby="username-error"
+          [attr.aria-invalid]="f['username'].invalid && f['username'].touched"
+          styleClass="w-full"
         />
+        <div *ngIf="f['username'].invalid && f['username'].touched" id="username-error" class="invalid-feedback" role="alert">
+          <span *ngIf="f['username'].errors?.['required']">{{ 'fieldRequired' | translate }}</span>
+          <span *ngIf="f['username'].errors?.['minlength']">{{ 'minLength' | translate }}</span>
+        </div>
       </div>
       <div class="form-group">
         <label for="password">{{ 'password' | translate }}</label>
-        <input
-          type="password"
+        <p-password
           id="password"
           name="password"
-          [(ngModel)]="password"
-          required
-          class="form-control"
+          formControlName="password"
           [placeholder]="'password' | translate"
-        />
+          [inputStyleClass]="f['password'].invalid && f['password'].touched ? 'p-invalid' : ''"
+          [toggleMask]="true"
+          [feedback]="false"
+          styleClass="w-full"
+        ></p-password>
+        <div *ngIf="f['password'].invalid && f['password'].touched" id="password-error" class="invalid-feedback" role="alert">
+          <span *ngIf="f['password'].errors?.['required']">{{ 'fieldRequired' | translate }}</span>
+          <span *ngIf="f['password'].errors?.['minlength']">{{ 'minLength' | translate }}</span>
+        </div>
       </div>
-      <div *ngIf="error" class="error-message">{{ error }}</div>
-      <button type="submit" class="btn-primary" [disabled]="!loginForm.valid">
-        {{ 'login' | translate }}
-      </button>
+      <div class="form-group">
+        <label for="locationId">{{ 'location' | translate }} *</label>
+        <p-select
+          id="locationId"
+          formControlName="locationId"
+          [options]="locations"
+          optionLabel="name"
+          optionValue="guid"
+          [placeholder]="loadingLocations ? ('loading' | translate) + '...' : ('selectLocation' | translate)"
+          [loading]="loadingLocations"
+          [disabled]="loadingLocations"
+          styleClass="w-full"
+          [class.p-invalid]="f['locationId'].invalid && f['locationId'].touched"
+        ></p-select>
+        <div *ngIf="f['locationId'].invalid && f['locationId'].touched" id="locationId-error" class="invalid-feedback" role="alert">
+          <span *ngIf="f['locationId'].errors?.['required']">{{ 'fieldRequired' | translate }}</span>
+        </div>
+      </div>
+      <div *ngIf="error" class="error-message" role="alert" aria-live="polite">{{ error }}</div>
+      <p-button
+        type="submit"
+        [label]="isLoading ? ('loggingIn' | translate) + '...' : ('login' | translate)"
+        [disabled]="loginForm.invalid || isLoading"
+        [loading]="isLoading"
+        styleClass="w-full"
+      ></p-button>
     </form>
   </div>
 </div>

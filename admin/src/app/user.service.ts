@@ -4,6 +4,7 @@ import { BehaviorSubject, Observable } from 'rxjs';
 export interface UserRole {
   guid: number;
   name: string;
+  is_admin?: number | boolean;
 }
 
 export interface User {
@@ -14,6 +15,12 @@ export interface User {
   guid: number;
   permissions: string[];
   locale?: string | null;
+  locationId?: number;
+  location?: {
+    guid: number;
+    name: string;
+    description?: string;
+  };
 }
 
 @Injectable({
@@ -42,7 +49,17 @@ export class UserService {
 
   hasPermission(permissionName: string): boolean {
     const user = this.getUser();
-    return user ? user.permissions.includes(permissionName) : false;
+    if (!user) {
+      return false;
+    }
+    
+    // Administrators have all permissions
+    if (user.role && (user.role.is_admin === 1 || user.role.is_admin === true)) {
+      return true;
+    }
+    
+    // Check if user has the specific permission
+    return user.permissions.includes(permissionName);
   }
 
   private loadUserFromStorage(): User | null {

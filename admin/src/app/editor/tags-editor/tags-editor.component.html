@@ -1,0 +1,103 @@
+<div class="tags-editor-container">
+  <div class="search-section">
+    <div class="search-input-wrapper">
+      <input
+        type="text"
+        pInputText
+        class="search-input"
+        [(ngModel)]="searchTerm"
+        (input)="onSearchChange()"
+        [placeholder]="'searchTagsPlaceholder' | translate"
+        styleClass="w-full"
+      />
+      <button *ngIf="searchTerm" class="clear-search-btn" (click)="clearSearch()" [title]="'clearSearch' | translate"></button>
+    </div>
+  </div>
+
+  <div class="actions-section">
+    <button class="add-button" (click)="addNewTag()" *ngIf="!editingTag && !isNewTag && hasManageTagsPermission">
+      {{ 'addNewTag' | translate }}
+    </button>
+  </div>
+
+  <div class="content-wrapper">
+    <div class="tags-list-section" *ngIf="!editingTag && !isNewTag">
+      <div class="tags-list">
+        <div
+          *ngFor="let tag of filteredTags"
+          class="tag-item"
+          [class.clickable]="hasManageTagsPermission"
+          (click)="hasManageTagsPermission && selectTag(tag)"
+        >
+          <div class="tag-info">
+            <div class="tag-name">{{ tag.name }}</div>
+            <div class="tag-description" *ngIf="tag.description">{{ tag.description }}</div>
+          </div>
+          <button
+            *ngIf="hasManageTagsPermission"
+            class="delete-button"
+            (click)="deleteTag(tag); $event.stopPropagation()"
+            [title]="'deleteTag' | translate"
+          >
+            <i class="fas fa-trash"></i>
+          </button>
+        </div>
+      </div>
+      <div *ngIf="filteredTags.length === 0" class="no-items">
+        {{ 'noTagsFound' | translate }}
+      </div>
+    </div>
+
+    <div class="tag-form-section" *ngIf="editingTag || isNewTag">
+      <div class="form-header">
+        <h3>{{ (isNewTag ? 'addNewTag' : 'editTag') | translate }}</h3>
+      </div>
+      <div class="form-content">
+        <div class="form-group">
+          <label>{{ 'tagName' | translate }} *</label>
+          <input
+            type="text"
+            pInputText
+            [(ngModel)]="tagName"
+            [placeholder]="'enterTagName' | translate"
+            styleClass="w-full"
+          />
+        </div>
+
+        <div class="form-group">
+          <label>{{ 'tagDescription' | translate }}</label>
+          <textarea
+            pInputTextarea
+            [(ngModel)]="tagDescription"
+            [placeholder]="'enterTagDescription' | translate"
+            [rows]="3"
+            styleClass="w-full"
+          ></textarea>
+        </div>
+
+        <div class="form-actions">
+          <button class="btn-save" (click)="saveTag()" [disabled]="!tagName || tagName.trim().length === 0">
+            <i class="fas fa-check"></i>
+            <span>{{ 'save' | translate }}</span>
+          </button>
+          <button class="btn-cancel" (click)="cancelEdit()">
+            <i class="fas fa-times"></i>
+            <span>{{ 'cancel' | translate }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <app-error-popup *ngIf="showError" [message]="errorMessage" (close)="closeErrorPopup()"></app-error-popup>
+
+  <app-confirm-dialog
+    *ngIf="showConfirmDialog"
+    [title]="confirmDialogTitle"
+    [message]="confirmDialogMessage"
+    (confirm)="onConfirmDelete()"
+    (cancel)="closeConfirmDialog()"
+    (close)="closeConfirmDialog()"
+  ></app-confirm-dialog>
+</div>
+

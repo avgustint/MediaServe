@@ -6,6 +6,7 @@ export type SupportedLocale = 'sl-SI' | 'en-GB' | 'it-IT';
 export interface TranslationKeys {
   // Login
   login: string;
+  loggingIn: string;
   username: string;
   password: string;
   invalidCredentials: string;
@@ -55,6 +56,8 @@ export interface TranslationKeys {
   addPage: string;
   removePage: string;
   uploadImage: string;
+  bold: string;
+  italic: string;
   noResults: string;
   noLibraryItemsFound: string;
   confirmDelete: string;
@@ -100,6 +103,8 @@ export interface TranslationKeys {
   select: string;
   no: string;
   yes: string;
+  fieldRequired: string;
+  minLength: string;
   
   // Errors
   error: string;
@@ -109,6 +114,7 @@ export interface TranslationKeys {
   // Additional UI Elements
   waitingForContent: string;
   noLibraryItemFoundWithId: string;
+  pleaseEnterItemNumber: string;
   clearId: string;
   deleteLastDigit: string;
   enter: string;
@@ -125,6 +131,8 @@ export interface TranslationKeys {
   noRoleSelected: string;
   enterItemName: string;
   enterItemDescription: string;
+  author: string;
+  enterAuthor: string;
   enterPlaylistName: string;
   enterPlaylistDescription: string;
   enterUserName: string;
@@ -207,12 +215,124 @@ export interface TranslationKeys {
     enterNewPassword: string;
     enterConfirmPassword: string;
     noLocale: string;
+    
+    // General Settings
+    generalSettings: string;
+    defaultBackgroundColor: string;
+    defaultFontColor: string;
+    defaultBlankPage: string;
+    defaultBlankPageHelp: string;
+    backgroundColor: string;
+    fontColor: string;
+    backgroundColorHelp: string;
+    fontColorHelp: string;
+    noPermissionToViewSettings: string;
+    loading: string;
+    saving: string;
+    none: string;
+    
+    // Tags
+    tags: string;
+    tag: string;
+    manageTags: string;
+    addNewTag: string;
+    editTag: string;
+    tagName: string;
+    tagDescription: string;
+    enterTagName: string;
+    enterTagDescription: string;
+    tagSaved: string;
+    errorSavingTag: string;
+    deleteTag: string;
+    deleteTagConfirm: string;
+    tagUsedByItems: string;
+    errorDeletingTag: string;
+    noTagsFound: string;
+    noTagsAvailable: string;
+    searchTagsPlaceholder: string;
+    
+    // Collections
+    collections: string;
+    collection: string;
+    manageCollections: string;
+    addNewCollection: string;
+    editCollection: string;
+    collectionTitle: string;
+    collectionLabel: string;
+    collectionYear: string;
+    collectionPublisher: string;
+    collectionSource: string;
+    enterCollectionTitle: string;
+    enterCollectionLabel: string;
+    enterCollectionYear: string;
+    enterCollectionPublisher: string;
+    enterCollectionSource: string;
+    collectionSaved: string;
+    errorSavingCollection: string;
+    deleteCollection: string;
+    deleteCollectionConfirm: string;
+    errorDeletingCollection: string;
+    noCollectionsFound: string;
+    searchCollectionsPlaceholder: string;
+    collectionItems: string;
+    collectionNumber: string;
+    collectionPage: string;
+    addItemToCollection: string;
+    removeItemFromCollection: string;
+    enterCollectionNumber: string;
+    enterCollectionPage: string;
+    
+    // Locations
+    locations: string;
+    location: string;
+    manageLocations: string;
+    addNewLocation: string;
+    editLocation: string;
+    locationName: string;
+    locationDescription: string;
+    enterLocationName: string;
+    enterLocationDescription: string;
+    locationSaved: string;
+    errorSavingLocation: string;
+    deleteLocation: string;
+    deleteLocationConfirm: string;
+    errorDeletingLocation: string;
+    noLocationsFound: string;
+    noLocation: string;
+    searchLocationsPlaceholder: string;
+    locationDeleted: string;
+    selectLocation: string;
+    errorLoadingLocations: string;
+    
+    // Pages
+    managePages: string;
+    pageContent: string;
+    enterPageContent: string;
+    pageSaved: string;
+    errorSavingPage: string;
+    deletePage: string;
+    deletePageConfirm: string;
+    errorDeletingPage: string;
+    noPagesFound: string;
+    searchPagesPlaceholder: string;
+    reusePage: string;
+    createNewPage: string;
+    selectPage: string;
+    orderNumber: string;
+    allCollections: string;
+    allTags: string;
+  selectType: string;
+  selectTags: string;
+  tagsSelected: string;
+    clearAllFilters: string;
+    clearFilter: string;
 }
 
 const translations: Record<SupportedLocale, TranslationKeys> = {
   'en-GB': {
     // Login
     login: 'Login',
+    loggingIn: 'Logging in',
     username: 'Username',
     password: 'Password',
     invalidCredentials: 'Invalid username or password',
@@ -262,6 +382,8 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     addPage: 'Add Page',
     removePage: 'Remove Page',
     uploadImage: 'Upload Image',
+    bold: 'Bold',
+    italic: 'Italic',
     noResults: 'No results',
     noLibraryItemsFound: 'No library items found',
     confirmDelete: 'Confirm Delete',
@@ -308,6 +430,8 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     select: 'Select',
     no: 'No',
     yes: 'Yes',
+    fieldRequired: 'This field is required',
+    minLength: 'Minimum length is 3 characters',
     
     // Errors
     error: 'Error',
@@ -317,6 +441,7 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     // Additional UI Elements
     waitingForContent: 'Waiting for content from WebSocket...',
     noLibraryItemFoundWithId: 'No library item found with ID:',
+    pleaseEnterItemNumber: 'Please enter item number',
     clearId: 'Clear ID',
     deleteLastDigit: 'Delete last digit',
     enter: 'Enter',
@@ -333,6 +458,8 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     noRoleSelected: 'Select a role to edit its permissions',
     enterItemName: 'Enter item name',
     enterItemDescription: 'Enter item description (optional)',
+    author: 'Author',
+    enterAuthor: 'Enter author (optional)',
     enterPlaylistName: 'Enter playlist name',
     enterPlaylistDescription: 'Enter playlist description (optional)',
     enterUserName: 'Enter user name',
@@ -413,24 +540,136 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     enterCurrentPassword: 'Enter current password',
     enterNewPassword: 'Enter new password',
     enterConfirmPassword: 'Confirm new password',
-    noLocale: 'No locale'
+    noLocale: 'No locale',
+    
+    // General Settings
+    generalSettings: 'General Settings',
+    defaultBackgroundColor: 'Default Background Color',
+    defaultFontColor: 'Default Font Color',
+    defaultBlankPage: 'Default Blank Page',
+    defaultBlankPageHelp: 'Select a library item to display when no content is selected. Leave empty for no default.',
+    backgroundColor: 'Background Color',
+    fontColor: 'Font Color',
+    backgroundColorHelp: 'Background color for this item. Leave empty to use default.',
+    fontColorHelp: 'Font color for this item. Leave empty to use default.',
+    noPermissionToViewSettings: 'You do not have permission to view settings.',
+    loading: 'Loading',
+    saving: 'Saving',
+    none: 'None',
+    
+    // Tags
+    tags: 'Tags',
+    tag: 'Tag',
+    manageTags: 'Manage Tags',
+    addNewTag: 'Add New Tag',
+    editTag: 'Edit Tag',
+    tagName: 'Tag Name',
+    tagDescription: 'Tag Description',
+    enterTagName: 'Enter tag name',
+    enterTagDescription: 'Enter tag description (optional)',
+    tagSaved: 'Tag saved successfully',
+    errorSavingTag: 'Error saving tag. Please try again.',
+    deleteTag: 'Delete Tag',
+    deleteTagConfirm: 'Are you sure you want to delete tag',
+    tagUsedByItems: 'Tag is used by one or more library items and cannot be deleted.',
+    errorDeletingTag: 'Error deleting tag. Please try again.',
+    noTagsFound: 'No tags found',
+    noTagsAvailable: 'No tags available',
+    searchTagsPlaceholder: 'Search tags...',
+    
+    // Collections
+    collections: 'Collections',
+    collection: 'Collection',
+    manageCollections: 'Manage Collections',
+    addNewCollection: 'Add New Collection',
+    editCollection: 'Edit Collection',
+    collectionTitle: 'Collection Title',
+    collectionLabel: 'Collection Label',
+    collectionYear: 'Year',
+    collectionPublisher: 'Publisher',
+    collectionSource: 'Source',
+    enterCollectionTitle: 'Enter collection title',
+    enterCollectionLabel: 'Enter collection label (optional)',
+    enterCollectionYear: 'Enter year (optional)',
+    enterCollectionPublisher: 'Enter publisher (optional)',
+    enterCollectionSource: 'Enter source (optional)',
+    collectionSaved: 'Collection saved successfully',
+    errorSavingCollection: 'Error saving collection. Please try again.',
+    deleteCollection: 'Delete Collection',
+    deleteCollectionConfirm: 'Are you sure you want to delete collection',
+    errorDeletingCollection: 'Error deleting collection. Please try again.',
+    noCollectionsFound: 'No collections found',
+    searchCollectionsPlaceholder: 'Search collections...',
+    collectionItems: 'Collection Items',
+    collectionNumber: 'Collection Number',
+    collectionPage: 'Collection Page',
+    addItemToCollection: 'Add Item to Collection',
+    removeItemFromCollection: 'Remove Item from Collection',
+    enterCollectionNumber: 'Enter collection number (optional)',
+    enterCollectionPage: 'Enter collection page (optional)',
+    
+    // Locations
+    locations: 'Locations',
+    location: 'Location',
+    manageLocations: 'Manage Locations',
+    addNewLocation: 'Add New Location',
+    editLocation: 'Edit Location',
+    locationName: 'Location Name',
+    locationDescription: 'Location Description',
+    enterLocationName: 'Enter location name',
+    enterLocationDescription: 'Enter location description (optional)',
+    locationSaved: 'Location saved successfully',
+    errorSavingLocation: 'Error saving location. Please try again.',
+    deleteLocation: 'Delete Location',
+    deleteLocationConfirm: 'Are you sure you want to delete location',
+    errorDeletingLocation: 'Error deleting location. Please try again.',
+    noLocationsFound: 'No locations found',
+    noLocation: 'No location',
+    searchLocationsPlaceholder: 'Search locations...',
+    locationDeleted: 'Location deleted successfully',
+    selectLocation: 'Select location',
+    errorLoadingLocations: 'Error loading locations. Please try again.',
+    
+    // Pages
+    managePages: 'Manage Pages',
+    pageContent: 'Page Content',
+    enterPageContent: 'Enter page content',
+    pageSaved: 'Page saved successfully',
+    errorSavingPage: 'Error saving page. Please try again.',
+    deletePage: 'Delete Page',
+    deletePageConfirm: 'Are you sure you want to delete page',
+    errorDeletingPage: 'Error deleting page. Please try again.',
+    noPagesFound: 'No pages found',
+    searchPagesPlaceholder: 'Search pages...',
+    reusePage: 'Reuse Existing Page',
+    createNewPage: 'Create New Page',
+    selectPage: 'Select Page',
+    orderNumber: 'Order Number',
+    allCollections: 'All Collections',
+    allTags: 'All Tags',
+    selectType: 'Select a type',
+    selectTags: 'Select tags',
+    tagsSelected: 'tags selected',
+    clearAllFilters: 'Clear All Filters',
+    clearFilter: 'Clear Filter'
   },
   'sl-SI': {
     // Login
     login: 'Prijava',
+    loggingIn: 'Prijavljanje',
     username: 'Uporabniško ime',
     password: 'Geslo',
     invalidCredentials: 'Napačno uporabniško ime ali geslo',
     loginFailed: 'Prijava ni uspela. Poskusite znova.',
     
     // App Navigation
-    mediaPlayerAdmin: 'Upravljalec Medijskega Predvajalnika',
-    playlist: 'Seznam Predvajanja',
+    mediaPlayerAdmin: 'Upravljalec medijskega predvajalnika',
+    playlist: 'Seznam predvajanja',
     editor: 'Urejevalnik',
     settings: 'Nastavitve',
     display: 'Zaslon',
     logout: 'Odjava',
-    confirmLogout: 'Potrditev Odjave',
+    confirmLogout: 'Potrditev odjave',
     logoutConfirmMessage: 'Ali ste prepričani, da se želite odjaviti?',
     connected: 'Povezano',
     connecting: 'Povezovanje...',
@@ -446,11 +685,11 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     
     // Editor
     library: 'Knjižnica',
-    playlistEditor: 'Seznam Predvajanja',
+    playlistEditor: 'Seznam predvajanja',
     searchLibraryItems: 'Iskanje knjižničnih postavk...',
     searchPlaylists: 'Iskanje seznamov predvajanja...',
-    addNewLibraryItem: 'Dodaj Novo Knjižnično Postavko',
-    addNewPlaylist: 'Dodaj Nov Seznam Predvajanja',
+    addNewLibraryItem: 'Dodaj novo knjižnično postavko',
+    addNewPlaylist: 'Dodaj nov seznam predvajanja',
     save: 'Shrani',
     cancel: 'Prekliči',
     delete: 'Izbriši',
@@ -464,12 +703,14 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     url: 'url',
     page: 'Stran',
     pages: 'Strani',
-    addPage: 'Dodaj Stran',
-    removePage: 'Odstrani Stran',
-    uploadImage: 'Naloži Sliko',
+    addPage: 'Dodaj stran',
+    removePage: 'Odstrani stran',
+    uploadImage: 'Naloži sliko',
+    bold: 'Krepko',
+    italic: 'Ležeče',
     noResults: 'Ni rezultatov',
     noLibraryItemsFound: 'Ni najdenih knjižničnih postavk',
-    confirmDelete: 'Potrditev Brisanja',
+    confirmDelete: 'Potrditev brisanja',
     confirmDeleteMessage: 'Ali ste prepričani, da želite izbrisati to postavko? To dejanje ni mogoče razveljaviti.',
     libraryItemDeleted: 'Knjižnična postavka je bila uspešno izbrisana',
     playlistDeleted: 'Seznam predvajanja je bil uspešno izbrisan',
@@ -480,9 +721,9 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     
     // Settings
     users: 'Uporabniki',
-    rolesPermissions: 'Vloge in Dovoljenja',
-    addNewUser: 'Dodaj Novega Uporabnika',
-    editUser: 'Uredi Uporabnika',
+    rolesPermissions: 'Vloge in dovoljenja',
+    addNewUser: 'Dodaj novega uporabnika',
+    editUser: 'Uredi uporabnika',
     email: 'E-pošta',
     role: 'Vloga',
     locale: 'Jezik',
@@ -513,6 +754,8 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     select: 'Izberi',
     no: 'Ne',
     yes: 'Da',
+    fieldRequired: 'To polje je obvezno',
+    minLength: 'Najmanjša dolžina je 3 znaki',
     
     // Errors
     error: 'Napaka',
@@ -522,6 +765,7 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     // Additional UI Elements
     waitingForContent: 'Čakanje na vsebino iz WebSocket...',
     noLibraryItemFoundWithId: 'Ni najdene knjižnične postavke z ID:',
+    pleaseEnterItemNumber: 'Prosimo vnesite številko postavke',
     clearId: 'Počisti ID',
     deleteLastDigit: 'Izbriši zadnjo številko',
     enter: 'Vnesi',
@@ -532,12 +776,14 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     permission: 'Dovoljenje',
     permissions: 'Dovoljenja',
     readOnly: 'Samo za branje',
-    savePermissions: 'Shrani Dovoljenja',
+    savePermissions: 'Shrani dovoljenja',
     selectRoleToEdit: 'Izberite vlogo za urejanje dovoljenj',
     permissionsFor: 'Dovoljenja za:',
     noRoleSelected: 'Izberite vlogo za urejanje dovoljenj',
     enterItemName: 'Vnesite ime postavke',
     enterItemDescription: 'Vnesite opis postavke (neobvezno)',
+    author: 'Avtor',
+    enterAuthor: 'Vnesite avtorja (neobvezno)',
     enterPlaylistName: 'Vnesite ime seznama predvajanja',
     enterPlaylistDescription: 'Vnesite opis seznama predvajanja (neobvezno)',
     enterUserName: 'Vnesite uporabniško ime',
@@ -548,33 +794,33 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     enterUrl: 'Vnesite URL (npr., https://example.com)',
     searchLibraryItemsToAdd: 'Iskanje knjižničnih postavk za dodajanje...',
     pagesLeaveEmpty: 'Strani (pustite prazno za vse strani):',
-    selectAll: 'Izberi Vse',
-    clearAllPages: 'Počisti (Vse Strani)',
+    selectAll: 'Izberi vse',
+    clearAllPages: 'Počisti (vse strani)',
     noItemsInPlaylist: 'Ni postavk v seznamu predvajanja. Dodajte knjižnične postavke zgoraj.',
     moveUp: 'Premakni navzgor',
     moveDown: 'Premakni navzdol',
     remove: 'Odstrani',
-    deleteUser: 'Izbriši Uporabnika',
-    deletePlaylist: 'Izbriši Seznam Predvajanja',
+    deleteUser: 'Izbriši uporabnika',
+    deletePlaylist: 'Izbriši seznam predvajanja',
     deleteItem: 'Izbriši postavko',
-    recentlyModified: 'Nedavno Spremenjeno (Zadnjih 50)',
+    recentlyModified: 'Nedavno spremenjeno (zadnjih 50)',
     modified: 'Spremenjeno:',
     selectPlaylist: 'Izberite seznam predvajanja',
     noPlaylistsFound: 'Ni najdenih seznamov predvajanja',
-    libraryItems: 'Knjižnične Postavke',
+    libraryItems: 'Knjižnične postavke',
     nameAndEmailAndUsernameRequired: 'Ime, E-pošta in Uporabniško ime so obvezni.',
     pleaseSelectValidLibraryItem: 'Prosimo, izberite veljavno knjižnično postavko',
     pleaseEnterNameForPlaylist: 'Prosimo, vnesite ime za seznam predvajanja',
     itemUsedInPlaylistsDetail: 'Postavka se uporablja v naslednjih seznamih predvajanja:',
     loadingPlaylist: 'Nalaganje seznama predvajanja...',
-    editLibraryItem: 'Uredi Knjižnično Postavko',
-    editPlaylist: 'Uredi Seznam Predvajanja',
+    editLibraryItem: 'Uredi knjižnično postavko',
+    editPlaylist: 'Uredi seznam predvajanja',
     updated: 'Posodobljeno',
     selected: 'Izbrano',
     descriptionOptional: 'Opis (neobvezno)',
     ok: 'V redu',
-    contentPages: 'Vsebinske Strani',
-    imageFile: 'Slikovna Datoteka',
+    contentPages: 'Vsebinske strani',
+    imageFile: 'Slikovna datoteka',
     preview: 'Predogled',
     item: 'Postavka',
     roles: 'Vloge',
@@ -598,18 +844,18 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     roleUsedByUsers: 'Vloga se uporablja pri enem ali več uporabnikih in je ni mogoče izbrisati.',
     errorDeletingRole: 'Napaka pri brisanju vloge. Poskusite znova.',
     enterRoleName: 'Vnesite ime vloge',
-    isAdminRole: 'Je Administratorska Vloga',
+    isAdminRole: 'Je administratorska vloga',
     adminRoleNameOnlyEditable: 'Za administratorske vloge je mogoče urejati samo ime.',
-    adminRole: 'Administratorska Vloga',
+    adminRole: 'Administratorska vloga',
     noRolesFound: 'Ni najdenih vlog',
     
     // User Profile
-    userProfile: 'Uporabniški Profil',
-    editProfile: 'Uredi Profil',
-    changePassword: 'Spremeni Geslo',
-    currentPassword: 'Trenutno Geslo',
-    newPassword: 'Novo Geslo',
-    confirmPassword: 'Potrdi Geslo',
+    userProfile: 'Uporabniški profil',
+    editProfile: 'Uredi profil',
+    changePassword: 'Spremeni geslo',
+    currentPassword: 'Trenutno geslo',
+    newPassword: 'Novo geslo',
+    confirmPassword: 'Potrdi geslo',
     usernameCannotBeChanged: 'Uporabniškega imena ni mogoče spremeniti',
     passwordsDoNotMatch: 'Gesli se ne ujemata',
     passwordTooShort: 'Geslo mora biti dolgo vsaj 6 znakov',
@@ -618,24 +864,136 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     enterCurrentPassword: 'Vnesite trenutno geslo',
     enterNewPassword: 'Vnesite novo geslo',
     enterConfirmPassword: 'Potrdite novo geslo',
-    noLocale: 'Brez jezika'
+    noLocale: 'Brez jezika',
+    
+    // General Settings
+    generalSettings: 'Splošne nastavitve',
+    defaultBackgroundColor: 'Privzeta barva ozadja',
+    defaultFontColor: 'Privzeta barva pisave',
+    defaultBlankPage: 'Privzeta prazna stran',
+    defaultBlankPageHelp: 'Izberite knjižnično postavko za prikaz, ko ni izbrane vsebine. Pustite prazno za brez privzete.',
+    backgroundColor: 'Barva ozadja',
+    fontColor: 'Barva pisave',
+    backgroundColorHelp: 'Barva ozadja za to postavko. Pustite prazno za uporabo privzete.',
+    fontColorHelp: 'Barva pisave za to postavko. Pustite prazno za uporabo privzete.',
+    noPermissionToViewSettings: 'Nimate dovoljenja za ogled nastavitev.',
+    loading: 'Nalaganje',
+    saving: 'Shranjevanje',
+    none: 'Brez',
+    
+    // Tags
+    tags: 'Oznake',
+    tag: 'Oznaka',
+    manageTags: 'Upravljanje oznak',
+    addNewTag: 'Dodaj novo oznako',
+    editTag: 'Uredi oznako',
+    tagName: 'Ime oznake',
+    tagDescription: 'Opis oznake',
+    enterTagName: 'Vnesite ime oznake',
+    enterTagDescription: 'Vnesite opis oznake (neobvezno)',
+    tagSaved: 'Oznaka je bila uspešno shranjena',
+    errorSavingTag: 'Napaka pri shranjevanju oznake. Poskusite znova.',
+    deleteTag: 'Izbriši oznako',
+    deleteTagConfirm: 'Ali ste prepričani, da želite izbrisati oznako',
+    tagUsedByItems: 'Oznaka se uporablja pri eni ali več knjižničnih postavkah in je ni mogoče izbrisati.',
+    errorDeletingTag: 'Napaka pri brisanju oznake. Poskusite znova.',
+    noTagsFound: 'Ni najdenih oznak',
+    noTagsAvailable: 'Ni na voljo oznak',
+    searchTagsPlaceholder: 'Iskanje oznak...',
+    
+    // Collections
+    collections: 'Zbirke',
+    collection: 'Zbirka',
+    manageCollections: 'Upravljanje zbirk',
+    addNewCollection: 'Dodaj novo zbirko',
+    editCollection: 'Uredi zbirko',
+    collectionTitle: 'Naslov zbirke',
+    collectionLabel: 'Oznaka zbirke',
+    collectionYear: 'Leto',
+    collectionPublisher: 'Založnik',
+    collectionSource: 'Vir',
+    enterCollectionTitle: 'Vnesite naslov zbirke',
+    enterCollectionLabel: 'Vnesite oznako zbirke (neobvezno)',
+    enterCollectionYear: 'Vnesite leto (neobvezno)',
+    enterCollectionPublisher: 'Vnesite založnika (neobvezno)',
+    enterCollectionSource: 'Vnesite vir (neobvezno)',
+    collectionSaved: 'Zbirka je bila uspešno shranjena',
+    errorSavingCollection: 'Napaka pri shranjevanju zbirke. Poskusite znova.',
+    deleteCollection: 'Izbriši zbirko',
+    deleteCollectionConfirm: 'Ali ste prepričani, da želite izbrisati zbirko',
+    errorDeletingCollection: 'Napaka pri brisanju zbirke. Poskusite znova.',
+    noCollectionsFound: 'Ni najdenih zbirk',
+    searchCollectionsPlaceholder: 'Iskanje zbirk...',
+    collectionItems: 'Postavke zbirke',
+    collectionNumber: 'Številka v zbirki',
+    collectionPage: 'Stran v zbirki',
+    addItemToCollection: 'Dodaj postavko v zbirko',
+    removeItemFromCollection: 'Odstrani postavko iz zbirke',
+    enterCollectionNumber: 'Vnesite številko v zbirki (neobvezno)',
+    enterCollectionPage: 'Vnesite stran v zbirki (neobvezno)',
+    
+    // Locations
+    locations: 'Lokacije',
+    location: 'Lokacija',
+    manageLocations: 'Upravljanje lokacij',
+    addNewLocation: 'Dodaj novo lokacijo',
+    editLocation: 'Uredi lokacijo',
+    locationName: 'Ime lokacije',
+    locationDescription: 'Opis lokacije',
+    enterLocationName: 'Vnesite ime lokacije',
+    enterLocationDescription: 'Vnesite opis lokacije (neobvezno)',
+    locationSaved: 'Lokacija uspešno shranjena',
+    errorSavingLocation: 'Napaka pri shranjevanju lokacije. Poskusite znova.',
+    deleteLocation: 'Izbriši lokacijo',
+    deleteLocationConfirm: 'Ali ste prepričani, da želite izbrisati lokacijo',
+    errorDeletingLocation: 'Napaka pri brisanju lokacije. Poskusite znova.',
+    noLocationsFound: 'Ni najdenih lokacij',
+    noLocation: 'Ni lokacije',
+    searchLocationsPlaceholder: 'Iskanje lokacij...',
+    locationDeleted: 'Lokacija uspešno izbrisana',
+    selectLocation: 'Izberite lokacijo',
+    errorLoadingLocations: 'Napaka pri nalaganju lokacij. Poskusite znova.',
+    
+    // Pages
+    managePages: 'Upravljanje strani',
+    pageContent: 'Vsebina strani',
+    enterPageContent: 'Vnesite vsebino strani',
+    pageSaved: 'Stran je bila uspešno shranjena',
+    errorSavingPage: 'Napaka pri shranjevanju strani. Poskusite znova.',
+    deletePage: 'Izbriši stran',
+    deletePageConfirm: 'Ali ste prepričani, da želite izbrisati stran',
+    errorDeletingPage: 'Napaka pri brisanju strani. Poskusite znova.',
+    noPagesFound: 'Ni najdenih strani',
+    searchPagesPlaceholder: 'Iskanje strani...',
+    reusePage: 'Ponovno uporabi obstoječo stran',
+    createNewPage: 'Ustvari novo stran',
+    selectPage: 'Izberi stran',
+    orderNumber: 'Vrstni red',
+    allCollections: 'Vse zbirke',
+    allTags: 'Vse oznake',
+    selectType: 'Izberite vrsto',
+    selectTags: 'Izberite oznake',
+    tagsSelected: 'izbranih oznak',
+    clearAllFilters: 'Počisti vse filtre',
+    clearFilter: 'Počisti filter'
   },
   'it-IT': {
     // Login
     login: 'Accesso',
+    loggingIn: 'Accesso in corso',
     username: 'Nome utente',
     password: 'Password',
     invalidCredentials: 'Nome utente o password non validi',
     loginFailed: 'Accesso fallito. Riprova.',
     
     // App Navigation
-    mediaPlayerAdmin: 'Amministrazione Media Player',
+    mediaPlayerAdmin: 'Amministrazione media player',
     playlist: 'Playlist',
     editor: 'Editor',
     settings: 'Impostazioni',
     display: 'Visualizzazione',
     logout: 'Esci',
-    confirmLogout: 'Conferma Uscita',
+    confirmLogout: 'Conferma uscita',
     logoutConfirmMessage: 'Sei sicuro di voler uscire?',
     connected: 'Connesso',
     connecting: 'Connessione...',
@@ -654,8 +1012,8 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     playlistEditor: 'Playlist',
     searchLibraryItems: 'Cerca elementi biblioteca...',
     searchPlaylists: 'Cerca playlist...',
-    addNewLibraryItem: 'Aggiungi Nuovo Elemento Biblioteca',
-    addNewPlaylist: 'Aggiungi Nuova Playlist',
+    addNewLibraryItem: 'Aggiungi nuovo elemento biblioteca',
+    addNewPlaylist: 'Aggiungi nuova playlist',
     save: 'Salva',
     cancel: 'Annulla',
     delete: 'Elimina',
@@ -669,12 +1027,14 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     url: 'url',
     page: 'Pagina',
     pages: 'Pagine',
-    addPage: 'Aggiungi Pagina',
-    removePage: 'Rimuovi Pagina',
-    uploadImage: 'Carica Immagine',
+    addPage: 'Aggiungi pagina',
+    removePage: 'Rimuovi pagina',
+    uploadImage: 'Carica immagine',
+    bold: 'Grassetto',
+    italic: 'Corsivo',
     noResults: 'Nessun risultato',
     noLibraryItemsFound: 'Nessun elemento biblioteca trovato',
-    confirmDelete: 'Conferma Eliminazione',
+    confirmDelete: 'Conferma eliminazione',
     confirmDeleteMessage: 'Sei sicuro di voler eliminare questo elemento? Questa azione non può essere annullata.',
     libraryItemDeleted: 'Elemento biblioteca eliminato con successo',
     playlistDeleted: 'Playlist eliminata con successo',
@@ -685,9 +1045,9 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     
     // Settings
     users: 'Utenti',
-    rolesPermissions: 'Ruoli e Permessi',
-    addNewUser: 'Aggiungi Nuovo Utente',
-    editUser: 'Modifica Utente',
+    rolesPermissions: 'Ruoli e permessi',
+    addNewUser: 'Aggiungi nuovo utente',
+    editUser: 'Modifica utente',
     email: 'Email',
     role: 'Ruolo',
     locale: 'Lingua',
@@ -718,6 +1078,8 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     select: 'Seleziona',
     no: 'No',
     yes: 'Sì',
+    fieldRequired: 'Questo campo è obbligatorio',
+    minLength: 'La lunghezza minima è di 3 caratteri',
     
     // Errors
     error: 'Errore',
@@ -727,6 +1089,7 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     // Additional UI Elements
     waitingForContent: 'In attesa di contenuto da WebSocket...',
     noLibraryItemFoundWithId: 'Nessun elemento biblioteca trovato con ID:',
+    pleaseEnterItemNumber: 'Inserisci il numero dell\'elemento',
     clearId: 'Cancella ID',
     deleteLastDigit: 'Elimina ultima cifra',
     enter: 'Invio',
@@ -736,13 +1099,15 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     typeColon: 'Tipo:',
     permission: 'Permesso',
     permissions: 'Permessi',
-    readOnly: 'Sola Lettura',
-    savePermissions: 'Salva Permessi',
+    readOnly: 'Sola lettura',
+    savePermissions: 'Salva permessi',
     selectRoleToEdit: 'Seleziona un ruolo per modificare i permessi',
     permissionsFor: 'Permessi per:',
     noRoleSelected: 'Seleziona un ruolo per modificare i permessi',
     enterItemName: 'Inserisci nome elemento',
     enterItemDescription: 'Inserisci descrizione elemento (opzionale)',
+    author: 'Autore',
+    enterAuthor: 'Inserisci autore (opzionale)',
     enterPlaylistName: 'Inserisci nome playlist',
     enterPlaylistDescription: 'Inserisci descrizione playlist (opzionale)',
     enterUserName: 'Inserisci nome utente',
@@ -753,31 +1118,31 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     enterUrl: 'Inserisci URL (es., https://example.com)',
     searchLibraryItemsToAdd: 'Cerca elementi biblioteca da aggiungere...',
     pagesLeaveEmpty: 'Pagine (lascia vuoto per tutte le pagine):',
-    selectAll: 'Seleziona Tutto',
-    clearAllPages: 'Cancella (Tutte le Pagine)',
+    selectAll: 'Seleziona tutto',
+    clearAllPages: 'Cancella (tutte le pagine)',
     noItemsInPlaylist: 'Nessun elemento nella playlist. Aggiungi elementi biblioteca sopra.',
     moveUp: 'Sposta su',
     moveDown: 'Sposta giù',
     remove: 'Rimuovi',
-    deleteUser: 'Elimina Utente',
-    deletePlaylist: 'Elimina Playlist',
+    deleteUser: 'Elimina utente',
+    deletePlaylist: 'Elimina playlist',
     deleteItem: 'Elimina elemento',
-    recentlyModified: 'Modificati di Recente (Ultimi 50)',
+    recentlyModified: 'Modificati di recente (ultimi 50)',
     modified: 'Modificato:',
     selectPlaylist: 'Seleziona una playlist',
     noPlaylistsFound: 'Nessuna playlist trovata',
-    libraryItems: 'Elementi Biblioteca',
+    libraryItems: 'Elementi biblioteca',
     nameAndEmailAndUsernameRequired: 'Nome, Email e Nome utente sono obbligatori.',
     pleaseSelectValidLibraryItem: 'Seleziona un elemento biblioteca valido',
     pleaseEnterNameForPlaylist: 'Inserisci un nome per la playlist',
     itemUsedInPlaylistsDetail: 'Elemento utilizzato nelle seguenti playlist:',
     loadingPlaylist: 'Caricamento playlist...',
-    editLibraryItem: 'Modifica Elemento Biblioteca',
-    contentPages: 'Pagine Contenuto',
-    imageFile: 'File Immagine',
+    editLibraryItem: 'Modifica elemento biblioteca',
+    contentPages: 'Pagine contenuto',
+    imageFile: 'File immagine',
     preview: 'Anteprima',
     item: 'Elemento',
-    editPlaylist: 'Modifica Playlist',
+    editPlaylist: 'Modifica playlist',
     updated: 'Aggiornato',
     selected: 'Selezionato',
     descriptionOptional: 'Descrizione (opzionale)',
@@ -793,28 +1158,28 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     errorSavingRolePermissions: 'Errore nel salvare i permessi del ruolo. Riprova.',
     cannotModifyPermissionsForAdminRole: 'Non è possibile modificare i permessi del ruolo amministratore.',
     searchRolesPlaceholder: 'Cerca ruoli...',
-    addNewRole: 'Aggiungi Nuovo Ruolo',
-    editRole: 'Modifica Ruolo',
+    addNewRole: 'Aggiungi nuovo ruolo',
+    editRole: 'Modifica ruolo',
     roleSaved: 'Ruolo salvato con successo',
     errorSavingRole: 'Errore nel salvare il ruolo. Riprova.',
-    deleteRole: 'Elimina Ruolo',
+    deleteRole: 'Elimina ruolo',
     deleteRoleConfirm: 'Sei sicuro di voler eliminare il ruolo',
     cannotDeleteAdminRole: 'Non è possibile eliminare il ruolo amministratore.',
     roleUsedByUsers: 'Il ruolo è utilizzato da uno o più utenti e non può essere eliminato.',
     errorDeletingRole: 'Errore nell\'eliminazione del ruolo. Riprova.',
     enterRoleName: 'Inserisci nome ruolo',
-    isAdminRole: 'È Ruolo Amministratore',
+    isAdminRole: 'È ruolo amministratore',
     adminRoleNameOnlyEditable: 'Per i ruoli amministratore, è possibile modificare solo il nome.',
-    adminRole: 'Ruolo Amministratore',
+    adminRole: 'Ruolo amministratore',
     noRolesFound: 'Nessun ruolo trovato',
     
     // User Profile
-    userProfile: 'Profilo Utente',
-    editProfile: 'Modifica Profilo',
-    changePassword: 'Cambia Password',
-    currentPassword: 'Password Attuale',
-    newPassword: 'Nuova Password',
-    confirmPassword: 'Conferma Password',
+    userProfile: 'Profilo utente',
+    editProfile: 'Modifica profilo',
+    changePassword: 'Cambia password',
+    currentPassword: 'Password attuale',
+    newPassword: 'Nuova password',
+    confirmPassword: 'Conferma password',
     usernameCannotBeChanged: 'Il nome utente non può essere modificato',
     passwordsDoNotMatch: 'Le password non corrispondono',
     passwordTooShort: 'La password deve essere lunga almeno 6 caratteri',
@@ -823,7 +1188,118 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     enterCurrentPassword: 'Inserisci password attuale',
     enterNewPassword: 'Inserisci nuova password',
     enterConfirmPassword: 'Conferma nuova password',
-    noLocale: 'Nessuna lingua'
+    noLocale: 'Nessuna lingua',
+    
+    // General Settings
+    generalSettings: 'Impostazioni generali',
+    defaultBackgroundColor: 'Colore di sfondo predefinito',
+    defaultFontColor: 'Colore del carattere predefinito',
+    defaultBlankPage: 'Pagina vuota predefinita',
+    defaultBlankPageHelp: 'Seleziona un elemento della libreria da visualizzare quando non è selezionato alcun contenuto. Lascia vuoto per nessun default.',
+    backgroundColor: 'Colore di sfondo',
+    fontColor: 'Colore del carattere',
+    backgroundColorHelp: 'Colore di sfondo per questo elemento. Lascia vuoto per usare il default.',
+    fontColorHelp: 'Colore del carattere per questo elemento. Lascia vuoto per usare il default.',
+    noPermissionToViewSettings: 'Non hai il permesso di visualizzare le impostazioni.',
+    loading: 'Caricamento',
+    saving: 'Salvataggio',
+    none: 'Nessuno',
+    
+    // Tags
+    tags: 'Tag',
+    tag: 'Tag',
+    manageTags: 'Gestisci Tag',
+    addNewTag: 'Aggiungi Nuovo Tag',
+    editTag: 'Modifica Tag',
+    tagName: 'Nome Tag',
+    tagDescription: 'Descrizione Tag',
+    enterTagName: 'Inserisci nome tag',
+    enterTagDescription: 'Inserisci descrizione tag (opzionale)',
+    tagSaved: 'Tag salvato con successo',
+    errorSavingTag: 'Errore nel salvare il tag. Riprova.',
+    deleteTag: 'Elimina Tag',
+    deleteTagConfirm: 'Sei sicuro di voler eliminare il tag',
+    tagUsedByItems: 'Il tag è utilizzato da uno o più elementi della biblioteca e non può essere eliminato.',
+    errorDeletingTag: 'Errore nell\'eliminazione del tag. Riprova.',
+    noTagsFound: 'Nessun tag trovato',
+    noTagsAvailable: 'Nessun tag disponibile',
+    searchTagsPlaceholder: 'Cerca tag...',
+    
+    // Collections
+    collections: 'Collezioni',
+    collection: 'Collezione',
+    manageCollections: 'Gestisci Collezioni',
+    addNewCollection: 'Aggiungi Nuova Collezione',
+    editCollection: 'Modifica Collezione',
+    collectionTitle: 'Titolo Collezione',
+    collectionLabel: 'Etichetta Collezione',
+    collectionYear: 'Anno',
+    collectionPublisher: 'Editore',
+    collectionSource: 'Fonte',
+    enterCollectionTitle: 'Inserisci titolo collezione',
+    enterCollectionLabel: 'Inserisci etichetta collezione (opzionale)',
+    enterCollectionYear: 'Inserisci anno (opzionale)',
+    enterCollectionPublisher: 'Inserisci editore (opzionale)',
+    enterCollectionSource: 'Inserisci fonte (opzionale)',
+    collectionSaved: 'Collezione salvata con successo',
+    errorSavingCollection: 'Errore nel salvare la collezione. Riprova.',
+    deleteCollection: 'Elimina Collezione',
+    deleteCollectionConfirm: 'Sei sicuro di voler eliminare la collezione',
+    errorDeletingCollection: 'Errore nell\'eliminazione della collezione. Riprova.',
+    noCollectionsFound: 'Nessuna collezione trovata',
+    searchCollectionsPlaceholder: 'Cerca collezioni...',
+    collectionItems: 'Elementi Collezione',
+    collectionNumber: 'Numero Collezione',
+    collectionPage: 'Pagina Collezione',
+    addItemToCollection: 'Aggiungi Elemento alla Collezione',
+    removeItemFromCollection: 'Rimuovi Elemento dalla Collezione',
+    enterCollectionNumber: 'Inserisci numero collezione (opzionale)',
+    enterCollectionPage: 'Inserisci pagina collezione (opzionale)',
+    
+    // Locations
+    locations: 'Posizioni',
+    location: 'Posizione',
+    manageLocations: 'Gestisci Posizioni',
+    addNewLocation: 'Aggiungi Nuova Posizione',
+    editLocation: 'Modifica Posizione',
+    locationName: 'Nome Posizione',
+    locationDescription: 'Descrizione Posizione',
+    enterLocationName: 'Inserisci nome posizione',
+    enterLocationDescription: 'Inserisci descrizione posizione (opzionale)',
+    locationSaved: 'Posizione salvata con successo',
+    errorSavingLocation: 'Errore nel salvare la posizione. Riprova.',
+    deleteLocation: 'Elimina Posizione',
+    deleteLocationConfirm: 'Sei sicuro di voler eliminare la posizione',
+    errorDeletingLocation: 'Errore nell\'eliminare la posizione. Riprova.',
+    noLocationsFound: 'Nessuna posizione trovata',
+    noLocation: 'Nessuna posizione',
+    searchLocationsPlaceholder: 'Cerca posizioni...',
+    locationDeleted: 'Posizione eliminata con successo',
+    selectLocation: 'Seleziona posizione',
+    errorLoadingLocations: 'Errore nel caricamento delle posizioni. Riprova.',
+    
+    // Pages
+    managePages: 'Gestisci Pagine',
+    pageContent: 'Contenuto Pagina',
+    enterPageContent: 'Inserisci contenuto pagina',
+    pageSaved: 'Pagina salvata con successo',
+    errorSavingPage: 'Errore nel salvare la pagina. Riprova.',
+    deletePage: 'Elimina Pagina',
+    deletePageConfirm: 'Sei sicuro di voler eliminare la pagina',
+    errorDeletingPage: 'Errore nell\'eliminazione della pagina. Riprova.',
+    noPagesFound: 'Nessuna pagina trovata',
+    searchPagesPlaceholder: 'Cerca pagine...',
+    reusePage: 'Riutilizza Pagina Esistente',
+    createNewPage: 'Crea Nuova Pagina',
+    selectPage: 'Seleziona Pagina',
+    orderNumber: 'Numero Ordine',
+    allCollections: 'Tutte le Collezioni',
+    allTags: 'Tutti i Tag',
+    selectType: 'Seleziona un tipo',
+    selectTags: 'Seleziona tag',
+    tagsSelected: 'tag selezionati',
+    clearAllFilters: 'Cancella Tutti i Filtri',
+    clearFilter: 'Cancella Filtro'
   }
 };
 

@@ -1,4 +1,5 @@
 <div class="app-wrapper">
+  <app-loading [isLoading]="isLoading"></app-loading>
   <nav *ngIf="isAuthenticated()" class="navbar">
     <div class="nav-brand-section">
       <button class="mobile-menu-toggle" (click)="toggleMobileMenu()" *ngIf="true" aria-label="Toggle menu">
@@ -75,7 +76,9 @@
     </div>
   </div>
   
-  <router-outlet></router-outlet>
+  <div class="router-outlet-container">
+    <router-outlet></router-outlet>
+  </div>
 
   <!-- Logout Confirmation Dialog -->
   <app-confirm-dialog

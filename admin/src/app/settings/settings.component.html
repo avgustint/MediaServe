@@ -2,6 +2,14 @@
   <div class="settings-header">
     <div class="tabs">
       <button
+        *ngIf="hasViewGeneralSettingsPermission()"
+        class="tab-button"
+        [class.active]="activeTab === 'general'"
+        (click)="switchTab('general')"
+      >
+        {{ 'generalSettings' | translate }}
+      </button>
+      <button
         *ngIf="hasViewUsersPermission()"
         class="tab-button"
         [class.active]="activeTab === 'users'"
@@ -25,12 +33,22 @@
       >
         {{ 'rolesPermissions' | translate }}
       </button>
+      <button
+        *ngIf="hasViewLocationsPermission()"
+        class="tab-button"
+        [class.active]="activeTab === 'locations'"
+        (click)="switchTab('locations')"
+      >
+        {{ 'locations' | translate }}
+      </button>
     </div>
   </div>
   <div class="settings-content">
+    <app-general-settings *ngIf="activeTab === 'general' && hasViewGeneralSettingsPermission()"></app-general-settings>
     <app-user-editor *ngIf="activeTab === 'users' && hasViewUsersPermission()"></app-user-editor>
     <app-role-editor *ngIf="activeTab === 'roles' && hasViewRolesPermission()"></app-role-editor>
     <app-role-permissions-editor *ngIf="activeTab === 'permissions' && hasViewRolesPermission()"></app-role-permissions-editor>
+    <app-locations-editor *ngIf="activeTab === 'locations' && hasViewLocationsPermission()"></app-locations-editor>
   </div>
 </div>
 

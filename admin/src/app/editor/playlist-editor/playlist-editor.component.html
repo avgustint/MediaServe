@@ -3,14 +3,14 @@
     <div class="search-input-wrapper">
       <input
         type="text"
+        pInputText
         class="search-input"
         [(ngModel)]="searchTerm"
         (input)="onSearchChange()"
         [placeholder]="'searchPlaylists' | translate"
+        styleClass="w-full"
       />
-      <button *ngIf="searchTerm" class="clear-search-btn" (click)="clearSearch()" [title]="'clearSearch' | translate">
-        ×
-      </button>
+      <button *ngIf="searchTerm" class="clear-search-btn" (click)="clearSearch()" [title]="'clearSearch' | translate"></button>
     </div>
     <div class="search-results" *ngIf="showSearchResults">
       <div
@@ -33,7 +33,7 @@
   </div>
 
   <div class="actions-section">
-    <button class="add-button" (click)="addNewPlaylist()" *ngIf="!editingPlaylist && !isNewPlaylist">
+    <button class="add-button" (click)="addNewPlaylist()" *ngIf="!editingPlaylist && !isNewPlaylist && hasManagePlaylistsPermission()">
       {{ 'addNewPlaylist' | translate }}
     </button>
   </div>
@@ -78,9 +78,10 @@
         <input
           id="playlistName"
           type="text"
-          class="form-control"
+          pInputText
           [(ngModel)]="playlistName"
           [placeholder]="'enterPlaylistName' | translate"
+          styleClass="w-full"
         />
       </div>
 
@@ -89,9 +90,10 @@
         <input
           id="playlistDescription"
           type="text"
-          class="form-control"
+          pInputText
           [(ngModel)]="playlistDescription"
           [placeholder]="'enterPlaylistDescription' | translate"
+          styleClass="w-full"
         />
       </div>
 
@@ -154,9 +156,10 @@
               <div class="item-description-input">
                 <input
                   type="text"
-                  class="form-control description-input"
+                  pInputText
                   [(ngModel)]="item.description"
                   [placeholder]="'descriptionOptional' | translate"
+                  styleClass="w-full"
                 />
               </div>
             </div>

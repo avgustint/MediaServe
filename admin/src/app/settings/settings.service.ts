@@ -2,6 +2,7 @@ import { Injectable } from "@angular/core";
 import { HttpClient, HttpHeaders } from "@angular/common/http";
 import { Observable } from "rxjs";
 import { AuthService } from "../auth.service";
+import { environment } from "../../environments/environment";
 
 export interface User {
   guid: number;
@@ -28,7 +29,7 @@ export interface Permission {
   providedIn: "root"
 })
 export class SettingsService {
-  private readonly API_URL = "http://localhost:8080";
+  private readonly API_URL = environment.apiUrl;
 
   constructor(
     private http: HttpClient,
@@ -37,7 +38,11 @@ export class SettingsService {
 
   // User operations
   getAllUsers(): Observable<User[]> {
-    return this.http.get<User[]>(`${this.API_URL}/users`);
+    const username = this.authService.getStoredUsername();
+    const url = username 
+      ? `${this.API_URL}/users?username=${encodeURIComponent(username)}`
+      : `${this.API_URL}/users`;
+    return this.http.get<User[]>(url);
   }
 
   createUser(user: Partial<User>): Observable<User> {
@@ -64,7 +69,11 @@ export class SettingsService {
 
   // Role operations
   getAllRoles(): Observable<Role[]> {
-    return this.http.get<Role[]>(`${this.API_URL}/roles`);
+    const username = this.authService.getStoredUsername();
+    const url = username 
+      ? `${this.API_URL}/roles?username=${encodeURIComponent(username)}`
+      : `${this.API_URL}/roles`;
+    return this.http.get<Role[]>(url);
   }
 
   createRole(role: Partial<Role>): Observable<Role> {
@@ -82,16 +91,28 @@ export class SettingsService {
   }
 
   checkRoleUsage(guid: number): Observable<{ isUsed: boolean; isAdmin: boolean; canDelete: boolean }> {
-    return this.http.get<{ isUsed: boolean; isAdmin: boolean; canDelete: boolean }>(`${this.API_URL}/roles/${guid}/usage`);
+    const username = this.authService.getStoredUsername();
+    const url = username 
+      ? `${this.API_URL}/roles/${guid}/usage?username=${encodeURIComponent(username)}`
+      : `${this.API_URL}/roles/${guid}/usage`;
+    return this.http.get<{ isUsed: boolean; isAdmin: boolean; canDelete: boolean }>(url);
   }
 
   // Permission operations
   getAllPermissions(): Observable<Permission[]> {
-    return this.http.get<Permission[]>(`${this.API_URL}/permissions`);
+    const username = this.authService.getStoredUsername();
+    const url = username 
+      ? `${this.API_URL}/permissions?username=${encodeURIComponent(username)}`
+      : `${this.API_URL}/permissions`;
+    return this.http.get<Permission[]>(url);
   }
 
   getRolePermissions(roleGuid: number): Observable<number[]> {
-    return this.http.get<number[]>(`${this.API_URL}/roles/${roleGuid}/permissions`);
+    const username = this.authService.getStoredUsername();
+    const url = username 
+      ? `${this.API_URL}/roles/${roleGuid}/permissions?username=${encodeURIComponent(username)}`
+      : `${this.API_URL}/roles/${roleGuid}/permissions`;
+    return this.http.get<number[]>(url);
   }
 
   updateRolePermissions(roleGuid: number, permissions: number[]): Observable<number[]> {
@@ -99,6 +120,20 @@ export class SettingsService {
     return this.http.put<number[]>(
       `${this.API_URL}/roles/${roleGuid}/permissions`,
       { permissions },
+      { headers }
+    );
+  }
+
+  // General settings operations
+  getGeneralSettings(username: string): Observable<any> {
+    return this.http.get<any>(`${this.API_URL}/settings?username=${encodeURIComponent(username)}`);
+  }
+
+  updateGeneralSettings(username: string, settings: any): Observable<any> {
+    const headers = new HttpHeaders({ "Content-Type": "application/json" });
+    return this.http.put<any>(
+      `${this.API_URL}/settings?username=${encodeURIComponent(username)}`,
+      settings,
       { headers }
     );
   }

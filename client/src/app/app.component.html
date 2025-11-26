@@ -1,16 +1,52 @@
 <div class="app-container">
+  <!-- Location selection overlay (shown only when no location is configured) -->
+  <div class="location-overlay" *ngIf="showLocationSelector">
+    <div class="location-dialog">
+      <h2>Select Location</h2>
+      <p>Please select the location for this display.</p>
+
+      <div *ngIf="locationsLoading">Loading locations...</div>
+      <div *ngIf="!locationsLoading && locations.length">
+        <select
+          class="location-input"
+          [(ngModel)]="locationInput"
+        >
+          <option [ngValue]="''" disabled>Select location</option>
+          <option
+            *ngFor="let location of locations"
+            [ngValue]="location.guid.toString()"
+          >
+            {{ location.name }} ({{ location.guid }})
+          </option>
+        </select>
+      </div>
+      <div *ngIf="!locationsLoading && !locations.length">
+        No locations available.
+      </div>
+      <div *ngIf="locationsError" class="location-error">
+        {{ locationsError }}
+      </div>
+
+      <button class="location-confirm-button" (click)="onConfirmLocation()" [disabled]="!locationInput">
+        Confirm
+      </button>
+    </div>
+  </div>
+
   <div class="connection-status" [class.connected]="connectionStatus === 'connected'"></div>
 
   <!-- Text Content -->
   <div *ngIf="currentContent?.type === 'text'" 
        class="content-container text-container" 
+       [ngStyle]="textContainerStyle"
        #textContainer>
-    <div class="text-content">{{ text }}</div>
+    <div class="text-content" [ngStyle]="textContentStyle" [innerHTML]="text | formatText"></div>
   </div>
 
   <!-- Image Content -->
   <div *ngIf="currentContent?.type === 'image'" 
        class="content-container image-container" 
+       [ngStyle]="imageContainerStyle"
        #imageContainer>
     <img [src]="imageSrc" alt="Received image" class="display-image" />
   </div>

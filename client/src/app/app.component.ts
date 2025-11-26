@@ -1,13 +1,17 @@
 import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewInit } from "@angular/core";
 import { CommonModule } from "@angular/common";
+import { FormsModule } from "@angular/forms";
+import { HttpClient } from "@angular/common/http";
 import { DomSanitizer, SafeResourceUrl } from "@angular/platform-browser";
 import { WebSocketService, WebSocketMessage } from "./websocket.service";
+import { FormatTextPipe } from "./format-text.pipe";
 import { Subscription } from "rxjs";
+import { SERVER_BASE_URL } from "./api.config";
 
 @Component({
   selector: "app-root",
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule, FormatTextPipe],
   templateUrl: "./app.component.html",
   styleUrls: ["./app.component.scss"]
 })
@@ -19,17 +23,29 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
   private subscription?: Subscription;
   private connectionStatusSubscription?: Subscription;
   connectionStatus: "connecting" | "connected" | "disconnected" = "disconnected";
+
+  // Location handling
+  locationId: number | null = null;
+  showLocationSelector = false;
+  locationInput: string = "";
+  locations: { guid: number; name: string; description?: string }[] = [];
+  locationsLoading = false;
+  locationsError: string | null = null;
+
   private resizeHandler = () => {
     if (this.currentContent?.type === "text") {
       this.adjustTextSize();
     }
   };
 
-  constructor(private websocketService: WebSocketService, private sanitizer: DomSanitizer) {}
+  constructor(
+    private websocketService: WebSocketService,
+    private sanitizer: DomSanitizer,
+    private http: HttpClient
+  ) {}
 
   ngOnInit(): void {
-    // Connect to WebSocket - update URL as needed
-    this.websocketService.connect("ws://localhost:8080");
+    this.initializeLocation();
 
     // Subscribe to connection status changes
     this.connectionStatusSubscription = this.websocketService.connectionStatus$.subscribe(
@@ -39,6 +55,11 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
     );
 
     this.subscription = this.websocketService.messages$.subscribe((message: WebSocketMessage) => {
+      // React only to messages for the currently selected location (if locationId is present)
+      if (message.locationId != null && this.locationId != null && message.locationId !== this.locationId) {
+        return;
+      }
+
       this.currentContent = message;
 
       // Adjust font size for text after view update
@@ -58,6 +79,83 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
     this.connectionStatusSubscription?.unsubscribe();
     this.websocketService.disconnect();
     window.removeEventListener("resize", this.resizeHandler);
+  }
+
+  private initializeLocation(): void {
+    // 1) Try URL parameter (location or locationId)
+    const searchParams = new URLSearchParams(window.location.search);
+    const urlLocationParam = searchParams.get("location") || searchParams.get("locationId");
+
+    if (urlLocationParam) {
+      const parsed = parseInt(urlLocationParam, 10);
+      if (!isNaN(parsed)) {
+        this.locationId = parsed;
+        this.locationInput = String(parsed);
+        localStorage.setItem("displayLocationId", String(parsed));
+        this.initializeWebSocketConnection();
+        return;
+      }
+    }
+
+    // 2) Try localStorage
+    const storedLocation = localStorage.getItem("displayLocationId");
+    if (storedLocation) {
+      const parsed = parseInt(storedLocation, 10);
+      if (!isNaN(parsed)) {
+        this.locationId = parsed;
+        this.locationInput = String(parsed);
+        this.initializeWebSocketConnection();
+        return;
+      }
+    }
+
+    // 3) No location yet -> load locations and show selector UI
+    this.loadLocations();
+    this.showLocationSelector = true;
+  }
+
+  private loadLocations(): void {
+    this.locationsLoading = true;
+    this.locationsError = null;
+
+    this.http
+      .get<{ guid: number; name: string; description?: string }[]>(`${SERVER_BASE_URL}/locations`)
+      .subscribe({
+        next: (locations) => {
+          this.locations = locations || [];
+          this.locationsLoading = false;
+        },
+        error: (err) => {
+          console.error("Failed to load locations", err);
+          this.locationsLoading = false;
+          this.locationsError = "Failed to load locations";
+        }
+      });
+  }
+
+  private initializeWebSocketConnection(): void {
+    if (this.locationId == null) {
+      return;
+    }
+
+    // Connect to WebSocket with locationId as query parameter so server can route by location
+    const wsUrl = `ws://localhost:8080?locationId=${this.locationId}`;
+    this.websocketService.connect(wsUrl);
+  }
+
+  onConfirmLocation(): void {
+    const parsed = parseInt(this.locationInput, 10);
+    if (isNaN(parsed)) {
+      return;
+    }
+
+    this.locationId = parsed;
+    localStorage.setItem("displayLocationId", String(parsed));
+    this.showLocationSelector = false;
+
+    // Reconnect WebSocket with new location
+    this.websocketService.disconnect();
+    this.initializeWebSocketConnection();
   }
 
   adjustTextSize(): void {
@@ -134,5 +232,31 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
 
   get text(): string {
     return this.currentContent?.type === "text" ? this.currentContent.content : "";
+  }
+
+  get backgroundColor(): string {
+    return this.currentContent?.background_color || "#000000";
+  }
+
+  get fontColor(): string {
+    return this.currentContent?.font_color || "#FFFFFF";
+  }
+
+  get textContainerStyle(): { [key: string]: string } {
+    return {
+      'background-color': this.backgroundColor
+    };
+  }
+
+  get textContentStyle(): { [key: string]: string } {
+    return {
+      'color': this.fontColor
+    };
+  }
+
+  get imageContainerStyle(): { [key: string]: string } {
+    return {
+      'background-color': this.backgroundColor
+    };
   }
 }

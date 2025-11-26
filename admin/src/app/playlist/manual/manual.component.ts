@@ -3,8 +3,8 @@ import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { PlaylistService, LibraryItem, LibraryContent } from "../../playlist.service";
 import { WebSocketService } from "../../websocket.service";
+import { UserService } from "../../user.service";
 import { TranslatePipe } from "../../translation.pipe";
-import { Subject, Subscription, debounceTime, distinctUntilChanged, switchMap, of } from "rxjs";
 
 @Component({
   selector: "app-manual",
@@ -22,46 +22,16 @@ export class ManualComponent implements OnInit, OnDestroy {
   pages: LibraryContent[] = [];
   searchedGuid: string = ""; // Track the GUID that was searched to show error message
 
-  // Search functionality
-  searchTerm: string = "";
-  searchResults: LibraryItem[] = [];
-  showSearchResults: boolean = false;
-  private searchSubject = new Subject<string>();
-  private searchSubscription?: Subscription;
-
   constructor(
     private playlistService: PlaylistService,
-    private websocketService: WebSocketService
+    private websocketService: WebSocketService,
+    private userService: UserService
   ) {}
 
   ngOnInit(): void {
-    // Setup search with debounce
-    this.searchSubscription = this.searchSubject.pipe(
-      debounceTime(300),
-      distinctUntilChanged(),
-      switchMap((searchTerm) => {
-        if (searchTerm.trim().length === 0) {
-          this.searchResults = [];
-          this.showSearchResults = false;
-          return of([]);
-        }
-        return this.playlistService.searchLibraryItems(searchTerm);
-      })
-    ).subscribe({
-      next: (results) => {
-        this.searchResults = results;
-        this.showSearchResults = results.length > 0 || this.searchTerm.trim().length > 0;
-      },
-      error: (error) => {
-        console.error("Error searching library items:", error);
-        this.searchResults = [];
-        this.showSearchResults = false;
-      }
-    });
   }
 
   ngOnDestroy(): void {
-    this.searchSubscription?.unsubscribe();
   }
 
   onNumberClick(number: string): void {
@@ -91,7 +61,7 @@ export class ManualComponent implements OnInit, OnDestroy {
     // Store the searched GUID before clearing
     this.searchedGuid = this.enteredGuid.trim();
 
-    // Clear the GUID display immediately after pressing Enter
+    // Clear the GUID input field for next entry
     this.enteredGuid = "";
 
     // Use the shared loadLibraryItem method
@@ -102,19 +72,26 @@ export class ManualComponent implements OnInit, OnDestroy {
     if (this.libraryItem && this.libraryItem.guid) {
       this.itemClick.emit({ item: this.libraryItem, page: page });
       
-      const changeMessage = {
+      const user = this.userService.getUser();
+      const changeMessage: any = {
         type: "Change",
         guid: this.libraryItem.guid,
         page: page
       };
+      if (user?.locationId) {
+        changeMessage.locationId = user.locationId;
+      }
       this.websocketService.send(JSON.stringify(changeMessage));
       
       // Send selection sync message
-      const selectMessage = {
+      const selectMessage: any = {
         type: "SelectLibraryItem",
         guid: this.libraryItem.guid,
         page: page
       };
+      if (user?.locationId) {
+        selectMessage.locationId = user.locationId;
+      }
       this.websocketService.send(JSON.stringify(selectMessage));
       console.log("Sent Change message for GUID:", this.libraryItem.guid, " and page:", page);
     }
@@ -131,26 +108,17 @@ export class ManualComponent implements OnInit, OnDestroy {
     this.searchedGuid = "";
   }
 
-  // Search functionality
-  onSearchChange(): void {
-    this.searchSubject.next(this.searchTerm);
+  getDisplayGuid(): string {
+    // Show enteredGuid if typing, otherwise show searchedGuid if exists, otherwise show '0'
+    if (this.enteredGuid && this.enteredGuid.length > 0) {
+      return this.enteredGuid;
+    } else if (this.searchedGuid) {
+      return this.searchedGuid;
+    } else {
+      return '0';
+    }
   }
 
-  onSearchResultSelect(item: LibraryItem): void {
-    this.searchTerm = "";
-    this.showSearchResults = false;
-    this.searchResults = [];
-    
-    // Load the selected item
-    this.loadLibraryItem(item.guid);
-  }
-
-  clearSearch(): void {
-    this.searchTerm = "";
-    this.showSearchResults = false;
-    this.searchResults = [];
-    this.searchSubject.next("");
-  }
 
   loadLibraryItem(guid: number): void {
     this.playlistService.getLibraryItemByGuid(guid).subscribe({
@@ -169,19 +137,26 @@ export class ManualComponent implements OnInit, OnDestroy {
           // Automatically trigger Change event with first page
                 this.itemClick.emit({ item: item, page: 1 });
                 
-                const changeMessage = {
+                const user = this.userService.getUser();
+                const changeMessage: any = {
                   type: "Change",
                   guid: item.guid,
                   page: 1
                 };
+                if (user?.locationId) {
+                  changeMessage.locationId = user.locationId;
+                }
                 this.websocketService.send(JSON.stringify(changeMessage));
                 
                 // Send selection sync message
-                const selectMessage = {
+                const selectMessage: any = {
                   type: "SelectLibraryItem",
                   guid: item.guid,
                   page: 1
                 };
+                if (user?.locationId) {
+                  selectMessage.locationId = user.locationId;
+                }
                 this.websocketService.send(JSON.stringify(selectMessage));
                 console.log("Sent Change message for GUID:", item.guid, " and page: 1");
         } else {

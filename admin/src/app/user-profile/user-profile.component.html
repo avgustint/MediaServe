@@ -26,6 +26,10 @@
         <label>{{ 'locale' | translate }}:</label>
         <span>{{ user.locale || ('noLocale' | translate) }}</span>
       </div>
+      <div class="info-item">
+        <label>{{ 'location' | translate }}:</label>
+        <span>{{ user.location?.name || ('noLocation' | translate) }}</span>
+      </div>
 
       <div class="action-buttons">
         <button class="btn-primary" (click)="startEdit()">
@@ -46,10 +50,12 @@
           <input
             type="text"
             id="editName"
+            pInputText
             [(ngModel)]="editName"
             name="editName"
             required
             [placeholder]="'enterUserName' | translate"
+            styleClass="w-full"
           />
         </div>
         <div class="form-group">
@@ -57,35 +63,53 @@
           <input
             type="email"
             id="editEmail"
+            pInputText
             [(ngModel)]="editEmail"
             name="editEmail"
             required
             [placeholder]="'enterUserEmail' | translate"
+            styleClass="w-full"
           />
         </div>
         <div class="form-group">
           <label>{{ 'username' | translate }}:</label>
           <input
             type="text"
+            pInputText
             [value]="user.username"
             disabled
             class="disabled-input"
+            styleClass="w-full"
           />
           <small class="help-text">{{ 'usernameCannotBeChanged' | translate }}</small>
         </div>
         <div class="form-group">
           <label for="editLocale">{{ 'locale' | translate }}:</label>
-          <select
+          <p-select
             id="editLocale"
             [(ngModel)]="editLocale"
             name="editLocale"
-            class="form-select"
-          >
-            <option [ngValue]="null">{{ 'noLocale' | translate }}</option>
-            <option value="sl-SI">{{ 'slovenian' | translate }}</option>
-            <option value="en-GB">{{ 'ukEnglish' | translate }}</option>
-            <option value="it-IT">{{ 'italian' | translate }}</option>
-          </select>
+            [options]="localeOptions"
+            optionLabel="label"
+            optionValue="value"
+            [placeholder]="'noLocale' | translate"
+            styleClass="w-full"
+          ></p-select>
+        </div>
+        <div class="form-group">
+          <label for="editLocationId">{{ 'location' | translate }}:</label>
+          <p-select
+            id="editLocationId"
+            [(ngModel)]="editLocationId"
+            name="editLocationId"
+            [options]="locations"
+            optionLabel="name"
+            optionValue="guid"
+            [placeholder]="loadingLocations ? ('loading' | translate) + '...' : ('selectLocation' | translate)"
+            [loading]="loadingLocations"
+            [disabled]="loadingLocations"
+            styleClass="w-full"
+          ></p-select>
         </div>
         <div class="form-actions">
           <button type="submit" class="btn-save">
@@ -106,36 +130,39 @@
       <form (ngSubmit)="changePassword()">
         <div class="form-group">
           <label for="currentPassword">{{ 'currentPassword' | translate }}:</label>
-          <input
-            type="password"
+          <p-password
             id="currentPassword"
             [(ngModel)]="currentPassword"
             name="currentPassword"
-            required
             [placeholder]="'enterCurrentPassword' | translate"
-          />
+            [toggleMask]="true"
+            [feedback]="false"
+            styleClass="w-full"
+          ></p-password>
         </div>
         <div class="form-group">
           <label for="newPassword">{{ 'newPassword' | translate }}:</label>
-          <input
-            type="password"
+          <p-password
             id="newPassword"
             [(ngModel)]="newPassword"
             name="newPassword"
-            required
             [placeholder]="'enterNewPassword' | translate"
-          />
+            [toggleMask]="true"
+            [feedback]="true"
+            styleClass="w-full"
+          ></p-password>
         </div>
         <div class="form-group">
           <label for="confirmPassword">{{ 'confirmPassword' | translate }}:</label>
-          <input
-            type="password"
+          <p-password
             id="confirmPassword"
             [(ngModel)]="confirmPassword"
             name="confirmPassword"
-            required
             [placeholder]="'enterConfirmPassword' | translate"
-          />
+            [toggleMask]="true"
+            [feedback]="false"
+            styleClass="w-full"
+          ></p-password>
         </div>
         <div class="form-actions">
           <button type="submit" class="btn-save">

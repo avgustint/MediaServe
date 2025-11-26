@@ -8,13 +8,15 @@ import { ConfirmDialogComponent } from "../../shared/confirm-dialog/confirm-dial
 import { TranslatePipe } from "../../translation.pipe";
 import { TranslationService } from "../../translation.service";
 import { debounceTime, distinctUntilChanged, Subject, switchMap, of, forkJoin } from "rxjs";
-import * as CryptoJS from "crypto-js";
 import { HttpErrorResponse } from "@angular/common/http";
+import { InputTextModule } from "primeng/inputtext";
+import { PasswordModule } from "primeng/password";
+import { SelectModule } from "primeng/select";
 
 @Component({
   selector: "app-user-editor",
   standalone: true,
-  imports: [CommonModule, FormsModule, ErrorPopupComponent, ConfirmDialogComponent, TranslatePipe],
+  imports: [CommonModule, FormsModule, ErrorPopupComponent, ConfirmDialogComponent, TranslatePipe, InputTextModule, PasswordModule, SelectModule],
   templateUrl: "./user-editor.component.html",
   styleUrls: ["./user-editor.component.scss"]
 })
@@ -23,6 +25,9 @@ export class UserEditorComponent implements OnInit {
   allUsers: User[] = [];
   filteredUsers: User[] = [];
   roles: Role[] = [];
+  
+  // For PrimeNG Dropdown
+  localeOptions: Array<{ label: string; value: string }> = [];
   
   editingUser: User | null = null;
   isNewUser: boolean = false;
@@ -56,6 +61,12 @@ export class UserEditorComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    // Initialize locale options with translations
+    this.localeOptions = [
+      { label: this.translationService.translate('slovenian'), value: 'sl-SI' },
+      { label: this.translationService.translate('ukEnglish'), value: 'en-GB' },
+      { label: this.translationService.translate('italian'), value: 'it-IT' }
+    ];
     this.hasEditUsersPermission = this.userService.hasPermission("EditUsers");
     this.loadData();
     
@@ -204,10 +215,9 @@ export class UserEditorComponent implements OnInit {
       locale: this.userLocale
     };
 
-    // Encode password in MD5 if provided
+    // Send plain password - server will hash it with bcrypt
     if (this.userPassword) {
-      const md5Password = CryptoJS.MD5(this.userPassword).toString();
-      (userData as any).password = md5Password;
+      (userData as any).password = this.userPassword;
     }
 
     const saveOperation = this.isNewUser

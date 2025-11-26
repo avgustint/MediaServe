@@ -4,6 +4,9 @@ import { Observable, Subject } from 'rxjs';
 export interface WebSocketMessage {
   type: 'text' | 'image' | 'url';
   content: string;
+  background_color?: string;
+  font_color?: string;
+  locationId?: number;
 }
 
 @Injectable({
@@ -37,6 +40,10 @@ export class WebSocketService {
       this.socket.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
+          // Ignore SelectLibraryItem and SelectPlaylist messages (only for admin apps)
+          if (data.type === 'SelectLibraryItem' || data.type === 'SelectPlaylist') {
+            return;
+          }
           this.messageSubject.next(data as WebSocketMessage);
         } catch (error) {
           console.error('Error parsing WebSocket message:', error);

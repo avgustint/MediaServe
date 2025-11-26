@@ -1,6 +1,11 @@
-<div class="main-container">
+<div class="main-container" tabindex="0" (focus)="onMainContainerFocus()" (blur)="onMainContainerBlur()">
   <!-- Sidebar toggle button for mobile -->
-      <button class="sidebar-toggle-mobile" (click)="toggleSidebar()" [attr.aria-label]="'toggleSidebar' | translate">
+  <button 
+    class="sidebar-toggle-mobile" 
+    (click)="toggleSidebar()" 
+    [attr.aria-label]="'toggleSidebar' | translate"
+    [style.display]="sidebarOpen ? 'none' : 'flex'"
+  >
     <i class="fas fa-bars"></i>
   </button>
   
@@ -8,28 +13,48 @@
   <div class="sidebar-overlay" *ngIf="sidebarOpen" (click)="closeSidebar()"></div>
   
   <div class="content-wrapper">
-    <div class="sidebar" [class.open]="sidebarOpen">
+    <div class="sidebar" [class.open]="sidebarOpen" [class.collapsed]="sidebarCollapsed">
       <div class="sidebar-header">
         <div class="sidebar-header-content">
           <div class="tabs">
             <button
-              class="tab-button"
+              class="tab-button icon-button"
               [class.active]="activeTab === 'playlist'"
               (click)="switchTab('playlist')"
+              [title]="'playlist' | translate"
             >
-              {{ 'playlist' | translate }}
+              <i class="fas fa-list"></i>
             </button>
             <button
-              class="tab-button"
+              class="tab-button icon-button"
+              [class.active]="activeTab === 'search'"
+              (click)="switchTab('search')"
+              [title]="'search' | translate"
+            >
+              <i class="fas fa-search"></i>
+            </button>
+            <button
+              class="tab-button icon-button"
               [class.active]="activeTab === 'manual'"
               (click)="switchTab('manual')"
+              [title]="'manual' | translate"
             >
-              {{ 'manual' | translate }}
+              <i class="fas fa-th"></i>
             </button>
           </div>
-          <button class="close-sidebar-btn" (click)="closeSidebar()" [attr.aria-label]="'closeSidebar' | translate">
-            <i class="fas fa-times"></i>
-          </button>
+          <div class="sidebar-actions">
+            <button 
+              class="collapse-sidebar-btn" 
+              (click)="toggleSidebarCollapse()" 
+              [attr.aria-label]="sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'"
+              [title]="sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'"
+            >
+              <i class="fas" [class.fa-chevron-left]="!sidebarCollapsed" [class.fa-chevron-right]="sidebarCollapsed"></i>
+            </button>
+            <button class="close-sidebar-btn" (click)="closeSidebar()" [attr.aria-label]="'closeSidebar' | translate">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
         </div>
       </div>
       <div class="tab-content">
@@ -41,6 +66,10 @@
           (playlistItemPageClick)="onPlaylistItemPageClick($event)"
           (playlistItemsLoaded)="onPlaylistItemsLoaded($event)"
         ></app-playlist-list>
+        <app-search
+          *ngIf="activeTab === 'search'"
+          (itemClick)="onManualItemSelected($event.item, $event.page)"
+        ></app-search>
         <app-manual
           *ngIf="activeTab === 'manual'"
           (itemClick)="onManualItemSelected($event.item, $event.page)"
@@ -49,18 +78,18 @@
     </div>
     <div class="content-area">
       <!-- Text Content -->
-      <div *ngIf="currentContent?.type === 'text'" class="content-container text-container" #textContainer>
-        <div class="text-content">{{ text }}</div>
+      <div *ngIf="currentContent?.type === 'text'" class="content-container text-container" [ngStyle]="textContainerStyle" #textContainer>
+        <div class="text-content" [ngStyle]="textContentStyle" [innerHTML]="text | formatText"></div>
       </div>
 
       <!-- Image Content -->
-      <div *ngIf="currentContent?.type === 'image'" class="content-container image-container" #imageContainer>
+      <div *ngIf="currentContent?.type === 'image'" class="content-container image-container" [ngStyle]="imageContainerStyle" #imageContainer>
         <img [src]="imageSrc" alt="Received image" class="display-image" />
       </div>
 
       <!-- URL Content (iframe) -->
       <div *ngIf="currentContent?.type === 'url'" class="content-container iframe-container">
-        <iframe [src]="safeUrl" class="display-iframe" frameborder="0" allowfullscreen></iframe>
+        <iframe [src]="safeUrl" class="display-iframe" frameborder="0" allowfullscreen tabindex="-1"></iframe>
       </div>
 
       <!-- No content message -->
@@ -74,22 +103,21 @@
   <div class="footer">
     <div class="footer-info">
       <div class="current-item-info">
-        <div class="current-item-label">{{ 'currentLibraryItemDetails' | translate }}</div>
         <div class="current-item-guid-badge" *ngIf="currentItemGuid">{{ currentItemGuid }}</div>
         <div class="current-item-name" *ngIf="currentItemName">{{ currentItemName }}</div>
         <div class="current-item-placeholder" *ngIf="!currentItemGuid">{{ 'noItemSelected' | translate }}</div>
       </div>
-      <div class="page-buttons-container" *ngIf="getAvailablePages().length > 1">
-        <button
-          *ngFor="let pageNum of getAvailablePages()"
-          class="page-button"
-          [class.active]="currentPage === pageNum"
-          (click)="onPageButtonClick(pageNum)"
-          [title]="('goToPage' | translate) + ' ' + pageNum"
-        >
-          {{ pageNum }}
-        </button>
-      </div>
+    </div>
+    <div class="page-buttons-container" *ngIf="getAvailablePages().length > 1">
+      <button
+        *ngFor="let pageNum of getAvailablePages()"
+        class="page-button"
+        [class.active]="currentPage === pageNum"
+        (click)="onPageButtonClick(pageNum)"
+        [title]="('goToPage' | translate) + ' ' + pageNum"
+      >
+        {{ pageNum }}
+      </button>
     </div>
     <div class="footer-actions">
       <button 

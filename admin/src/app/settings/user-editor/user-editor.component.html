@@ -3,14 +3,14 @@
     <div class="search-input-wrapper">
       <input
         type="text"
+        pInputText
         class="search-input"
         [(ngModel)]="searchTerm"
         (input)="onSearchChange()"
         [placeholder]="'searchUsersPlaceholder' | translate"
+        styleClass="w-full"
       />
-      <button *ngIf="searchTerm" class="clear-search-btn" (click)="clearSearch()" [title]="'clearSearch' | translate">
-        ×
-      </button>
+      <button *ngIf="searchTerm" class="clear-search-btn" (click)="clearSearch()" [title]="'clearSearch' | translate"></button>
     </div>
   </div>
 
@@ -60,9 +60,11 @@
           <input
             id="userName"
             type="text"
+            pInputText
             [(ngModel)]="userName"
             [placeholder]="'enterUserName' | translate"
             [readonly]="!hasEditUsersPermission"
+            styleClass="w-full"
           />
         </div>
 
@@ -71,6 +73,7 @@
           <input
             id="userEmail"
             type="email"
+            pInputText
             name="userEmail"
             [(ngModel)]="userEmail"
             [placeholder]="'enterUserEmail' | translate"
@@ -78,7 +81,8 @@
             required
             pattern="[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*"
             #emailInput="ngModel"
-            [class.invalid]="emailInput.invalid && emailInput.touched"
+            [class.p-invalid]="emailInput.invalid && emailInput.touched"
+            styleClass="w-full"
           />
           <div *ngIf="emailInput.invalid && emailInput.touched" class="validation-error">
             <span *ngIf="emailInput.errors?.['required']">{{ 'emailRequired' | translate }}</span>
@@ -91,48 +95,52 @@
           <input
             id="userUsername"
             type="text"
+            pInputText
             [(ngModel)]="userUsername"
             [placeholder]="'enterUserUsername' | translate"
             [readonly]="!isNewUser"
+            styleClass="w-full"
           />
         </div>
 
         <div class="form-group" *ngIf="hasEditUsersPermission">
           <label for="userPassword">{{ 'password' | translate }} {{ isNewUser ? '*' : ('(' + ('passwordLeaveBlank' | translate) + ')') }}</label>
-          <input
+          <p-password
             id="userPassword"
-            type="password"
             [(ngModel)]="userPassword"
             [placeholder]="'enterPassword' | translate"
-          />
+            [toggleMask]="true"
+            [feedback]="false"
+            styleClass="w-full"
+          ></p-password>
         </div>
 
         <div class="form-group">
           <label for="userRole">{{ 'role' | translate }} *</label>
-          <select 
-            id="userRole" 
-            [(ngModel)]="userRole" 
+          <p-select
+            id="userRole"
+            [(ngModel)]="userRole"
+            [options]="roles"
+            optionLabel="name"
+            optionValue="guid"
+            [placeholder]="'selectRole' | translate"
             [disabled]="isRoleDisabled()"
-            required>
-            <option [ngValue]="null" disabled>{{ 'selectRole' | translate }}</option>
-            <option *ngFor="let role of roles" [ngValue]="role.guid">
-              {{ role.name }}
-            </option>
-          </select>
+            styleClass="w-full"
+          ></p-select>
         </div>
 
         <div class="form-group">
           <label for="userLocale">{{ 'locale' | translate }} *</label>
-          <select
+          <p-select
             id="userLocale"
             [(ngModel)]="userLocale"
+            [options]="localeOptions"
+            optionLabel="label"
+            optionValue="value"
+            [placeholder]="'selectLocale' | translate"
             [disabled]="!hasEditUsersPermission"
-            required>
-            <option [ngValue]="null" disabled>{{ 'selectLocale' | translate }}</option>
-            <option value="sl-SI">{{ 'slovenian' | translate }}</option>
-            <option value="en-GB">{{ 'ukEnglish' | translate }}</option>
-            <option value="it-IT">{{ 'italian' | translate }}</option>
-          </select>
+            styleClass="w-full"
+          ></p-select>
         </div>
 
         <div class="form-actions" *ngIf="hasEditUsersPermission">

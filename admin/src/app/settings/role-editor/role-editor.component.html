@@ -8,9 +8,7 @@
         (input)="onSearchChange()"
         [placeholder]="'searchRolesPlaceholder' | translate"
       />
-      <button *ngIf="searchTerm" class="clear-search-btn" (click)="clearSearch()" [title]="'clearSearch' | translate">
-        ×
-      </button>
+      <button *ngIf="searchTerm" class="clear-search-btn" (click)="clearSearch()" [title]="'clearSearch' | translate"></button>
     </div>
   </div>
 

@@ -4,11 +4,12 @@ import { FormsModule } from "@angular/forms";
 import { PlaylistService, LibraryItem } from "../../playlist.service";
 import { TranslatePipe } from "../../translation.pipe";
 import { Subject, Subscription, debounceTime, distinctUntilChanged, switchMap, of } from "rxjs";
+import { InputTextModule } from "primeng/inputtext";
 
 @Component({
   selector: "app-library-item-search",
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslatePipe],
+  imports: [CommonModule, FormsModule, TranslatePipe, InputTextModule],
   templateUrl: "./library-item-search.component.html",
   styleUrls: ["./library-item-search.component.scss"]
 })

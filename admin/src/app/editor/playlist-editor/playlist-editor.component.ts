@@ -10,6 +10,7 @@ import { TranslatePipe } from "../../translation.pipe";
 import { LocalizedDatePipe } from "../../localized-date.pipe";
 import { TranslationService } from "../../translation.service";
 import { debounceTime, distinctUntilChanged, Subject, switchMap, of, forkJoin, Subscription } from "rxjs";
+import { InputTextModule } from "primeng/inputtext";
 
 interface PlaylistItemWithDetails {
   guid: number;
@@ -23,7 +24,7 @@ interface PlaylistItemWithDetails {
 @Component({
   selector: "app-playlist-editor",
   standalone: true,
-  imports: [CommonModule, FormsModule, ErrorPopupComponent, ConfirmDialogComponent, LibraryItemSearchComponent, TranslatePipe, LocalizedDatePipe],
+  imports: [CommonModule, FormsModule, ErrorPopupComponent, ConfirmDialogComponent, LibraryItemSearchComponent, TranslatePipe, LocalizedDatePipe, InputTextModule],
   templateUrl: "./playlist-editor.component.html",
   styleUrls: ["./playlist-editor.component.scss"]
 })
@@ -166,9 +167,17 @@ export class PlaylistEditorComponent implements OnInit, OnDestroy {
     }
 
     const guidToDelete = this.playlistToDeleteGuid;
+    
+    // Immediately remove from recent playlists array (optimistic update)
+    this.recentPlaylists = this.recentPlaylists.filter(p => p.guid !== guidToDelete);
+    
+    // Immediately remove from search results if present
+    this.searchResults = this.searchResults.filter(p => p.guid !== guidToDelete);
+    
     this.playlistService.deletePlaylist(guidToDelete).subscribe({
       next: () => {
         console.log("Playlist deleted");
+        // Reload recent playlists to ensure consistency
         this.loadRecentPlaylists();
         if (this.editingPlaylist?.guid === guidToDelete) {
           this.cancelEdit();
@@ -177,6 +186,8 @@ export class PlaylistEditorComponent implements OnInit, OnDestroy {
       },
       error: (error) => {
         console.error("Error deleting playlist:", error);
+        // Reload on error to restore correct state
+        this.loadRecentPlaylists();
         this.showErrorPopup("Error deleting playlist. Please try again.");
         this.closeConfirmDialog();
       }
@@ -380,8 +391,12 @@ export class PlaylistEditorComponent implements OnInit, OnDestroy {
     this.showConfirmDialog = true;
   }
 
+  hasManagePlaylistsPermission(): boolean {
+    return this.userService.hasPermission('ManagePlaylists');
+  }
+
   hasDeletePermission(): boolean {
-    return this.userService.hasPermission('DeletePlaylistEditor');
+    return this.hasManagePlaylistsPermission();
   }
 
   // Multiple pages selection methods

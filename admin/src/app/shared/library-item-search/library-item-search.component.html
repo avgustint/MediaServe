@@ -2,14 +2,14 @@
   <div class="search-input-wrapper">
     <input
       type="text"
+      pInputText
       class="search-input"
       [(ngModel)]="searchTerm"
       (input)="onSearchChange()"
       [placeholder]="placeholder"
+      styleClass="w-full"
     />
-    <button *ngIf="searchTerm" class="clear-search-btn" (click)="clearSearch()" [attr.title]="'clearSearch' | translate">
-      ×
-    </button>
+    <button *ngIf="searchTerm" class="clear-search-btn" (click)="clearSearch()" [attr.title]="'clearSearch' | translate"></button>
   </div>
   <div class="search-results" *ngIf="showSearchResults">
     <div
