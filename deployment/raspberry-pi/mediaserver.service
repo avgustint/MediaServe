@@ -1,0 +1,26 @@
+[Unit]
+Description=MediaServer Node.js Backend
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/mediaserver/dist/server
+Environment="NODE_ENV=production"
+Environment="PORT=5000"
+ExecStart=/usr/bin/node server.js
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=mediaserver
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
+

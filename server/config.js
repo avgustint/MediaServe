@@ -6,7 +6,7 @@ module.exports = {
   
   cors: {
     // Allow multiple dev origins by default (admin, client display, etc.)
-    origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : ['http://localhost:4200', 'http://localhost:4201'],
+    origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : ['http://localhost:4200', 'http://localhost:4201','http://192.168.68.119:4200','http://192.168.68.119:4201'],
     credentials: process.env.CORS_CREDENTIALS === 'true'
   },
   

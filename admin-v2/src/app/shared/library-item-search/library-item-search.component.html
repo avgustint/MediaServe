@@ -1,0 +1,16 @@
+<div class="library-item-search-container">
+  <div class="search-input-wrapper" #searchInputWrapper>
+    <input
+      #searchInput
+      type="text"
+      pInputText
+      class="search-input"
+      [(ngModel)]="searchTerm"
+      (input)="onSearchChange()"
+      [placeholder]="placeholder"
+      styleClass="w-full"
+    />
+    <button *ngIf="searchTerm" class="clear-search-btn" (click)="clearSearch()" [attr.title]="'clearSearch' | translate"></button>
+  </div>
+</div>
+

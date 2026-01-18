@@ -1,0 +1,339 @@
+@use '../../../../styles/variables' as *;
+@use '../../../../styles/mixins' as *;
+
+.navbar {
+  background-color: var(--color-primary);
+  color: var(--color-text-inverse);
+  padding: var(--spacing-md) var(--spacing-lg);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: var(--shadow-md);
+  position: relative;
+  z-index: var(--z-index-fixed);
+  flex-shrink: 0;
+}
+
+.nav-brand-section {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.mobile-menu-toggle {
+  display: none;
+  background: none;
+  border: none;
+  color: white;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0.5rem;
+  min-width: 44px;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+
+  &:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+  }
+
+  i {
+    display: block;
+  }
+}
+
+.nav-brand-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.nav-brand {
+  font-size: 1.125rem;
+  font-weight: bold;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.connection-status {
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  font-weight: bold;
+  background-color: rgba(255, 0, 0, 0.5);
+  color: white;
+  white-space: nowrap;
+  align-self: flex-start;
+
+  &.connected {
+    background-color: rgba(0, 255, 0, 0.7);
+  }
+
+  &.connecting {
+    background-color: rgba(255, 165, 0, 0.7);
+  }
+
+  &.disconnected {
+    background-color: rgba(255, 0, 0, 0.7);
+  }
+}
+
+.nav-buttons {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.desktop-nav {
+  display: flex;
+}
+
+.user-info {
+  margin-right: 0.5rem;
+  padding-right: 0.5rem;
+  border-right: 1px solid rgba(255, 255, 255, 0.3);
+  display: none;
+}
+
+.user-name {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: white;
+}
+
+.nav-btn {
+  background-color: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.875rem;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+
+  i {
+    font-size: 1.1rem;
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+  }
+
+  &:hover:not(:disabled) {
+    background-color: rgba(255, 255, 255, 0.3);
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.95);
+  }
+}
+
+.logout-btn {
+  background-color: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  min-height: 40px;
+  font-size: 1.1rem;
+
+  i {
+    font-size: 1.1rem;
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+  }
+
+  &:hover:not(:disabled) {
+    background-color: rgba(255, 255, 255, 0.3);
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.95);
+  }
+}
+
+/* Mobile Menu */
+.mobile-menu-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 1998;
+  animation: fadeIn 0.2s ease-in-out;
+}
+
+.mobile-menu-drawer {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 280px;
+  max-width: 85vw;
+  background-color: var(--color-bg-primary);
+  box-shadow: var(--shadow-xl);
+  z-index: calc(var(--z-index-modal) - 1);
+  transform: translateX(-100%);
+  transition: transform var(--transition-slow);
+  overflow-y: auto;
+
+  &.open {
+    transform: translateX(0);
+  }
+}
+
+.mobile-menu-header {
+  background-color: var(--color-primary);
+  color: var(--color-text-inverse);
+  padding: var(--spacing-lg);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.user-info-mobile {
+  flex: 1;
+}
+
+.user-name {
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.close-menu-btn {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0.5rem;
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+
+  &:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
+}
+
+.mobile-menu-items {
+  display: flex;
+  flex-direction: column;
+  padding: 0.5rem 0;
+}
+
+.mobile-nav-btn {
+  width: 100%;
+  padding: var(--spacing-lg) var(--spacing-xl);
+  background: none;
+  border: none;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-md);
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-lg);
+  transition: background-color var(--transition-base);
+  min-height: 56px;
+
+  i {
+    font-size: var(--font-size-lg);
+    width: 24px;
+    text-align: center;
+  }
+
+  &:hover {
+    background-color: var(--color-bg-secondary);
+  }
+
+  &:active {
+    background-color: var(--color-bg-tertiary);
+  }
+
+  &.logout {
+    color: var(--color-danger);
+    border-top: 1px solid var(--color-border-light);
+    margin-top: var(--spacing-sm);
+    padding-top: var(--spacing-xl);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Mobile Responsive Styles */
+@media (max-width: 768px) {
+  .mobile-menu-toggle {
+    display: flex;
+  }
+
+  .desktop-nav {
+    display: none;
+  }
+
+  .mobile-menu-overlay {
+    display: block;
+  }
+
+  .mobile-menu-drawer {
+    display: block;
+  }
+
+  .nav-brand {
+    font-size: 1rem;
+  }
+
+  .navbar {
+    padding: 0.75rem;
+  }
+}
+
+
+@media (max-width: 480px) {
+  .nav-brand {
+    font-size: 0.9rem;
+  }
+
+  .connection-status {
+    font-size: 0.6rem;
+    padding: 2px 4px;
+  }
+}
+

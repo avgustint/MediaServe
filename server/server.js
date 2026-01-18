@@ -1,4 +1,5 @@
 const express = require('express');
+const path = require('path');
 const { loadData } = require('./dataLoader');
 const { setupWebSocket } = require('./websocketHandler');
 const config = require('./config');
@@ -20,6 +21,7 @@ const pagesRoutes = require('./routes/pages');
 const tagsRoutes = require('./routes/tags');
 const collectionsRoutes = require('./routes/collections');
 const locationsRoutes = require('./routes/locations');
+const { router: keyboardRoutes } = require('./routes/keyboard');
 
 // Create Express app
 const app = express();
@@ -31,6 +33,40 @@ app.use(corsMiddleware);
 
 // Load initial data (for WebSocket)
 const data = loadData();
+
+// Serve admin app static files (before API routes to allow Angular routes to work)
+const adminAppPath = path.join(__dirname, '../admin-v2/dist/media-player-admin-v2/browser');
+app.use(express.static(adminAppPath));
+
+// Middleware to handle browser requests to routes that are both API and Angular routes
+// Routes like /settings, /playlist are both API endpoints and Angular pages
+app.use((req, res, next) => {
+  // Only handle GET requests
+  if (req.method !== 'GET') {
+    return next();
+  }
+  
+  // Check if this is a browser page request (not an API call)
+  const acceptHeader = req.get('Accept') || '';
+  const isBrowserRequest = acceptHeader.includes('text/html');
+  
+  if (!isBrowserRequest) {
+    return next(); // Let API calls go through to API routes
+  }
+  
+  // Routes that exist in both API and Angular app
+  // If it's a browser request to these exact paths (no sub-paths), serve Angular app
+  const angularRoutes = ['/settings', '/playlist', '/editor', '/display', '/user', '/login'];
+  const isExactAngularRoute = angularRoutes.includes(req.path);
+  
+  if (isExactAngularRoute) {
+    // Browser is requesting an Angular page - serve the app
+    return res.sendFile(path.join(adminAppPath, 'index.html'));
+  }
+  
+  // For other routes, let them continue to API routes or fallback
+  next();
+});
 
 // Routes
 app.use('/', authRoutes); // Login and /me routes are defined in authRoutes
@@ -45,6 +81,7 @@ app.use('/pages', pagesRoutes);
 app.use('/tags', tagsRoutes);
 app.use('/collections', collectionsRoutes);
 app.use('/locations', locationsRoutes);
+app.use('/api/keyboard', keyboardRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -52,6 +89,23 @@ app.get('/health', (req, res) => {
     status: 'ok',
     timestamp: new Date().toISOString()
   });
+});
+
+// Fallback to index.html for Angular client-side routing
+// This serves index.html for browser page requests that don't match API routes
+app.get('*', (req, res, next) => {
+  // Check if this is a browser page request (not an API call)
+  const acceptHeader = req.get('Accept') || '';
+  const isBrowserRequest = acceptHeader.includes('text/html');
+  
+  if (isBrowserRequest) {
+    // Browser is requesting a page - serve Angular app
+    // Angular router will handle the client-side routing
+    res.sendFile(path.join(adminAppPath, 'index.html'));
+  } else {
+    // API call or other non-HTML request - let it fall through to 404 handler
+    next();
+  }
 });
 
 // 404 handler

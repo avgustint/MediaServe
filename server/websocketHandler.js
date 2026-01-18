@@ -19,6 +19,8 @@ function setupWebSocket(server, library) {
   const adminClients = new WeakSet();
   // Track locationId for each client
   const clientLocations = new Map();
+  // Track client IP addresses for keyboard command filtering
+  const clientIPs = new Map();
   
   // Store current selection state per location
   const locationStates = new Map();
@@ -26,11 +28,61 @@ function setupWebSocket(server, library) {
   // Store current content being displayed per location
   const locationContent = new Map();
 
+  // Helper to normalize IP addresses
+  function normalizeIP(ip) {
+    if (!ip) return 'unknown';
+    // Handle IPv6 mapped IPv4 (::ffff:127.0.0.1 -> 127.0.0.1)
+    if (ip.startsWith('::ffff:')) {
+      return ip.substring(7);
+    }
+    // Handle IPv6 localhost variants (::1 -> 127.0.0.1)
+    if (ip === '::1') {
+      return '127.0.0.1';
+    }
+    return ip;
+  }
+
+  // Helper to get server IP addresses
+  function getServerIPs() {
+    const os = require('os');
+    const interfaces = os.networkInterfaces();
+    const serverIPs = ['127.0.0.1', '::1', 'localhost']; // Always include localhost
+    
+    // Add all network interface IPs
+    Object.values(interfaces).forEach(iface => {
+      iface.forEach(address => {
+        if (address.family === 'IPv4' || address.family === 'IPv6') {
+          const normalized = normalizeIP(address.address);
+          if (!serverIPs.includes(normalized)) {
+            serverIPs.push(normalized);
+          }
+        }
+      });
+    });
+    
+    return serverIPs;
+  }
+
+  // Helper to check if client IP matches server IP
+  function isSameIP(clientIP, serverIPs) {
+    const normalizedClientIP = normalizeIP(clientIP);
+    return serverIPs.some(serverIP => normalizeIP(serverIP) === normalizedClientIP);
+  }
+
   // Handle new client connections
   // Note: request is available to read query parameters (e.g., locationId)
   wss.on('connection', (ws, request) => {
     console.log('New client connected');
     clients.add(ws);
+    
+    // Track client IP address
+    const clientIP = request.socket.remoteAddress || 
+                     request.connection.remoteAddress ||
+                     request.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
+                     'unknown';
+    const normalizedClientIP = normalizeIP(clientIP);
+    clientIPs.set(ws, normalizedClientIP);
+    console.log('Client IP:', normalizedClientIP);
     
     // Try to read locationId from WebSocket URL query parameters so display clients
     // can register their location without sending Change/Clear messages.
@@ -64,6 +116,8 @@ function setupWebSocket(server, library) {
       if (locationId) {
         clientLocations.delete(ws);
       }
+      // Clean up IP tracking
+      clientIPs.delete(ws);
     });
 
     // Handle errors
@@ -134,6 +188,7 @@ function setupWebSocket(server, library) {
             // Get colors from item or general settings
             let backgroundColor = matchingItem.background_color;
             let fontColor = matchingItem.font_color;
+            let chordFontColor = null;
             
             // If colors not set on item, get from general settings
             if (!backgroundColor || !fontColor) {
@@ -144,14 +199,36 @@ function setupWebSocket(server, library) {
               if (!fontColor) {
                 fontColor = settings.defaultFontColor || '#FFFFFF';
               }
+              // Always get chord font color from settings
+              chordFontColor = settings.defaultChordFontColor || '#FFD700';
+            } else {
+              // Even if item has colors, get chord font color from settings
+              const settings = dbOps.getAllSettings();
+              chordFontColor = settings.defaultChordFontColor || '#FFD700';
+            }
+            
+            // Remove chords from content if chordsVisible is false
+            // Default to false if not specified (chords hidden by default)
+            let finalContent = matchingItemContent;
+            if (matchingItem.type === 'text' && typeof matchingItemContent === 'string') {
+              const chordsVisible = message.chordsVisible !== undefined ? message.chordsVisible : false;
+              if (!chordsVisible) {
+                // Remove all <chord> tags and their content
+                finalContent = matchingItemContent.replace(/<chord\b[^>]*>.*?<\/chord>/gi, '');
+              }
             }
             
             // Store current content for this location
+            // Only include chordsVisible if explicitly set, otherwise default to false
             const locationContentData = {
               type: matchingItem.type,
-              content: matchingItemContent,
+              content: finalContent,
               background_color: backgroundColor,
-              font_color: fontColor
+              font_color: fontColor,
+              chord_font_color: chordFontColor,
+              css: matchingItem.css || undefined,
+              chordsVisible: message.chordsVisible !== undefined ? message.chordsVisible : false,
+              chordTransposition: message.chordTransposition !== undefined ? message.chordTransposition : 0
             };
             console.log('Final content data:', {
               type: locationContentData.type,
@@ -229,17 +306,13 @@ function setupWebSocket(server, library) {
           const defaultBlankPageGuid = settings.defaultBlankPage;
           
           if (defaultBlankPageGuid && defaultBlankPageGuid.trim() !== '') {
-            // Load library and find the default blank page item
-            const currentLibrary = loadLibrary();
-            // Convert GUID to number for comparison (settings store as string, but item.guid is number)
+            // Get the default blank page item using dbOps to ensure pages are loaded correctly
             const defaultBlankPageGuidNum = parseInt(defaultBlankPageGuid, 10);
-            const blankPageItem = currentLibrary.find(item => item.guid === defaultBlankPageGuidNum);
+            const rawBlankPageItem = dbOps.getLibraryItem(defaultBlankPageGuidNum);
+            const formattedItem = rawBlankPageItem ? dbOps.formatLibraryItem(rawBlankPageItem) : null;
             
-            if (blankPageItem) {
-              console.log('Found default blank page item:', blankPageItem);
-              
-              // Format the item to ensure content is properly parsed
-              const formattedItem = dbOps.formatLibraryItem(blankPageItem);
+            if (formattedItem) {
+              console.log('Found default blank page item:', formattedItem);
               let blankPageContent = formattedItem.content;
               
               // For text items, get the first page if it's an array
@@ -250,6 +323,7 @@ function setupWebSocket(server, library) {
               // Get colors from item or general settings
               let backgroundColor = formattedItem.background_color;
               let fontColor = formattedItem.font_color;
+              let chordFontColor = settings.defaultChordFontColor || '#FFD700';
               
               // If colors not set on item, get from general settings
               if (!backgroundColor) {
@@ -264,7 +338,9 @@ function setupWebSocket(server, library) {
                 type: formattedItem.type,
                 content: blankPageContent,
                 background_color: backgroundColor,
-                font_color: fontColor
+                font_color: fontColor,
+                chord_font_color: chordFontColor,
+                css: formattedItem.css || undefined
               };
               locationContent.set(locationId, locationContentData);
               
@@ -346,10 +422,33 @@ function setupWebSocket(server, library) {
           }
         }
         
+        // Check if it's an "AdminClient" initialization message
+        if (message.type === 'AdminClient') {
+          // Mark client as admin if not already marked
+          if (!adminClients.has(ws)) {
+            adminClients.add(ws);
+            console.log('Admin client registered');
+          }
+          
+          // Store locationId if provided
+          if (message.locationId) {
+            const locationId = parseInt(message.locationId, 10);
+            if (!isNaN(locationId)) {
+              clientLocations.set(ws, locationId);
+            }
+          }
+          return; // No further processing needed for AdminClient message
+        }
+        
         // Check if it's an "Action" message
         if (message.type === 'Action' && message.actionType) {
+          // Mark client as admin if not already marked
+          if (!adminClients.has(ws)) {
+            adminClients.add(ws);
+          }
           console.log('Received Action message with type:', message.actionType);
-          handleCecAction(message.actionType);
+          const sourceName = message.sourceName || null;
+          handleCecAction(message.actionType, ws, sourceName);
         }
         
         // Check if it's a "SelectPlaylist" message
@@ -525,78 +624,345 @@ function setupWebSocket(server, library) {
             console.log(`Broadcasted SelectLibraryItem message to ${sentCount} admin client(s) for location ${locationId}`);
           }
         }
+        
+        // Check if it's a "UrlPlayPause" message
+        if (message.type === 'UrlPlayPause' && message.play !== undefined) {
+          const locationId = message.locationId ? parseInt(message.locationId, 10) : null;
+          
+          if (!locationId) {
+            console.warn('Received UrlPlayPause message without locationId, ignoring');
+            return;
+          }
+          
+          // Store location for this client
+          clientLocations.set(ws, locationId);
+          
+          console.log('Received UrlPlayPause message for location:', locationId, 'play:', message.play);
+          
+          // Broadcast to all clients (both admin and regular clients) with matching locationId
+          const playPauseMessage = JSON.stringify({
+            type: 'UrlPlayPause',
+            play: message.play,
+            locationId: locationId
+          });
+          
+          let sentCount = 0;
+          
+          // Broadcast to all clients with matching locationId (including sender for sync across admin instances)
+          clients.forEach((client) => {
+            const clientLocationId = clientLocations.get(client);
+            if (client.readyState === WebSocket.OPEN && clientLocationId === locationId) {
+              try {
+                client.send(playPauseMessage);
+                sentCount++;
+              } catch (error) {
+                console.error('Error sending UrlPlayPause message to client:', error);
+                clients.delete(client);
+                clientLocations.delete(client);
+              }
+            }
+          });
+          
+          if (sentCount > 0) {
+            console.log(`Broadcasted UrlPlayPause message to ${sentCount} client(s) for location ${locationId}`);
+          }
+        }
+        
+        // Check if it's a direct content update message (with chordsVisible or chordTransposition properties)
+        // This allows clients to send modified content with chord adjustments
+        if ((message.type === 'text' || message.type === 'image' || message.type === 'url') && 
+            (message.chordsVisible !== undefined || message.chordTransposition !== undefined) && 
+            message.content !== undefined) {
+          const locationId = message.locationId ? parseInt(message.locationId, 10) : null;
+          
+          if (!locationId) {
+            console.warn('Received content update message without locationId, ignoring');
+            return;
+          }
+          
+          // Store location for this client
+          clientLocations.set(ws, locationId);
+          
+          console.log('Received content update message for location:', locationId, 'chordsVisible:', message.chordsVisible, 'chordTransposition:', message.chordTransposition);
+          
+          // Get chord font color from settings if not provided
+          let chordFontColor = message.chord_font_color;
+          if (!chordFontColor) {
+            const settings = dbOps.getAllSettings();
+            chordFontColor = settings.defaultChordFontColor || '#FFD700';
+          }
+          
+          // Remove chords from content if chordsVisible is false
+          // Default to false if not specified (chords hidden by default)
+          let finalContent = message.content;
+          if (message.type === 'text' && typeof message.content === 'string') {
+            const chordsVisible = message.chordsVisible !== undefined ? message.chordsVisible : false;
+            if (!chordsVisible) {
+              // Remove all <chord> tags and their content
+              finalContent = message.content.replace(/<chord\b[^>]*>.*?<\/chord>/gi, '');
+            }
+          }
+          
+          // Update stored content for this location
+          // Only include chordsVisible if explicitly set, otherwise default to false
+          const locationContentData = {
+            type: message.type,
+            content: finalContent,
+            background_color: message.background_color,
+            font_color: message.font_color,
+            chord_font_color: chordFontColor,
+            css: message.css || undefined,
+            chordsVisible: message.chordsVisible !== undefined ? message.chordsVisible : false,
+            chordTransposition: message.chordTransposition !== undefined ? message.chordTransposition : 0
+          };
+          locationContent.set(locationId, locationContentData);
+          
+          // Broadcast the updated content to all clients with matching locationId
+          // EXCLUDE the sender (admin app) to prevent rebroadcast loops
+          const messageJson = JSON.stringify(locationContentData);
+          let sentCount = 0;
+          
+          clients.forEach((client) => {
+            // Skip the sender (admin app that sent the update)
+            if (client === ws) {
+              return;
+            }
+            
+            const clientLocationId = clientLocations.get(client);
+            if (client.readyState === WebSocket.OPEN && clientLocationId === locationId) {
+              try {
+                client.send(messageJson);
+                sentCount++;
+              } catch (error) {
+                console.error('Error sending content update message to client:', error);
+                clients.delete(client);
+                clientLocations.delete(client);
+              }
+            }
+          });
+          
+          if (sentCount > 0) {
+            console.log(`Broadcasted content update message to ${sentCount} client(s) for location ${locationId}`);
+          }
+        }
       } catch (error) {
         console.error('Error parsing incoming message:', error);
       }
     });
   });
 
-  // Handle server shutdown gracefully
-  process.on('SIGINT', () => {
-    console.log('\nShutting down server...');
-    wss.close(() => {
-      console.log('WebSocket server closed');
-      process.exit(0);
+  /**
+   * Send action feedback to admin clients
+   * @param {WebSocket} ws - WebSocket connection of the sender
+   * @param {string} actionType - The action type
+   * @param {string} status - Status: 'processing', 'success', 'error'
+   * @param {string} message - Optional status message
+   */
+  function sendActionFeedback(ws, actionType, status, message = '') {
+    const feedback = {
+      type: 'ActionResponse',
+      actionType: actionType,
+      status: status,
+      message: message,
+      timestamp: new Date().toISOString()
+    };
+    
+    // Send feedback to all admin clients (including the sender)
+    // WeakSet doesn't have forEach, so iterate over all clients and check if they're admin
+    clients.forEach((client) => {
+      if (adminClients.has(client) && client.readyState === WebSocket.OPEN) {
+        try {
+          client.send(JSON.stringify(feedback));
+        } catch (error) {
+          console.error('Error sending action feedback:', error);
+        }
+      }
     });
-    setTimeout(() => {
-      process.exit(0);
-    }, 1000);
-  });
+  }
 
-  return wss;
-}
-
-/**
- * Handle HDMI CEC actions by executing cec-client commands
- * @param {string} actionType - The type of action (powerOn, powerOff, volumeUp, volumeDown)
- */
-function handleCecAction(actionType) {
-  let cecCommand;
+  /**
+   * Handle HDMI CEC actions by executing cec-client commands
+   * @param {string} actionType - The type of action (powerOn, powerOff, volumeUp, volumeDown, selectSource)
+   * @param {WebSocket} ws - WebSocket connection of the sender
+   * @param {string} sourceName - Optional source name or device number for source selection
+   */
+  function handleCecAction(actionType, ws, sourceName = null) {
+  let cecCommands = [];
+  
+  // Send processing feedback
+  sendActionFeedback(ws, actionType, 'processing', 'Executing command...');
   
   switch (actionType) {
     case 'powerOn':
       // Send "Image View On" command to device 0 (TV)
-      // Format: on <destination>
-      cecCommand = 'echo "on 0" | cec-client -s -d 1';
+      // Then send "Active Source" command to switch to this input
+      cecCommands = [
+        'echo "on 0" | cec-client -s -d 1',
+        'echo "as" | cec-client -s -d 1'
+      ];
       break;
     case 'powerOff':
       // Send "Standby" command to device 0 (TV)
-      // Format: standby <destination>
-      cecCommand = 'echo "standby 0" | cec-client -s -d 1';
+      cecCommands = ['echo "standby 0" | cec-client -s -d 1'];
       break;
     case 'volumeUp':
-      // Send "Volume Up" command
+      // Send "User Control Pressed" with Volume Up opcode (0x41)
       // Format: tx <source><destination> <opcode>
-      // 4F = broadcast address, 44 = Volume Up opcode
-      cecCommand = 'echo "tx 4F 44" | cec-client -s -d 1';
+      // Source: device 1 (0x1), Destination: device 0/TV (0x0) = 0x10
+      // Opcode: 0x41 (Volume Up)
+      cecCommands = ['echo "tx 10 41" | cec-client -s -d 1'];
       break;
     case 'volumeDown':
-      // Send "Volume Down" command
+      // Send "User Control Pressed" with Volume Down opcode (0x42)
       // Format: tx <source><destination> <opcode>
-      // 4F = broadcast address, 45 = Volume Down opcode
-      cecCommand = 'echo "tx 4F 45" | cec-client -s -d 1';
+      // Source: device 1 (0x1), Destination: device 0/TV (0x0) = 0x10
+      // Opcode: 0x42 (Volume Down)
+      cecCommands = ['echo "tx 10 42" | cec-client -s -d 1'];
+      break;
+    case 'selectSource':
+      // Select source by device number or name
+      // If sourceName is a number, use it directly; otherwise try to find it
+      if (sourceName) {
+        // Try to parse as device number (0-15)
+        const deviceNum = parseInt(sourceName, 10);
+        if (!isNaN(deviceNum) && deviceNum >= 0 && deviceNum <= 15) {
+          // Select specific device as active source
+          cecCommands = [`echo "as ${deviceNum}" | cec-client -s -d 1`];
+        } else {
+          // Try to use source name (common names: HDMI1, HDMI2, HDMI3, HDMI4, etc.)
+          // Extract number from names like "HDMI1" -> device 1
+          const match = sourceName.match(/(\d+)/);
+          if (match) {
+            const num = parseInt(match[1], 10);
+            if (num >= 1 && num <= 4) {
+              // HDMI inputs are typically devices 1-4
+              cecCommands = [`echo "as ${num}" | cec-client -s -d 1`];
+            } else {
+              sendActionFeedback(ws, actionType, 'error', `Invalid source: ${sourceName}`);
+              return;
+            }
+          } else {
+            // Default to device 1 if name not recognized
+            cecCommands = ['echo "as 1" | cec-client -s -d 1'];
+          }
+        }
+      } else {
+        // Default: set this device (device 1) as active source
+        cecCommands = ['echo "as" | cec-client -s -d 1'];
+      }
       break;
     default:
       console.warn(`Unknown action type: ${actionType}`);
+      sendActionFeedback(ws, actionType, 'error', `Unknown action type: ${actionType}`);
       return;
   }
   
-  exec(cecCommand, (error, stdout, stderr) => {
-    if (error) {
-      console.error(`Error executing CEC command for ${actionType}:`, error);
-      if (error.code === 'ENOENT') {
-        console.error('cec-client not found. Please install libcec-utils package (e.g., sudo apt-get install cec-utils).');
-      }
+  // Execute commands sequentially
+  let commandIndex = 0;
+  const executeNextCommand = () => {
+    if (commandIndex >= cecCommands.length) {
       return;
     }
-    if (stderr && !stderr.includes('waiting for input')) {
-      console.error(`CEC command stderr for ${actionType}:`, stderr);
-    }
-    if (stdout) {
-      console.log(`CEC command output for ${actionType}:`, stdout);
-    }
-    console.log(`CEC command executed successfully for ${actionType}`);
-  });
+    
+    const cecCommand = cecCommands[commandIndex];
+    commandIndex++;
+    
+    exec(cecCommand, (error, stdout, stderr) => {
+        if (error) {
+          console.error(`Error executing CEC command ${commandIndex}/${cecCommands.length} for ${actionType}:`, error);
+          let errorMessage = `Command failed: ${error.message || 'Unknown error'}`;
+          
+          // Error code 127 means "command not found" on Unix systems
+          if (error.code === 127 || error.code === 'ENOENT') {
+            errorMessage = 'cec-client not found. Please install cec-utils package.';
+            console.error('cec-client not found. Please install cec-utils package:');
+            console.error('  On Debian/Ubuntu: sudo apt-get install cec-utils');
+            console.error('  On macOS: brew install libcec');
+            console.error('  On Fedora/RHEL: sudo dnf install cec-utils');
+            console.error('Note: CEC functionality requires HDMI-CEC capable hardware and will be disabled until cec-client is installed.');
+          } else {
+            errorMessage = `CEC command failed with code ${error.code}`;
+            console.error(`CEC command failed with code ${error.code}. Check if cec-client is properly configured and has access to HDMI-CEC device.`);
+          }
+          
+          // Send error feedback if this is the last command or if we should stop
+          if (commandIndex >= cecCommands.length) {
+            sendActionFeedback(ws, actionType, 'error', errorMessage);
+          }
+          
+          // Continue with next command even if this one failed (for powerOn with multiple commands)
+          if (commandIndex < cecCommands.length) {
+            setTimeout(executeNextCommand, 100); // Small delay between commands
+          }
+          return;
+        }
+        
+        // Check for CEC errors in stderr
+        let hasError = false;
+        if (stderr && !stderr.includes('waiting for input') && !stderr.includes('opening a connection')) {
+          // Check for CEC_TRANSMIT errors
+          if (stderr.includes('CEC_TRANSMIT failed') || stderr.includes('ERROR')) {
+            hasError = true;
+            const errorMatch = stderr.match(/ERROR:\s*(.+)/);
+            const errorMsg = errorMatch ? errorMatch[1].trim() : 'CEC command failed';
+            console.error(`CEC command stderr for ${actionType} (command ${commandIndex}/${cecCommands.length}):`, stderr);
+            
+            // Send error feedback if this is the last command
+            if (commandIndex >= cecCommands.length) {
+              sendActionFeedback(ws, actionType, 'error', errorMsg);
+            }
+          } else {
+            console.error(`CEC command stderr for ${actionType} (command ${commandIndex}/${cecCommands.length}):`, stderr);
+          }
+        }
+        
+        if (stdout && !stdout.includes('opening a connection')) {
+          console.log(`CEC command output for ${actionType} (command ${commandIndex}/${cecCommands.length}):`, stdout);
+        }
+        
+        // Execute next command if there are more
+        if (commandIndex < cecCommands.length) {
+          setTimeout(executeNextCommand, 100); // Small delay between commands
+        } else {
+          // All commands completed
+          if (!hasError) {
+            console.log(`All CEC commands executed successfully for ${actionType}`);
+            const successMessage = sourceName ? `Successfully executed ${actionType}${sourceName ? ` for ${sourceName}` : ''}` : `Successfully executed ${actionType}`;
+            sendActionFeedback(ws, actionType, 'success', successMessage);
+          }
+        }
+      });
+    };
+    
+    // Start executing commands
+    executeNextCommand();
+  }
+
+  // Initialize keyboard routes with WebSocket references
+  // This allows keyboard routes to access client IPs and send commands
+  try {
+    const { initializeKeyboardRoutes } = require('./routes/keyboard');
+    initializeKeyboardRoutes(wss, getServerIPs, isSameIP, clients, adminClients, clientIPs);
+  } catch (error) {
+    console.warn('Failed to initialize keyboard routes:', error.message);
+  }
+
+  // Handle server shutdown gracefully
+  // Only register handler once to prevent multiple shutdown messages
+  if (!process.listenerCount || process.listenerCount('SIGINT') === 0) {
+    process.on('SIGINT', () => {
+      console.log('\nShutting down server...');
+      wss.close(() => {
+        console.log('WebSocket server closed');
+        process.exit(0);
+      });
+      setTimeout(() => {
+        process.exit(0);
+      }, 1000);
+    });
+  }
+
+  return wss;
 }
 
 module.exports = { setupWebSocket };

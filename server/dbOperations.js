@@ -24,10 +24,13 @@ const dbOps = {
 
     const modified = new Date().toISOString();
 
+    // Serialize CSS object to JSON string if provided
+    const cssStr = item.css ? (typeof item.css === 'string' ? item.css : JSON.stringify(item.css)) : null;
+
     db.transaction(() => {
       db.prepare(`
-        INSERT INTO library_items (guid, name, type, content, description, modified, background_color, font_color, author)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO library_items (guid, name, type, content, description, modified, background_color, font_color, author, css)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         newGuid,
         item.name || '',
@@ -37,7 +40,8 @@ const dbOps = {
         modified,
         item.background_color || null,
         item.font_color || null,
-        item.author || null
+        item.author || null,
+        cssStr
       );
 
       // Handle pages for text items
@@ -72,10 +76,23 @@ const dbOps = {
 
     const modified = new Date().toISOString();
 
+    // Determine author value - explicitly set to null if author is undefined or empty
+    let authorValue = existingItem.author;
+    if (item.author !== undefined) {
+      // If author is explicitly set (even if null or empty string), use it
+      authorValue = (item.author !== null && item.author !== undefined && item.author.trim() !== '') ? item.author.trim() : null;
+    }
+
+    // Serialize CSS object to JSON string if provided
+    let cssValue = existingItem.css;
+    if (item.css !== undefined) {
+      cssValue = item.css ? (typeof item.css === 'string' ? item.css : JSON.stringify(item.css)) : null;
+    }
+
     db.transaction(() => {
       db.prepare(`
         UPDATE library_items
-        SET name = ?, type = ?, content = ?, description = ?, modified = ?, background_color = ?, font_color = ?, author = ?
+        SET name = ?, type = ?, content = ?, description = ?, modified = ?, background_color = ?, font_color = ?, author = ?, css = ?
         WHERE guid = ?
       `).run(
         item.name !== undefined ? item.name : existingItem.name,
@@ -85,7 +102,8 @@ const dbOps = {
         modified,
         item.background_color !== undefined ? item.background_color : existingItem.background_color,
         item.font_color !== undefined ? item.font_color : existingItem.font_color,
-        item.author !== undefined ? item.author : existingItem.author,
+        authorValue,
+        cssValue,
         guid
       );
 
@@ -141,6 +159,31 @@ const dbOps = {
     });
   },
 
+  /**
+   * Strip HTML tags and chord content from text for searching
+   */
+  stripHtmlAndChords(text) {
+    if (!text || typeof text !== 'string') {
+      return '';
+    }
+    
+    // Remove all content inside <chord> tags (including the tags themselves)
+    let cleaned = text.replace(/<chord[^>]*>.*?<\/chord>/gi, '');
+    
+    // Remove all other HTML tags
+    cleaned = cleaned.replace(/<[^>]+>/g, '');
+    
+    // Decode HTML entities
+    cleaned = cleaned.replace(/&nbsp;/g, ' ');
+    cleaned = cleaned.replace(/&amp;/g, '&');
+    cleaned = cleaned.replace(/&lt;/g, '<');
+    cleaned = cleaned.replace(/&gt;/g, '>');
+    cleaned = cleaned.replace(/&quot;/g, '"');
+    cleaned = cleaned.replace(/&#39;/g, "'");
+    
+    return cleaned;
+  },
+
   searchLibraryItems(searchTerm) {
     const db = getDatabase();
     
@@ -156,31 +199,70 @@ const dbOps = {
       const guidValue = parseInt(trimmedTerm, 10);
       const term = `%${trimmedTerm}%`;
       
-      // Search in library items directly OR in linked pages content
-      // Use UNION to combine results from direct matches and page matches
-      const directMatches = db.prepare(`
+      // Priority 1a: Exact GUID match
+      const exactGuidMatches = db.prepare(`
         SELECT DISTINCT li.* FROM library_items li
-        WHERE li.guid = ? 
-           OR LOWER(li.name) LIKE ? 
-           OR LOWER(li.description) LIKE ? 
-           OR LOWER(li.author) LIKE ?
-           OR (li.type != 'image' AND LOWER(li.content) LIKE ?)
-      `).all(guidValue, term, term, term, term);
+        WHERE li.guid = ?
+      `).all(guidValue);
       
-      // Get library items that have matching page content
-      const pageMatches = db.prepare(`
+      // Priority 1b: Partial GUID matches (GUID contains the search term)
+      const partialGuidMatches = db.prepare(`
         SELECT DISTINCT li.* FROM library_items li
-        JOIN library_item_pages lip ON li.guid = lip.library_item_guid
-        JOIN pages p ON lip.page_guid = p.guid
-        WHERE LOWER(p.content) LIKE ?
-      `).all(term);
+        WHERE li.guid != ? AND CAST(li.guid AS TEXT) LIKE ?
+      `).all(guidValue, term);
       
-      // Combine and deduplicate by guid
-      const allMatches = new Map();
-      directMatches.forEach(item => allMatches.set(item.guid, item));
-      pageMatches.forEach(item => allMatches.set(item.guid, item));
+      // Combine exact and partial GUID matches
+      const guidMatches = [...exactGuidMatches, ...partialGuidMatches];
+      const guidSet = new Set(guidMatches.map(item => item.guid));
       
-      return Array.from(allMatches.values());
+      // Priority 2: Name matches (excluding items already matched by GUID)
+      const allItemsForNameSearch = db.prepare('SELECT * FROM library_items').all();
+      const nameMatches = [];
+      for (const item of allItemsForNameSearch) {
+        if (guidSet.has(item.guid)) continue;
+        if (item.name && item.name.toLowerCase().includes(trimmedTerm.toLowerCase())) {
+          nameMatches.push(item);
+          guidSet.add(item.guid);
+        }
+      }
+      
+      // Priority 3: Content matches (ignoring HTML tags and chord content)
+      const allItems = db.prepare('SELECT * FROM library_items').all();
+      const contentMatches = [];
+      
+      for (const item of allItems) {
+        if (guidSet.has(item.guid)) continue;
+        
+        // Check direct content (for non-image items)
+        if (item.type !== 'image' && item.content) {
+          const contentStr = typeof item.content === 'string' ? item.content : JSON.stringify(item.content);
+          const cleanedContent = this.stripHtmlAndChords(contentStr);
+          if (cleanedContent.toLowerCase().includes(trimmedTerm.toLowerCase())) {
+            contentMatches.push(item);
+            guidSet.add(item.guid);
+            continue;
+          }
+        }
+        
+        // Check linked pages content
+        const pages = db.prepare(`
+          SELECT p.content FROM library_item_pages lip
+          JOIN pages p ON lip.page_guid = p.guid
+          WHERE lip.library_item_guid = ?
+        `).all(item.guid);
+        
+        for (const page of pages) {
+          const cleanedContent = this.stripHtmlAndChords(page.content || '');
+          if (cleanedContent.toLowerCase().includes(trimmedTerm.toLowerCase())) {
+            contentMatches.push(item);
+            guidSet.add(item.guid);
+            break;
+          }
+        }
+      }
+      
+      // Combine results in priority order
+      return [...guidMatches, ...nameMatches, ...contentMatches];
     }
 
     // Split search term by spaces and filter out empty strings
@@ -190,93 +272,97 @@ const dbOps = {
       return [];
     }
 
-    // For multi-word searches, find items where ALL words match
-    // Use a more efficient approach: find all candidates first, then filter
+    // Priority 1: GUID matches (exact and partial)
+    const guidMatches = [];
+    const guidSet = new Set();
     
-    // Get all library item GUIDs that match at least one word
-    const candidateGuids = new Set();
-    const allCandidates = new Map();
-    
-    searchWords.forEach(word => {
-      const wordTerm = `%${word}%`;
-      const isNumeric = /^\d+$/.test(word);
-      
-      // Direct matches in library_items fields
-      let directQuery = `
-        SELECT DISTINCT li.* FROM library_items li
-        WHERE LOWER(li.name) LIKE ? 
-           OR LOWER(li.description) LIKE ? 
-           OR LOWER(li.author) LIKE ?
-           OR (li.type != 'image' AND LOWER(li.content) LIKE ?)
-      `;
-      let directParams = [wordTerm, wordTerm, wordTerm, wordTerm];
-      
-      if (isNumeric) {
+    for (const word of searchWords) {
+      if (/^\d+$/.test(word)) {
         const guidValue = parseInt(word, 10);
-        directQuery += ' OR li.guid = ?';
-        directParams.push(guidValue);
+        const guidPattern = `%${word}%`;
+        
+        // Exact GUID match
+        const exactItem = db.prepare('SELECT * FROM library_items WHERE guid = ?').get(guidValue);
+        if (exactItem && !guidSet.has(exactItem.guid)) {
+          guidMatches.push(exactItem);
+          guidSet.add(exactItem.guid);
+        }
+        
+        // Partial GUID matches (GUID contains the search word)
+        const partialItems = db.prepare(`
+          SELECT * FROM library_items 
+          WHERE guid != ? AND CAST(guid AS TEXT) LIKE ?
+        `).all(guidValue, guidPattern);
+        
+        for (const item of partialItems) {
+          if (!guidSet.has(item.guid)) {
+            guidMatches.push(item);
+            guidSet.add(item.guid);
+          }
+        }
       }
-      
-      const directMatches = db.prepare(directQuery).all(...directParams);
-      directMatches.forEach(item => {
-        candidateGuids.add(item.guid);
-        allCandidates.set(item.guid, item);
-      });
-      
-      // Matches in linked pages content
-      const pageMatches = db.prepare(`
-        SELECT DISTINCT li.* FROM library_items li
-        JOIN library_item_pages lip ON li.guid = lip.library_item_guid
-        JOIN pages p ON lip.page_guid = p.guid
-        WHERE LOWER(p.content) LIKE ?
-      `).all(wordTerm);
-      
-      pageMatches.forEach(item => {
-        candidateGuids.add(item.guid);
-        allCandidates.set(item.guid, item);
-      });
-    });
+    }
     
-    // Now verify that ALL words match for each candidate
-    const finalResults = [];
+    // Priority 2: Name matches (check if ALL words match in name)
+    const nameMatches = [];
+    const nameSet = new Set();
     
-    for (const guid of candidateGuids) {
-      const item = allCandidates.get(guid);
-      if (!item) continue;
+    const allItems = db.prepare('SELECT * FROM library_items').all();
+    for (const item of allItems) {
+      if (guidSet.has(item.guid)) continue;
+      
+      if (item.name) {
+        const itemNameLower = item.name.toLowerCase();
+        let allWordsInName = true;
+        for (const word of searchWords) {
+          if (!itemNameLower.includes(word)) {
+            allWordsInName = false;
+            break;
+          }
+        }
+        if (allWordsInName) {
+          nameMatches.push(item);
+          nameSet.add(item.guid);
+        }
+      }
+    }
+    
+    // Priority 3: Content matches (ignoring HTML tags and chord content)
+    const contentMatches = [];
+    const contentSet = new Set([...guidSet, ...nameSet]);
+    
+    for (const item of allItems) {
+      if (contentSet.has(item.guid)) continue;
       
       let allWordsMatch = true;
       
+      // Check if all words match in content
       for (const word of searchWords) {
-        const wordTerm = `%${word}%`;
-        const isNumeric = /^\d+$/.test(word);
         let wordFound = false;
         
-        // Check direct fields
-        if (item.name && item.name.toLowerCase().includes(word)) {
-          wordFound = true;
-        } else if (item.description && item.description.toLowerCase().includes(word)) {
-          wordFound = true;
-        } else if (item.author && item.author.toLowerCase().includes(word)) {
-          wordFound = true;
-        } else if (item.type !== 'image' && item.content) {
+        // Check direct content (for non-image items)
+        if (item.type !== 'image' && item.content) {
           const contentStr = typeof item.content === 'string' ? item.content : JSON.stringify(item.content);
-          if (contentStr.toLowerCase().includes(word)) {
+          const cleanedContent = this.stripHtmlAndChords(contentStr);
+          if (cleanedContent.toLowerCase().includes(word)) {
             wordFound = true;
           }
-        } else if (isNumeric && item.guid === parseInt(word, 10)) {
-          wordFound = true;
         }
         
-        // If not found in direct fields, check linked pages
+        // If not found in direct content, check linked pages
         if (!wordFound) {
-          const pageMatch = db.prepare(`
-            SELECT COUNT(*) as count FROM library_item_pages lip
+          const pages = db.prepare(`
+            SELECT p.content FROM library_item_pages lip
             JOIN pages p ON lip.page_guid = p.guid
-            WHERE lip.library_item_guid = ? AND LOWER(p.content) LIKE ?
-          `).get(item.guid, wordTerm);
+            WHERE lip.library_item_guid = ?
+          `).all(item.guid);
           
-          if (pageMatch && pageMatch.count > 0) {
-            wordFound = true;
+          for (const page of pages) {
+            const cleanedContent = this.stripHtmlAndChords(page.content || '');
+            if (cleanedContent.toLowerCase().includes(word)) {
+              wordFound = true;
+              break;
+            }
           }
         }
         
@@ -287,11 +373,13 @@ const dbOps = {
       }
       
       if (allWordsMatch) {
-        finalResults.push(item);
+        contentMatches.push(item);
+        contentSet.add(item.guid);
       }
     }
     
-    return finalResults;
+    // Return results in priority order: GUID matches, then name matches, then content matches
+    return [...guidMatches, ...nameMatches, ...contentMatches];
   },
 
   checkLibraryItemUsage(guid) {
@@ -498,45 +586,84 @@ const dbOps = {
     return items.map(item => {
       let pages = undefined;
       let availablePages = [];
+      
+      console.log(`[getPlaylistItems] Item ${item.guid} (${item.name}): type=${item.type}, hasContent=${!!item.content}, playlist_pages=${item.playlist_pages}`);
+
+      // For text items, load content from library_item_pages if it exists
+      let content = item.content;
+      if (item.type === 'text') {
+        const itemPages = this.getLibraryItemPages(item.guid);
+        if (itemPages && itemPages.length > 0) {
+          // Use pages from new structure
+          content = itemPages.map((page, index) => ({
+            page: page.order_number || (index + 1), // Use order_number from database
+            content: page.content || ''
+          }));
+          console.log(`[getPlaylistItems] Item ${item.guid}: loaded ${itemPages.length} pages from library_item_pages`);
+        } else if (typeof content === 'string' && content) {
+          // Fallback to old content format (backward compatibility)
+          try {
+            const parsed = JSON.parse(content);
+            if (Array.isArray(parsed)) {
+              content = parsed;
+            }
+          } catch (e) {
+            // If parsing fails, content might be a string (single page)
+            content = null;
+          }
+        }
+      }
 
       // For text items, parse content to get page numbers
-      if (item.type === 'text' && item.content) {
-        try {
-          const content = JSON.parse(item.content);
-          if (Array.isArray(content)) {
-            availablePages = content.map(page => page.page);
-          }
-        } catch (e) {
-          // If parsing fails, content might be a string (single page)
-          // In that case, we'll have no pages to show
+      if (item.type === 'text' && content) {
+        console.log(`[getPlaylistItems] Item ${item.guid}: parsing content, type=${item.type}, content exists=${!!content}, content type=${typeof content}, isArray=${Array.isArray(content)}`);
+        if (Array.isArray(content)) {
+          availablePages = content.map(page => page.page || page.order_number || 1);
+          console.log(`[getPlaylistItems] Item ${item.guid}: extracted availablePages=`, availablePages);
+        } else {
+          console.log(`[getPlaylistItems] Item ${item.guid}: content is not an array`);
         }
 
         // Check if playlist has specific pages selected
         if (item.playlist_pages) {
           try {
             const selectedPages = JSON.parse(item.playlist_pages);
+            console.log(`[getPlaylistItems] Item ${item.guid}: playlist_pages=${item.playlist_pages}, selectedPages=`, selectedPages, 'availablePages=', availablePages);
             if (Array.isArray(selectedPages) && selectedPages.length > 0) {
               // Filter available pages to only include selected ones
               pages = availablePages.filter(page => selectedPages.includes(page));
+              console.log(`[getPlaylistItems] Item ${item.guid}: filtered pages=`, pages);
             }
           } catch (e) {
+            console.error(`[getPlaylistItems] Item ${item.guid}: Error parsing playlist_pages:`, e);
             // If parsing fails, use all available pages
           }
+        } else {
+          console.log(`[getPlaylistItems] Item ${item.guid}: playlist_pages is null/undefined, will use all available pages`);
         }
 
         // If pages is still undefined, use all available pages
         if (pages === undefined) {
           pages = availablePages;
+          console.log(`[getPlaylistItems] Item ${item.guid}: pages was undefined, using all available pages:`, pages);
+        } else {
+          console.log(`[getPlaylistItems] Item ${item.guid}: final pages=`, pages);
         }
+      } else {
+        // For non-text items, pages should be undefined
+        console.log(`[getPlaylistItems] Item ${item.guid}: not a text item or no content, type=${item.type}, hasContent=${!!item.content}`);
+        pages = undefined;
       }
 
-      return {
+      const result = {
         guid: item.guid,
         name: item.name,
         type: item.type,
         description: item.playlist_description || item.library_description || undefined,
-        pages: pages // Only for text items, array of page numbers
+        pages: pages // Only for text items, array of page numbers (or undefined for non-text items)
       };
+      console.log(`[getPlaylistItems] Item ${item.guid} (${item.name}): returning pages=`, result.pages, 'type=', result.type);
+      return result;
     });
   },
 
@@ -862,6 +989,17 @@ const dbOps = {
     // Get tags
     const tags = this.getLibraryItemTags(item.guid);
 
+    // Parse CSS from JSON string if present
+    let css = undefined;
+    if (item.css) {
+      try {
+        css = typeof item.css === 'string' ? JSON.parse(item.css) : item.css;
+      } catch (e) {
+        // If parsing fails, use as-is or undefined
+        css = undefined;
+      }
+    }
+
     return {
       guid: item.guid,
       name: item.name,
@@ -872,6 +1010,7 @@ const dbOps = {
       background_color: item.background_color || undefined,
       font_color: item.font_color || undefined,
       author: item.author || undefined,
+      css: css,
       tags: tags.map(t => ({ guid: t.guid, name: t.name, description: t.description }))
     };
   },
@@ -1069,7 +1208,12 @@ const dbOps = {
 
   getAllCollections() {
     const db = getDatabase();
-    return db.prepare('SELECT * FROM collections ORDER BY title').all();
+    const collections = db.prepare('SELECT * FROM collections ORDER BY title').all();
+    // Add item count to each collection
+    return collections.map(collection => ({
+      ...collection,
+      itemCount: this.getCollectionItemCount(collection.guid)
+    }));
   },
 
   updateCollection(guid, collection) {
@@ -1153,6 +1297,16 @@ const dbOps = {
       WHERE ci.collection_guid = ?
       ORDER BY ci.collection_number, li.name
     `).all(collectionGuid);
+  },
+
+  getCollectionItemCount(collectionGuid) {
+    const db = getDatabase();
+    const result = db.prepare(`
+      SELECT COUNT(*) as count
+      FROM collection_items
+      WHERE collection_guid = ?
+    `).get(collectionGuid);
+    return result ? result.count : 0;
   },
 
   getLibraryItemCollections(libraryItemGuid) {

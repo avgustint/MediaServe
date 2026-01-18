@@ -1,0 +1,43 @@
+# Network Configuration Template for Raspberry Pi
+# This is a reference configuration - actual implementation depends on your Raspberry Pi OS version
+#
+# For Raspberry Pi OS (Bullseye and later with NetworkManager):
+#   - Edit /etc/dhcpcd.conf for static IP
+#   - Or use raspi-config for network configuration
+#
+# For Ubuntu-based systems:
+#   - Use netplan configuration files in /etc/netplan/
+
+# Static IP Configuration (for /etc/dhcpcd.conf)
+# Add these lines to set static IP on eth0 or wlan1 (not the AP interface)
+# Uncomment and adjust as needed:
+
+# interface eth0
+# static ip_address=1.2.3.4/24
+# static routers=1.2.3.4
+# static domain_name_servers=8.8.8.8 8.8.4.4
+
+# For hostname configuration:
+# 1. Edit /etc/hostname - change to "projektor"
+# 2. Edit /etc/hosts - add line: "127.0.1.1 projektor"
+
+# WiFi Access Point uses separate configuration:
+# - wlan0 interface configured as AP via hostapd
+# - IP 192.168.4.1 assigned to wlan0 for AP mode
+# - DHCP handled by dnsmasq for connected devices (192.168.4.2-20)
+
+# Example netplan configuration (for Ubuntu):
+# network:
+#   version: 2
+#   ethernets:
+#     eth0:
+#       dhcp4: false
+#       addresses:
+#         - 1.2.3.4/24
+#       gateway4: 1.2.3.4
+#       nameservers:
+#         addresses: [8.8.8.8, 8.8.4.4]
+#   wifis:
+#     wlan1:  # Use wlan1 if wlan0 is used for AP
+#       dhcp4: true  # Or configure static IP here if needed
+

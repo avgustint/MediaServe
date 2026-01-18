@@ -26,6 +26,9 @@ router.put('/', authMiddleware, requirePermission('EditGeneralSettings'), asyncH
   if (req.body.defaultFontColor !== undefined) {
     dbOps.setSetting('defaultFontColor', req.body.defaultFontColor || '');
   }
+  if (req.body.defaultChordFontColor !== undefined) {
+    dbOps.setSetting('defaultChordFontColor', req.body.defaultChordFontColor || '');
+  }
   if (req.body.defaultBlankPage !== undefined) {
     dbOps.setSetting('defaultBlankPage', req.body.defaultBlankPage || '');
   }

@@ -1,0 +1,410 @@
+<div class="playlist-editor-container">
+  <div class="search-section">
+    <div class="search-input-wrapper">
+      <input
+        type="text"
+        pInputText
+        class="search-input"
+        [(ngModel)]="searchTerm"
+        (input)="onSearchChange()"
+        [placeholder]="'searchPlaylists' | translate"
+        styleClass="w-full"
+      />
+      <button *ngIf="searchTerm" class="clear-search-btn" (click)="clearSearch()" [title]="'clearSearch' | translate"></button>
+    </div>
+    <div class="search-results" *ngIf="showSearchResults">
+      <div
+        *ngIf="searchResults.length === 0 && searchTerm.trim().length > 0"
+        class="no-results"
+      >
+        {{ 'noPlaylistsFound' | translate }}
+      </div>
+      <div
+        *ngFor="let result of searchResults"
+        class="search-result-item"
+        (click)="onSearchResultSelect(result)"
+      >
+        <div class="search-result-name">{{ result.name }}</div>
+        <div class="search-result-description" *ngIf="result.description">
+          {{ result.description }}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="actions-section">
+    <button class="add-button" (click)="addNewPlaylist()" *ngIf="!editingPlaylist && !isNewPlaylist && !viewingPlaylist && hasManagePlaylistsPermission()">
+      {{ 'addNewPlaylist' | translate }}
+    </button>
+    <button class="back-button" (click)="backToPlaylistList()" *ngIf="viewingPlaylist || editingPlaylist || isNewPlaylist">
+      <i class="fas fa-arrow-left"></i>
+      <span>{{ 'back' | translate }}</span>
+    </button>
+  </div>
+
+  <div class="recent-playlists-section" *ngIf="showRecentPlaylists && !editingPlaylist && !isNewPlaylist && !viewingPlaylist && recentPlaylists.length > 0">
+    <h3>{{ 'recentlyModified' | translate }}</h3>
+    <div class="recent-playlists-list">
+      <div
+        *ngFor="let playlist of recentPlaylists"
+        class="recent-playlist"
+        (click)="loadPlaylist(playlist.guid)"
+      >
+        <div class="playlist-info">
+          <div class="playlist-name">{{ playlist.name }}</div>
+          <div class="playlist-details">
+            <span class="playlist-modified" *ngIf="playlist.updated">
+              {{ 'modified' | translate }}: {{ playlist.updated | localizedDate:'short' }}
+            </span>
+          </div>
+          <div class="playlist-description" *ngIf="playlist.description">
+            {{ playlist.description }}
+          </div>
+        </div>
+        <button
+          *ngIf="hasDeletePermission()"
+          class="delete-playlist-btn"
+          (click)="deletePlaylistFromList(playlist); $event.stopPropagation()"
+          [title]="'deletePlaylist' | translate"
+        >
+          <i class="fas fa-trash"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Playlist Detail View -->
+  <div class="playlist-detail-section" *ngIf="viewingPlaylist && !editingPlaylist && !isNewPlaylist">
+    <div class="detail-header">
+      <div class="detail-header-content">
+        <h2>{{ viewingPlaylist.name }}</h2>
+        <div class="detail-actions">
+          <button class="edit-button" (click)="editPlaylistDetails()" *ngIf="hasManagePlaylistsPermission()">
+            <i class="fas fa-edit"></i>
+            <span>{{ 'edit' | translate }}</span>
+          </button>
+        </div>
+      </div>
+      <div class="playlist-details-info" *ngIf="viewingPlaylist.description || viewingPlaylist.updated">
+        <div class="playlist-description" *ngIf="viewingPlaylist.description">
+          {{ viewingPlaylist.description }}
+        </div>
+        <div class="playlist-modified" *ngIf="viewingPlaylist.updated">
+          {{ 'modified' | translate }}: {{ viewingPlaylist.updated | localizedDate:'short' }}
+        </div>
+      </div>
+    </div>
+
+    <div class="playlist-items-section">
+      <div class="items-header">
+        <div class="items-header-title">
+          <h3>{{ 'libraryItems' | translate }}</h3>
+          <div class="playlist-item-count" *ngIf="playlistItems.length > 0">
+            {{ 'libraryItemsCount' | translate }}: {{ playlistItems.length }}
+          </div>
+        </div>
+        <button class="add-item-button" (click)="openAddItemModal()" *ngIf="hasManagePlaylistsPermission()">
+          <i class="fas fa-plus"></i>
+          <span>{{ 'addItemToPlaylist' | translate }}</span>
+        </button>
+      </div>
+
+      <div class="items-list" *ngIf="!loadingPlaylist">
+        <div *ngIf="playlistItems.length === 0" class="no-items">
+          {{ 'noItemsInPlaylist' | translate }}
+        </div>
+        <div *ngFor="let item of playlistItems; let i = index" class="playlist-item-row" (click)="openEditPagesModal(item)" [class.clickable]="hasManagePlaylistsPermission()">
+          <div class="item-number">{{ i + 1 }}</div>
+          <div class="item-info">
+            <div class="item-name">{{ item.name || getLibraryItemName(item.guid) }}</div>
+            <div class="item-details">
+              <span class="item-type">{{ 'typeColon' | translate }} {{ item.type || getLibraryItemType(item.guid) }}</span>
+              <span class="item-guid-badge">{{ item.guid }}</span>
+            </div>
+            <div class="item-description" *ngIf="item.description">
+              {{ item.description }}
+            </div>
+            <div class="item-pages-info" *ngIf="item.pages && item.pages.length > 0">
+              <i class="fas fa-file-alt"></i> {{ 'pages' | translate }}: {{ item.pages.join(', ') }}
+            </div>
+            <div class="item-pages-info" *ngIf="getLibraryItemType(item.guid) === 'text' && (!item.pages || item.pages.length === 0) && getAvailablePages(item.guid).length > 1">
+              <i class="fas fa-file-alt"></i> {{ 'pages' | translate }}: {{ 'all' | translate }}
+            </div>
+            <div class="item-pages-info" *ngIf="getLibraryItemType(item.guid) !== 'text' || getAvailablePages(item.guid).length <= 1">
+              <i class="fas fa-file-alt"></i> {{ 'pages' | translate }}: {{ 'all' | translate }}
+            </div>
+          </div>
+          <div class="item-actions" *ngIf="hasManagePlaylistsPermission()" (click)="$event.stopPropagation()">
+            <button
+              class="move-btn"
+              (click)="moveItemUpInDetailView(i)"
+              [disabled]="i === 0"
+              [title]="'moveUp' | translate"
+            >
+              <i class="fas fa-arrow-up"></i>
+            </button>
+            <button
+              class="move-btn"
+              (click)="moveItemDownInDetailView(i)"
+              [disabled]="i === playlistItems.length - 1"
+              [title]="'moveDown' | translate"
+            >
+              <i class="fas fa-arrow-down"></i>
+            </button>
+            <button
+              class="remove-item-button"
+              (click)="removeItemFromPlaylistView(item)"
+              [title]="'remove' | translate"
+            >
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+      <div *ngIf="loadingPlaylist" class="loading-items">
+        {{ 'loading' | translate }}...
+      </div>
+    </div>
+  </div>
+
+  <!-- Playlist Edit Form -->
+  <div class="edit-section" *ngIf="editingPlaylist || isNewPlaylist">
+    <div class="edit-form">
+      <h2>{{ isNewPlaylist ? ('addNewPlaylist' | translate) : ('editPlaylist' | translate) }}</h2>
+
+      <div class="form-group">
+        <label for="playlistName">{{ 'name' | translate }} *</label>
+        <input
+          id="playlistName"
+          type="text"
+          pInputText
+          [(ngModel)]="playlistName"
+          [placeholder]="'enterPlaylistName' | translate"
+          styleClass="w-full"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="playlistDescription">{{ 'description' | translate }}</label>
+        <input
+          id="playlistDescription"
+          type="text"
+          pInputText
+          [(ngModel)]="playlistDescription"
+          [placeholder]="'enterPlaylistDescription' | translate"
+          styleClass="w-full"
+        />
+      </div>
+
+      <div class="form-group">
+        <label>{{ 'libraryItems' | translate }}</label>
+
+        <div class="playlist-items-list" *ngIf="playlistItems.length > 0">
+          <div *ngFor="let item of playlistItems; let i = index" class="playlist-item-row">
+            <div class="item-guid-badge">{{ item.guid }}</div>
+            <div class="item-info">
+              <div class="item-name">{{ item.name || getLibraryItemName(item.guid) }}</div>
+              <div class="item-details">
+                <span class="item-type">{{ item.type || getLibraryItemType(item.guid) }}</span>
+              </div>
+              <div class="item-description" *ngIf="item.description">
+                {{ item.description }}
+              </div>
+              
+              <div class="item-pages-selector" *ngIf="getLibraryItemType(item.guid) === 'text' && getAvailablePages(item.guid).length > 1">
+                <label>{{ 'pagesLeaveEmpty' | translate }}</label>
+                <div class="pages-checkboxes">
+                  <label *ngFor="let pageNum of getAvailablePages(item.guid)" class="page-checkbox-label">
+                    <input
+                      type="checkbox"
+                      [checked]="isPageSelected(item, pageNum)"
+                      (change)="togglePageSelection(item, pageNum)"
+                    />
+                    <span>{{ pageNum }}</span>
+                  </label>
+                </div>
+                <div class="pages-actions">
+                  <button
+                    type="button"
+                    class="btn-select-all"
+                    (click)="selectAllPages(item)"
+                  >
+                    {{ 'selectAll' | translate }}
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-clear-pages"
+                    (click)="clearPages(item)"
+                  >
+                    {{ 'clearAllPages' | translate }}
+                  </button>
+                </div>
+                <div class="pages-selected-info" *ngIf="getSelectedPagesText(item)">
+                  {{ 'selected' | translate }}: {{ getSelectedPagesText(item) }}
+                </div>
+              </div>
+
+              <div class="item-description-input">
+                <input
+                  type="text"
+                  pInputText
+                  [(ngModel)]="item.description"
+                  [placeholder]="'descriptionOptional' | translate"
+                  styleClass="w-full"
+                />
+              </div>
+            </div>
+
+            <div class="item-actions">
+              <button
+                class="move-btn"
+                (click)="moveItemUp(i)"
+                [disabled]="i === 0"
+                [title]="'moveUp' | translate"
+              >
+                ↑
+              </button>
+              <button
+                class="move-btn"
+                (click)="moveItemDown(i)"
+                [disabled]="i === playlistItems.length - 1"
+                [title]="'moveDown' | translate"
+              >
+                ↓
+              </button>
+              <button
+                class="remove-btn"
+                (click)="removeItemFromPlaylist(item.guid)"
+                [title]="'remove' | translate"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="no-items" *ngIf="playlistItems.length === 0">
+          {{ 'noItemsInPlaylist' | translate }}
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button class="btn-save" (click)="savePlaylist()">
+          <i class="fas fa-check"></i>
+          <span>{{ 'save' | translate }}</span>
+        </button>
+        <button class="btn-cancel" (click)="cancelEdit()">
+          <i class="fas fa-times"></i>
+          <span>{{ 'cancel' | translate }}</span>
+        </button>
+        <button 
+          *ngIf="!isNewPlaylist && editingPlaylist && hasDeletePermission()" 
+          class="delete-button" 
+          (click)="deletePlaylist()"
+        >
+          {{ 'delete' | translate }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <app-error-popup
+    [message]="errorMessage"
+    [show]="showError"
+    (close)="closeErrorPopup()"
+  ></app-error-popup>
+
+  <app-toast
+    [message]="toastMessage"
+    [type]="toastType"
+    [show]="showToast"
+    (close)="closeToast()"
+  ></app-toast>
+
+  <app-confirm-dialog
+    [title]="confirmDialogTitle"
+    [message]="confirmDialogMessage"
+    [show]="showConfirmDialog"
+    [confirmText]="'delete' | translate"
+    [cancelText]="'cancel' | translate"
+    confirmColor="danger"
+    (confirm)="onConfirmDialogAction()"
+    (cancel)="closeConfirmDialog()"
+    (close)="closeConfirmDialog()"
+  ></app-confirm-dialog>
+
+  <!-- Add Item Modal -->
+  <div class="modal-overlay" *ngIf="showAddItemModal" (click)="closeAddItemModal()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>{{ 'addItemToPlaylist' | translate }}</h3>
+        <button class="modal-close" (click)="closeAddItemModal()">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <app-search
+          #libraryItemSearch
+          (itemClick)="onLibraryItemSelected($event)"
+        ></app-search>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Pages Modal -->
+  <div class="modal-overlay" *ngIf="showEditPagesModal" (click)="closeEditPagesModal()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>{{ 'editPages' | translate }}: {{ editingPagesItem ? (editingPagesItem.name || getLibraryItemName(editingPagesItem.guid)) : '' }}</h3>
+        <button class="modal-close" (click)="closeEditPagesModal()">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body" *ngIf="editingPagesItem">
+        <div class="item-pages-selector">
+          <label>{{ 'pagesLeaveEmpty' | translate }}</label>
+          <div class="pages-checkboxes" *ngIf="getLibraryItemType(editingPagesItem.guid) === 'text' && getAvailablePages(editingPagesItem.guid).length > 1">
+            <label *ngFor="let pageNum of getAvailablePages(editingPagesItem.guid)" class="page-checkbox-label">
+              <input
+                type="checkbox"
+                [checked]="isPageSelected(editingPagesItem, pageNum)"
+                (change)="togglePageSelection(editingPagesItem, pageNum)"
+              />
+              <span>{{ pageNum }}</span>
+            </label>
+          </div>
+          <div class="pages-info" *ngIf="getLibraryItemType(editingPagesItem.guid) !== 'text' || getAvailablePages(editingPagesItem.guid).length <= 1">
+            {{ 'allPagesSelected' | translate }}
+          </div>
+          <div class="pages-actions" *ngIf="getLibraryItemType(editingPagesItem.guid) === 'text' && getAvailablePages(editingPagesItem.guid).length > 1">
+            <button
+              type="button"
+              class="btn-select-all"
+              (click)="selectAllPages(editingPagesItem)"
+            >
+              {{ 'selectAll' | translate }}
+            </button>
+            <button
+              type="button"
+              class="btn-clear-pages"
+              (click)="clearPages(editingPagesItem)"
+            >
+              {{ 'clearAllPages' | translate }}
+            </button>
+          </div>
+          <div class="pages-selected-info" *ngIf="getSelectedPagesText(editingPagesItem)">
+            {{ 'selected' | translate }}: {{ getSelectedPagesText(editingPagesItem) }}
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-cancel" (click)="closeEditPagesModal()">
+          {{ 'cancel' | translate }}
+        </button>
+        <button class="btn-save" (click)="savePagesForItem()">
+          {{ 'save' | translate }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

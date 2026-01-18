@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment files
+.env
+.env.local
+
+# Database files (keep structure, ignore data)
+server/data/*.db
+server/data/*.db-shm
+server/data/*.db-wal
+
+# Backup files
+*.backup
+
+# Angular build artifacts (individual project dist folders are kept)
+admin-v2/.angular/
+client/.angular/

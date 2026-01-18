@@ -160,6 +160,9 @@ router.put('/:guid', validateGuid, authMiddleware, requirePermission('ManageLibr
     name: sanitizeString(req.body.name || '')
   };
   
+  // Debug: log what we receive from client
+  console.log(`[PUT /library/${guid}] Received itemData:`, JSON.stringify(itemData), 'author in body:', req.body.author, 'author in itemData:', itemData.author);
+  
   const updatedItem = dbOps.updateLibraryItem(guid, itemData);
   const formattedItem = dbOps.formatLibraryItem(updatedItem);
   

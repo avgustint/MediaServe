@@ -18,11 +18,15 @@ import { SERVER_BASE_URL } from "./api.config";
 export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild("textContainer", { static: false }) textContainer!: ElementRef<HTMLDivElement>;
   @ViewChild("imageContainer", { static: false }) imageContainer!: ElementRef<HTMLDivElement>;
+  @ViewChild("urlIframe", { static: false }) urlIframe!: ElementRef<HTMLIFrameElement>;
 
   currentContent: WebSocketMessage | null = null;
   private subscription?: Subscription;
   private connectionStatusSubscription?: Subscription;
   connectionStatus: "connecting" | "connected" | "disconnected" = "disconnected";
+
+  // Chord display state: default is to show chords
+  showChords: boolean = true;
 
   // Location handling
   locationId: number | null = null;
@@ -36,6 +40,10 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
     if (this.currentContent?.type === "text") {
       this.adjustTextSize();
     }
+  };
+
+  private keyboardHandler = (event: KeyboardEvent) => {
+    this.handleKeyboardEvent(event);
   };
 
   constructor(
@@ -60,11 +68,26 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
         return;
       }
 
-      this.currentContent = message;
+      // Always update chord visibility first (before updating content)
+      // This ensures visibility changes are applied immediately
+      // Only update if chordsVisible is explicitly set in the message
+      if (message.chordsVisible !== undefined) {
+        // Only update if the value actually changed to prevent unnecessary re-renders
+        if (this.showChords !== message.chordsVisible) {
+          this.showChords = message.chordsVisible;
+        }
+      }
+      // If chordsVisible is undefined, keep current state (don't default to true)
 
-      // Adjust font size for text after view update
-      if (message.type === "text") {
-        setTimeout(() => this.adjustTextSize(), 100);
+      // Update content (chords should always be in the content, visibility controlled by showChords)
+      // Only update if this is a content message (text, image, or url)
+      if (message.type === 'text' || message.type === 'image' || message.type === 'url') {
+        this.currentContent = message;
+
+        // Adjust font size for text after view update
+        if (message.type === "text") {
+          setTimeout(() => this.adjustTextSize(), 100);
+        }
       }
     });
   }
@@ -72,6 +95,8 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
   ngAfterViewInit(): void {
     // Listen for window resize to adjust text size
     window.addEventListener("resize", this.resizeHandler);
+    // Listen for keyboard events to forward to admin app
+    window.addEventListener("keydown", this.keyboardHandler, true);
   }
 
   ngOnDestroy(): void {
@@ -79,6 +104,7 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
     this.connectionStatusSubscription?.unsubscribe();
     this.websocketService.disconnect();
     window.removeEventListener("resize", this.resizeHandler);
+    window.removeEventListener("keydown", this.keyboardHandler, true);
   }
 
   private initializeLocation(): void {
@@ -138,8 +164,10 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
 
+    // Convert HTTP URL to WebSocket URL (replace http:// with ws:// or https:// with wss://)
+    const wsBaseUrl = SERVER_BASE_URL.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:');
     // Connect to WebSocket with locationId as query parameter so server can route by location
-    const wsUrl = `ws://localhost:8080?locationId=${this.locationId}`;
+    const wsUrl = `${wsBaseUrl}?locationId=${this.locationId}`;
     this.websocketService.connect(wsUrl);
   }
 
@@ -170,8 +198,13 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
 
-    const containerWidth = container.clientWidth;
-    const containerHeight = container.clientHeight;
+    // Get container dimensions, accounting for padding
+    const containerStyle = window.getComputedStyle(container);
+    const paddingX = parseFloat(containerStyle.paddingLeft) + parseFloat(containerStyle.paddingRight);
+    const paddingY = parseFloat(containerStyle.paddingTop) + parseFloat(containerStyle.paddingBottom);
+    
+    const containerWidth = container.clientWidth - paddingX;
+    const containerHeight = container.clientHeight - paddingY;
     const text = this.currentContent.content;
 
     if (!text || text.trim().length === 0) {
@@ -195,10 +228,13 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
       textElement.offsetHeight;
 
       // Check if text fits within container with some padding
+      // Use available width/height (95% of container) to account for max-width/max-height CSS
+      const availableWidth = containerWidth * 0.95;
+      const availableHeight = containerHeight * 0.95;
       const textWidth = textElement.scrollWidth;
       const textHeight = textElement.scrollHeight;
 
-      if (textWidth <= containerWidth * 0.8 && textHeight <= containerHeight * 0.95) {
+      if (textWidth <= availableWidth && textHeight <= availableHeight) {
         bestFont = fontSize;
         minFont = fontSize + 1;
       } else {
@@ -211,7 +247,7 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   get imageSrc(): string {
-    if (this.currentContent?.type === "image") {
+    if (this.currentContent?.type === "image" && this.currentContent.content) {
       // Handle base64 image
       if (this.currentContent.content.startsWith("data:image")) {
         return this.currentContent.content;
@@ -223,15 +259,62 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
     return "";
   }
 
+  private addAutoplayToEmbedUrl(url: string): string {
+    try {
+      const urlObj = new URL(url);
+      
+      // For YouTube, add enablejsapi=1 for postMessage API to work
+      if (url.includes('youtube.com') || url.includes('youtu.be')) {
+        if (!urlObj.searchParams.has('enablejsapi')) {
+          urlObj.searchParams.set('enablejsapi', '1');
+        }
+      }
+      
+      // Check if URL already has autoplay parameter
+      if (urlObj.searchParams.has('autoplay')) {
+        // Update existing autoplay to 1
+        urlObj.searchParams.set('autoplay', '1');
+        return urlObj.toString();
+      }
+      
+      // Add autoplay parameter
+      urlObj.searchParams.set('autoplay', '1');
+      return urlObj.toString();
+    } catch (error) {
+      // If URL parsing fails, try simple string manipulation
+      let modifiedUrl = url;
+      
+      // For YouTube, add enablejsapi=1
+      if (url.includes('youtube.com') || url.includes('youtu.be')) {
+        if (!url.includes('enablejsapi=')) {
+          const separator = url.includes('?') ? '&' : '?';
+          modifiedUrl = `${url}${separator}enablejsapi=1`;
+        }
+      }
+      
+      // Check if URL already contains autoplay
+      if (modifiedUrl.includes('autoplay=')) {
+        // Replace existing autoplay value with 1
+        return modifiedUrl.replace(/autoplay=[^&]*/i, 'autoplay=1');
+      }
+      
+      // Add autoplay parameter
+      const separator = modifiedUrl.includes('?') ? '&' : '?';
+      return `${modifiedUrl}${separator}autoplay=1`;
+    }
+  }
+
   get safeUrl(): SafeResourceUrl {
-    if (this.currentContent?.type === "url") {
-      return this.sanitizer.bypassSecurityTrustResourceUrl(this.currentContent.content);
+    if (this.currentContent?.type === "url" && this.currentContent.content) {
+      const url = this.currentContent.content as string;
+      const urlWithAutoplay = this.addAutoplayToEmbedUrl(url);
+      return this.sanitizer.bypassSecurityTrustResourceUrl(urlWithAutoplay);
     }
     return this.sanitizer.bypassSecurityTrustResourceUrl("about:blank");
   }
 
   get text(): string {
-    return this.currentContent?.type === "text" ? this.currentContent.content : "";
+    return this.currentContent?.type === "text" && this.currentContent.content ? this.currentContent.content : "";
   }
 
   get backgroundColor(): string {
@@ -242,10 +325,33 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
     return this.currentContent?.font_color || "#FFFFFF";
   }
 
+  get chordFontColor(): string {
+    return this.currentContent?.chord_font_color || "#210789";
+  }
+
   get textContainerStyle(): { [key: string]: string } {
-    return {
+    const style: { [key: string]: string } = {
       'background-color': this.backgroundColor
     };
+    
+    // Apply CSS custom properties from library item if present
+    // Only apply safe properties that won't break the layout (no display, width, height, flex properties)
+    if (this.currentContent?.css && typeof this.currentContent.css === 'object') {
+      const cssObj = this.currentContent.css;
+      const safeProperties = Object.keys(cssObj).filter(key => {
+        // Only allow CSS custom properties (--*) or safe styling properties
+        // Exclude layout-critical properties
+        const layoutProperties = ['display', 'width', 'height', 'flex', 'flex-direction', 
+                                  'align-items', 'justify-content', 'overflow', 'position'];
+        return key.startsWith('--') || !layoutProperties.includes(key);
+      });
+      
+      safeProperties.forEach(key => {
+        style[key] = cssObj[key];
+      });
+    }
+    
+    return style;
   }
 
   get textContentStyle(): { [key: string]: string } {
@@ -255,8 +361,80 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   get imageContainerStyle(): { [key: string]: string } {
+    // Container style only has background color - layout properties are in CSS
     return {
       'background-color': this.backgroundColor
     };
   }
+
+  get imageStyle(): { [key: string]: string } {
+    const style: { [key: string]: string } = {};
+    
+    // Apply CSS custom properties from library item to the image element itself
+    // Only apply safe properties that won't break the image display
+    if (this.currentContent?.css && typeof this.currentContent.css === 'object') {
+      const cssObj = this.currentContent.css;
+      const safeProperties = Object.keys(cssObj).filter(key => {
+        // Only allow CSS custom properties (--*) or safe styling properties
+        // Exclude layout-critical properties for image element (display is OK for img, but exclude flex properties)
+        const layoutProperties = ['flex', 'flex-direction', 'align-items', 'justify-content', 'overflow', 'position'];
+        return key.startsWith('--') || !layoutProperties.includes(key);
+      });
+      
+      safeProperties.forEach(key => {
+        style[key] = cssObj[key];
+      });
+    }
+    
+    return style;
+  }
+
+  /**
+   * Handle keyboard events and forward to admin app via server
+   * Only captures specific keys: arrow keys, numbers, Enter
+   */
+  private handleKeyboardEvent(event: KeyboardEvent): void {
+    const key = event.key;
+
+    // Only capture specific keys
+    const allowedKeys = [
+      'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
+      '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+      'Enter', 'Escape'
+    ];
+
+    if (!allowedKeys.includes(key)) {
+      return; // Ignore other keys
+    }
+
+    // Don't capture if user is typing in an input field
+    const target = event.target as HTMLElement;
+    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+      return;
+    }
+
+    // Send keyboard command to server
+    // Server will validate IP and forward to admin apps on same IP
+    this.sendKeyboardCommand(key);
+  }
+
+  /**
+   * Send keyboard command to server via HTTP POST
+   */
+  private sendKeyboardCommand(key: string): void {
+    this.http.post(`${SERVER_BASE_URL}/api/keyboard/command`, {
+      key: key,
+      timestamp: Date.now()
+    }).subscribe({
+      next: () => {
+        // Successfully sent to server
+        // Server will forward to admin apps on same IP
+      },
+      error: (err) => {
+        // Silently fail - server might not be running or endpoint might not exist
+        // Don't log to avoid console spam
+      }
+    });
+  }
+
 }

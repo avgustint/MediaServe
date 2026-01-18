@@ -156,6 +156,14 @@ function createTables() {
       ADD COLUMN author TEXT
     `);
   }
+  // Add css column to library_items if it doesn't exist (stores JSON with CSS custom properties)
+  const hasCss = libraryTableInfo.some(col => col.name === 'css');
+  if (!hasCss) {
+    db.exec(`
+      ALTER TABLE library_items 
+      ADD COLUMN css TEXT
+    `);
+  }
 
   // Pages table - stores reusable page content
   db.exec(`
@@ -217,9 +225,11 @@ function createTables() {
       collection_number INTEGER,
       collection_page INTEGER,
       author TEXT,
+      tonality_guid INTEGER,
       PRIMARY KEY (collection_guid, library_item_guid),
       FOREIGN KEY (collection_guid) REFERENCES collections(guid) ON DELETE CASCADE,
-      FOREIGN KEY (library_item_guid) REFERENCES library_items(guid) ON DELETE CASCADE
+      FOREIGN KEY (library_item_guid) REFERENCES library_items(guid) ON DELETE CASCADE,
+      FOREIGN KEY (tonality_guid) REFERENCES tonalities(guid) ON DELETE SET NULL
     )
   `);
 
@@ -240,6 +250,19 @@ function createTables() {
     )
   `);
 
+  // Tonalities table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS tonalities (
+      guid INTEGER PRIMARY KEY,
+      name TEXT NOT NULL,
+      alternations TEXT,
+      dur TEXT,
+      mol TEXT,
+      dur_scale TEXT,
+      mol_scale TEXT
+    )
+  `);
+
   // Add is_admin column to roles table if it doesn't exist (for existing databases)
   const rolesTableInfo = db.prepare("PRAGMA table_info(roles)").all();
   const hasIsAdminColumn = rolesTableInfo.some(col => col.name === 'is_admin');
@@ -254,6 +277,23 @@ function createTables() {
       SET is_admin = 1
       WHERE LOWER(name) = 'administrator'
     `).run();
+  }
+
+  // Add tonality_guid column to collection_items table if it doesn't exist (for existing databases)
+  try {
+    const collectionItemsTableInfo = db.prepare("PRAGMA table_info(collection_items)").all();
+    const hasTonalityGuidColumn = collectionItemsTableInfo.some(col => col.name === 'tonality_guid');
+    if (!hasTonalityGuidColumn) {
+      db.exec(`
+        ALTER TABLE collection_items 
+        ADD COLUMN tonality_guid INTEGER
+      `);
+      // Add foreign key constraint if possible (SQLite has limited ALTER TABLE support)
+      // Note: SQLite doesn't support adding foreign key constraints via ALTER TABLE
+      // The foreign key will be enforced by the application layer
+    }
+  } catch (error) {
+    console.warn('Could not add tonality_guid column to collection_items:', error.message);
   }
 
   // Add ViewDisplay permission and assign it to all roles except user role

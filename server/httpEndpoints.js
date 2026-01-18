@@ -5,12 +5,19 @@ const { loadData } = require('./dataLoader');
 /**
  * CORS helper function
  * @param {http.ServerResponse} res - HTTP response object
+ * @param {http.IncomingMessage} req - HTTP request object (optional, for origin detection)
  */
-function setCorsHeaders(res) {
-  res.setHeader('Access-Control-Allow-Origin', 'http://localhost:4200');
+function setCorsHeaders(res, req = null) {
+  // Allow all origins - use request origin if available, otherwise allow all
+  const origin = req && req.headers && req.headers.origin;
+  if (origin) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  }
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 }
 
 /**
@@ -104,14 +111,14 @@ function setupHttpEndpoints(data) {
   const server = http.createServer((req, res) => {
     // Handle CORS preflight requests
     if (req.method === 'OPTIONS') {
-      setCorsHeaders(res);
+      setCorsHeaders(res, req);
       res.writeHead(200);
       res.end();
       return;
     }
 
     // Set CORS headers for all responses
-    setCorsHeaders(res);
+    setCorsHeaders(res, req);
 
     // Handle playlist create endpoint (POST /playlists)
     if (req.url === '/playlists' && req.method === 'POST') {
@@ -1282,6 +1289,9 @@ function setupHttpEndpoints(data) {
           }
           if (data.defaultFontColor !== undefined) {
             dbOps.setSetting('defaultFontColor', data.defaultFontColor || '');
+          }
+          if (data.defaultChordFontColor !== undefined) {
+            dbOps.setSetting('defaultChordFontColor', data.defaultChordFontColor || '');
           }
           if (data.defaultBlankPage !== undefined) {
             dbOps.setSetting('defaultBlankPage', data.defaultBlankPage || '');

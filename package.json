@@ -1,0 +1,24 @@
+{
+  "name": "media-server-monorepo",
+  "version": "1.0.0",
+  "description": "Media Server monorepo containing server, admin, and client applications",
+  "private": true,
+  "scripts": {
+    "install:all": "npm install && cd server && npm install && cd ../admin-v2 && npm install && cd ../client && npm install",
+    "build": "node scripts/build.js",
+    "build:clean": "node scripts/build.js --clean",
+    "start": "node scripts/start.js",
+    "start:server": "cd server && npm start",
+    "start:admin": "cd admin-v2 && npm start",
+    "start:client": "cd client && npm start",
+    "start:dev": "concurrently \"npm run start:server\" \"npm run start:admin\" \"npm run start:client\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "workspaces": []
+}
+

@@ -1,0 +1,26 @@
+[Unit]
+Description=MediaServer Chromium Kiosk Mode
+After=network.target graphical.target client-server.service
+Requires=graphical.target client-server.service
+Wants=network.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+Environment="DISPLAY=:0"
+Environment="XAUTHORITY=/home/pi/.Xauthority"
+ExecStart=/home/pi/mediaserver/deployment/raspberry-pi/kiosk-start.sh
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=kiosk
+
+# Security settings
+NoNewPrivileges=false
+PrivateTmp=true
+
+[Install]
+WantedBy=graphical.target
+

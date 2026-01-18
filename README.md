@@ -31,21 +31,26 @@ MediaServer/
 
 ### Installation
 
-1. **Clone the repository** (if applicable)
+**Option 1: Install all projects at once (recommended)**
+```bash
+npm run install:all
+```
 
-2. **Install server dependencies**:
+**Option 2: Install projects individually**
+
+1. **Install server dependencies**:
    ```bash
    cd server
    npm install
    ```
 
-3. **Install admin dependencies**:
+2. **Install admin dependencies**:
    ```bash
-   cd admin
+   cd admin-v2
    npm install
    ```
 
-4. **Install client dependencies**:
+3. **Install client dependencies**:
    ```bash
    cd client
    npm install
@@ -53,13 +58,24 @@ MediaServer/
 
 ### Running the System
 
+**Option 1: Start all projects together (development mode)**
+```bash
+npm start
+```
+This will start:
+- Server on `http://localhost:8080`
+- Admin app on `http://localhost:4200`
+- Client app on `http://localhost:4201`
+
+**Option 2: Start projects individually**
+
 1. **Start the server** (from `server/` directory):
    ```bash
    npm start
    ```
    Server runs on `http://localhost:8080` by default.
 
-2. **Start the admin app** (from `admin/` directory):
+2. **Start the admin app** (from `admin-v2/` directory):
    ```bash
    npm start
    ```
@@ -163,15 +179,53 @@ The system uses WebSocket for real-time communication. See [Server Documentation
 
 ## 📦 Building for Production
 
+**Option 1: Build all projects together (recommended)**
+
+This builds all projects and prepares a unified `dist/` folder ready for deployment:
+
+```bash
+npm run build
+```
+
+This will:
+- Build the admin Angular app with production configuration
+- Build the client Angular app with production configuration  
+- Copy server files to `dist/server/`
+- Generate configuration files from `build.config.js`
+- Create a ready-to-deploy `dist/` folder
+
+To clean and rebuild:
+```bash
+npm run build:clean
+```
+
+The output structure:
+```
+dist/
+├── server/          # Server application
+├── admin/           # Built admin app (served by server)
+├── client/          # Built client app
+└── package.json     # Dependencies for deployment
+```
+
+**To deploy from dist:**
+```bash
+cd dist
+npm install
+npm start
+```
+
+**Option 2: Build projects individually**
+
 ### Server
 The server runs directly with Node.js - no build step required.
 
 ### Admin
 ```bash
-cd admin
+cd admin-v2
 npm run build
 ```
-Output: `admin/dist/media-player-admin/`
+Output: `admin-v2/dist/media-player-admin-v2/`
 
 ### Client
 ```bash
@@ -179,6 +233,34 @@ cd client
 npm run build
 ```
 Output: `client/dist/media-player/`
+
+### Build Configuration
+
+You can customize build settings by editing `build.config.js` in the root directory:
+
+- Override API URLs for production
+- Set server ports and CORS origins
+- Configure environment-specific settings
+
+Example `build.config.js`:
+```javascript
+module.exports = {
+  server: {
+    port: 8080,
+    nodeEnv: 'production',
+    corsOrigin: [],
+    corsCredentials: false
+  },
+  admin: {
+    apiUrl: 'http://your-production-server.com:8080',
+    wsUrl: 'ws://your-production-server.com:8080'
+  },
+  client: {
+    apiUrl: 'http://your-production-server.com:8080',
+    wsUrl: 'ws://your-production-server.com:8080'
+  }
+};
+```
 
 ## 🐛 Troubleshooting
 

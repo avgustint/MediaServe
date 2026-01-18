@@ -2,11 +2,16 @@ import { Injectable } from '@angular/core';
 import { Observable, Subject } from 'rxjs';
 
 export interface WebSocketMessage {
-  type: 'text' | 'image' | 'url';
-  content: string;
+  type: 'text' | 'image' | 'url' | 'UrlPlayPause';
+  content?: string;
   background_color?: string;
   font_color?: string;
+  chord_font_color?: string;
+  css?: { [key: string]: string }; // CSS custom properties object
   locationId?: number;
+  chordsVisible?: boolean;
+  chordTransposition?: number;
+  play?: boolean; // For UrlPlayPause messages - true to play, false to pause
 }
 
 @Injectable({

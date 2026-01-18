@@ -1,0 +1,86 @@
+<div class="display-container">
+  <div class="buttons-grid">
+    <button class="control-btn power-off-btn" (click)="powerOff()" [class.disabled]="getStatus('powerOff')?.status === 'processing'">
+      <i class="fas fa-power-off"></i>
+      <span>Power Off</span>
+      <div class="status-indicator" [ngClass]="getStatusClass('powerOff')" *ngIf="getStatus('powerOff')">
+        <i [class]="getStatus('powerOff')?.status === 'processing' ? 'fas fa-spinner fa-spin' : 
+                    getStatus('powerOff')?.status === 'success' ? 'fas fa-check' : 
+                    'fas fa-times'"></i>
+        <span class="status-message">{{ getStatus('powerOff')?.message }}</span>
+      </div>
+    </button>
+    <button class="control-btn power-on-btn" (click)="powerOn()" [class.disabled]="getStatus('powerOn')?.status === 'processing'">
+      <i class="fas fa-toggle-on"></i>
+      <span>Power On</span>
+      <div class="status-indicator" [ngClass]="getStatusClass('powerOn')" *ngIf="getStatus('powerOn')">
+        <i [class]="getStatus('powerOn')?.status === 'processing' ? 'fas fa-spinner fa-spin' : 
+                    getStatus('powerOn')?.status === 'success' ? 'fas fa-check' : 
+                    'fas fa-times'"></i>
+        <span class="status-message">{{ getStatus('powerOn')?.message }}</span>
+      </div>
+    </button>
+    <button class="control-btn volume-up-btn" (click)="volumeUp()" [class.disabled]="getStatus('volumeUp')?.status === 'processing'">
+      <i class="fas fa-volume-up"></i>
+      <span>Volume Up</span>
+      <div class="status-indicator" [ngClass]="getStatusClass('volumeUp')" *ngIf="getStatus('volumeUp')">
+        <i [class]="getStatus('volumeUp')?.status === 'processing' ? 'fas fa-spinner fa-spin' : 
+                    getStatus('volumeUp')?.status === 'success' ? 'fas fa-check' : 
+                    'fas fa-times'"></i>
+        <span class="status-message">{{ getStatus('volumeUp')?.message }}</span>
+      </div>
+    </button>
+    <button class="control-btn volume-down-btn" (click)="volumeDown()" [class.disabled]="getStatus('volumeDown')?.status === 'processing'">
+      <i class="fas fa-volume-down"></i>
+      <span>Volume Down</span>
+      <div class="status-indicator" [ngClass]="getStatusClass('volumeDown')" *ngIf="getStatus('volumeDown')">
+        <i [class]="getStatus('volumeDown')?.status === 'processing' ? 'fas fa-spinner fa-spin' : 
+                    getStatus('volumeDown')?.status === 'success' ? 'fas fa-check' : 
+                    'fas fa-times'"></i>
+        <span class="status-message">{{ getStatus('volumeDown')?.message }}</span>
+      </div>
+    </button>
+  </div>
+
+  <div class="source-selection-section">
+    <h3>Source Selection</h3>
+    <div class="source-controls">
+      <div class="predefined-sources">
+        <label>Quick Select:</label>
+        <div class="source-buttons">
+          <button 
+            *ngFor="let source of predefinedSources" 
+            class="source-btn"
+            (click)="selectPredefinedSource(source)"
+            [class.disabled]="getStatus('selectSource')?.status === 'processing'">
+            {{ source }}
+          </button>
+        </div>
+      </div>
+      <div class="custom-source">
+        <label>Custom Source:</label>
+        <div class="custom-source-input">
+          <input 
+            type="text" 
+            [(ngModel)]="customSourceName" 
+            placeholder="Enter source name or number (e.g., HDMI1, 2)"
+            (keyup.enter)="selectSource()"
+            [disabled]="getStatus('selectSource')?.status === 'processing'">
+          <button 
+            class="select-btn"
+            (click)="selectSource()"
+            [disabled]="getStatus('selectSource')?.status === 'processing' || !customSourceName">
+            Select
+          </button>
+        </div>
+      </div>
+      <div class="status-indicator source-status" [ngClass]="getStatusClass('selectSource')" *ngIf="getStatus('selectSource')">
+        <i [class]="getStatus('selectSource')?.status === 'processing' ? 'fas fa-spinner fa-spin' : 
+                    getStatus('selectSource')?.status === 'success' ? 'fas fa-check' : 
+                    'fas fa-times'"></i>
+        <span class="status-message">{{ getStatus('selectSource')?.message }}</span>
+      </div>
+    </div>
+  </div>
+</div>
+

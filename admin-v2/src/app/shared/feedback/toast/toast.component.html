@@ -1,0 +1,12 @@
+<div class="toast" *ngIf="show" [class.toast-success]="type === 'success'" [class.toast-error]="type === 'error'" [class.toast-info]="type === 'info'" [class.toast-warning]="type === 'warning'">
+  <div class="toast-content">
+    <div class="toast-icon">
+      <i class="fas" [class.fa-check-circle]="type === 'success'" [class.fa-exclamation-circle]="type === 'error'" [class.fa-info-circle]="type === 'info'" [class.fa-exclamation-triangle]="type === 'warning'"></i>
+    </div>
+    <div class="toast-message">{{ message }}</div>
+    <button class="toast-close" (click)="onClose()" [attr.title]="'close' | translate">
+      <i class="fas fa-times"></i>
+    </button>
+  </div>
+</div>
+

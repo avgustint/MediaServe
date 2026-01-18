@@ -1,0 +1,242 @@
+<div class="collections-editor-container">
+  <div class="search-section">
+    <div class="search-input-wrapper">
+      <input
+        type="text"
+        pInputText
+        class="search-input"
+        [(ngModel)]="searchTerm"
+        (input)="onSearchChange()"
+        [placeholder]="'searchCollectionsPlaceholder' | translate"
+        styleClass="w-full"
+      />
+      <button *ngIf="searchTerm" class="clear-search-btn" (click)="clearSearch()" [title]="'clearSearch' | translate"></button>
+    </div>
+  </div>
+
+  <div class="actions-section">
+    <button class="add-button" (click)="addNewCollection()" *ngIf="!editingCollection && !isNewCollection && !viewingCollection && hasManageCollectionsPermission">
+      {{ 'addNewCollection' | translate }}
+    </button>
+    <button class="back-button" (click)="backToCollectionList()" *ngIf="viewingCollection || editingCollection || isNewCollection">
+      <i class="fas fa-arrow-left"></i>
+      <span>{{ 'back' | translate }}</span>
+    </button>
+  </div>
+
+  <div class="content-wrapper">
+    <div class="collections-list-section" *ngIf="!editingCollection && !isNewCollection && !viewingCollection">
+      <div class="collections-list">
+        <div
+          *ngFor="let collection of filteredCollections"
+          class="collection-item"
+          [class.clickable]="hasManageCollectionsPermission"
+          (click)="hasManageCollectionsPermission && selectCollection(collection)"
+        >
+          <div class="collection-info">
+            <div class="collection-title">{{ collection.title }}</div>
+            <div class="collection-details" *ngIf="collection.label || collection.year || collection.publisher">
+              <span *ngIf="collection.label" class="collection-label">{{ collection.label }}</span>
+              <span *ngIf="collection.year" class="collection-year">{{ collection.year }}</span>
+              <span *ngIf="collection.publisher" class="collection-publisher">{{ collection.publisher }}</span>
+            </div>
+            <div class="collection-source" *ngIf="collection.source">
+              {{ collection.source }}
+            </div>
+            <div class="collection-item-count" *ngIf="collection.itemCount !== undefined">
+              {{ 'libraryItemsCount' | translate }}: {{ collection.itemCount }}
+            </div>
+          </div>
+          <button
+            *ngIf="hasManageCollectionsPermission"
+            class="delete-button"
+            (click)="deleteCollection(collection); $event.stopPropagation()"
+            [title]="'deleteCollection' | translate"
+          >
+            <i class="fas fa-trash"></i>
+          </button>
+        </div>
+      </div>
+      <div *ngIf="filteredCollections.length === 0" class="no-items">
+        {{ 'noCollectionsFound' | translate }}
+      </div>
+    </div>
+
+    <!-- Collection Detail View -->
+    <div class="collection-detail-section" *ngIf="viewingCollection && !editingCollection && !isNewCollection">
+      <div class="detail-header">
+        <div class="detail-header-content">
+          <h2>{{ viewingCollection.title }}</h2>
+          <div class="detail-actions">
+            <button class="edit-button" (click)="editCollectionDetails()" *ngIf="hasManageCollectionsPermission">
+              <i class="fas fa-edit"></i>
+              <span>{{ 'edit' | translate }}</span>
+            </button>
+          </div>
+        </div>
+        <div class="collection-details-info" *ngIf="viewingCollection.label || viewingCollection.year || viewingCollection.publisher || viewingCollection.source">
+          <div class="collection-details" *ngIf="viewingCollection.label || viewingCollection.year || viewingCollection.publisher">
+            <span *ngIf="viewingCollection.label" class="collection-label">{{ viewingCollection.label }}</span>
+            <span *ngIf="viewingCollection.year" class="collection-year">{{ viewingCollection.year }}</span>
+            <span *ngIf="viewingCollection.publisher" class="collection-publisher">{{ viewingCollection.publisher }}</span>
+          </div>
+          <div class="collection-source" *ngIf="viewingCollection.source">
+            {{ viewingCollection.source }}
+          </div>
+        </div>
+      </div>
+
+      <div class="collection-items-section">
+        <div class="items-header">
+          <h3>{{ 'collectionItems' | translate }}</h3>
+          <button class="add-item-button" (click)="openAddItemModal()" *ngIf="hasManageCollectionsPermission">
+            <i class="fas fa-plus"></i>
+            <span>{{ 'addItemToCollection' | translate }}</span>
+          </button>
+        </div>
+
+        <div class="items-list" *ngIf="!loadingItems">
+          <div *ngIf="collectionItems.length === 0" class="no-items">
+            {{ 'noItemsInCollection' | translate }}
+          </div>
+          <div *ngFor="let item of collectionItems" class="collection-item-row">
+            <div class="item-info">
+              <div class="item-name">{{ item.name }}</div>
+              <div class="item-details">
+                <span class="item-type">{{ 'typeColon' | translate }} {{ item.type }}</span>
+                <span class="item-guid-badge">{{ item.guid }}</span>
+              </div>
+              <div class="item-meta" *ngIf="item.collection_number || item.collection_page || item.author">
+                <span *ngIf="item.collection_number">{{ 'collectionNumber' | translate }}: {{ item.collection_number }}</span>
+                <span *ngIf="item.collection_page">{{ 'collectionPage' | translate }}: {{ item.collection_page }}</span>
+                <span *ngIf="item.author">{{ 'author' | translate }}: {{ item.author }}</span>
+              </div>
+            </div>
+            <button
+              *ngIf="hasManageCollectionsPermission"
+              class="remove-item-button"
+              (click)="removeItemFromCollection(item)"
+              [title]="'removeItemFromCollection' | translate"
+            >
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+        </div>
+        <div *ngIf="loadingItems" class="loading-items">
+          {{ 'loading' | translate }}...
+        </div>
+      </div>
+    </div>
+
+    <!-- Collection Edit Form -->
+    <div class="collection-form-section" *ngIf="editingCollection || isNewCollection">
+      <div class="form-header">
+        <h3>{{ (isNewCollection ? 'addNewCollection' : 'editCollection') | translate }}</h3>
+      </div>
+      <div class="form-content">
+        <div class="form-group">
+          <label>{{ 'collectionTitle' | translate }} *</label>
+          <input
+            type="text"
+            pInputText
+            [(ngModel)]="collectionTitle"
+            [placeholder]="'enterCollectionTitle' | translate"
+            styleClass="w-full"
+          />
+        </div>
+
+        <div class="form-group">
+          <label>{{ 'collectionLabel' | translate }}</label>
+          <input
+            type="text"
+            pInputText
+            [(ngModel)]="collectionLabel"
+            [placeholder]="'enterCollectionLabel' | translate"
+            styleClass="w-full"
+          />
+        </div>
+
+        <div class="form-group">
+          <label>{{ 'collectionYear' | translate }}</label>
+          <p-inputNumber
+            [(ngModel)]="collectionYear"
+            [min]="1000"
+            [max]="9999"
+            [placeholder]="'enterCollectionYear' | translate"
+            styleClass="w-full"
+          ></p-inputNumber>
+        </div>
+
+        <div class="form-group">
+          <label>{{ 'collectionPublisher' | translate }}</label>
+          <input
+            type="text"
+            pInputText
+            [(ngModel)]="collectionPublisher"
+            [placeholder]="'enterCollectionPublisher' | translate"
+            styleClass="w-full"
+          />
+        </div>
+
+        <div class="form-group">
+          <label>{{ 'collectionSource' | translate }}</label>
+          <input
+            type="text"
+            pInputText
+            [(ngModel)]="collectionSource"
+            [placeholder]="'enterCollectionSource' | translate"
+            styleClass="w-full"
+          />
+        </div>
+
+        <div class="form-actions">
+          <button class="btn-save" (click)="saveCollection()" [disabled]="!collectionTitle || collectionTitle.trim().length === 0">
+            <i class="fas fa-check"></i>
+            <span>{{ 'save' | translate }}</span>
+          </button>
+          <button class="btn-cancel" (click)="cancelEdit()">
+            <i class="fas fa-times"></i>
+            <span>{{ 'cancel' | translate }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <app-error-popup *ngIf="showError" [message]="errorMessage" (close)="closeErrorPopup()"></app-error-popup>
+
+  <app-toast
+    [message]="toastMessage"
+    [type]="toastType"
+    [show]="showToast"
+    (close)="closeToast()"
+  ></app-toast>
+
+  <app-confirm-dialog
+    [show]="showConfirmDialog"
+    [title]="confirmDialogTitle"
+    [message]="confirmDialogMessage"
+    (confirm)="onConfirmDialogAction()"
+    (cancel)="closeConfirmDialog()"
+    (close)="closeConfirmDialog()"
+  ></app-confirm-dialog>
+
+  <!-- Add Item Modal -->
+  <div class="modal-overlay" *ngIf="showAddItemModal" (click)="closeAddItemModal()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>{{ 'addItemToCollection' | translate }}</h3>
+        <button class="modal-close" (click)="closeAddItemModal()">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <app-search
+          #libraryItemSearch
+          (itemClick)="onLibraryItemSelected($event)"
+        ></app-search>
+      </div>
+    </div>
+  </div>
+</div>
+

@@ -6,15 +6,18 @@ const config = require('../config');
 function corsMiddleware(req, res, next) {
   const origin = req.headers.origin;
   
-  // Check if origin is allowed
-  if (config.cors.origin.includes('*') || (origin && config.cors.origin.includes(origin))) {
-    res.setHeader('Access-Control-Allow-Origin', origin || config.cors.origin[0]);
+  // Allow all origins - set to request origin if present, otherwise allow all
+  if (origin) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', '*');
   }
   
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   
-  if (config.cors.credentials) {
+  // Only set credentials if origin is specified (can't use * with credentials)
+  if (origin && config.cors.credentials) {
     res.setHeader('Access-Control-Allow-Credentials', 'true');
   }
   

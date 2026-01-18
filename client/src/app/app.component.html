@@ -39,8 +39,9 @@
   <div *ngIf="currentContent?.type === 'text'" 
        class="content-container text-container" 
        [ngStyle]="textContainerStyle"
+       [class.chords-hidden]="!showChords"
        #textContainer>
-    <div class="text-content" [ngStyle]="textContentStyle" [innerHTML]="text | formatText"></div>
+    <div class="text-content" [ngStyle]="textContentStyle" [innerHTML]="text | formatText" [style.--chord-color]="chordFontColor"></div>
   </div>
 
   <!-- Image Content -->
@@ -48,16 +49,18 @@
        class="content-container image-container" 
        [ngStyle]="imageContainerStyle"
        #imageContainer>
-    <img [src]="imageSrc" alt="Received image" class="display-image" />
+    <img [src]="imageSrc" alt="Received image" class="display-image" [ngStyle]="imageStyle" />
   </div>
 
   <!-- URL Content (iframe) -->
   <div *ngIf="currentContent?.type === 'url'" 
        class="content-container iframe-container">
-    <iframe [src]="safeUrl" 
+    <iframe #urlIframe
+            [src]="safeUrl" 
             class="display-iframe" 
             frameborder="0"
-            allowfullscreen></iframe>
+            allowfullscreen
+            allow="autoplay; encrypted-media; picture-in-picture"></iframe>
   </div>
 
   <!-- Loading spinner when not connected -->
