@@ -6,8 +6,8 @@
 #   ./deploy.sh [raspberry-pi-hostname-or-ip]
 #
 # Example:
-#   ./deploy.sh pi@projektor.local
-#   ./deploy.sh pi@192.168.1.100
+#   ./deploy.sh avgustin@mediaplayer.local
+#   ./deploy.sh avgustin@192.168.1.100
 
 set -e
 
@@ -20,7 +20,7 @@ NC='\033[0m' # No Color
 # Get target from command line argument or prompt
 TARGET="${1:-}"
 if [ -z "$TARGET" ]; then
-    echo -e "${YELLOW}Enter Raspberry Pi SSH target (e.g., pi@projektor.local or pi@192.168.1.100):${NC}"
+    echo -e "${YELLOW}Enter Raspberry Pi SSH target (e.g., avgustin@mediaplayer.local or avgustin@192.168.1.100):${NC}"
     read -r TARGET
 fi
 
@@ -34,6 +34,23 @@ echo -e "${GREEN}Deploying MediaServer to $TARGET${NC}"
 # Script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+
+# Setup SSH ControlMaster for connection reuse (reduces password prompts)
+SSH_CONTROL_PATH="$HOME/.ssh/control-%r@%h:%p"
+mkdir -p "$HOME/.ssh"
+
+# Establish control master connection (this will prompt for password ONCE)
+# ControlMaster=yes forces this to be the master connection
+# ControlPersist=300s keeps connection alive for 5 minutes
+echo -e "${YELLOW}Establishing SSH connection (you will be prompted for password once)...${NC}"
+ssh -o ControlMaster=yes -o ControlPath="$SSH_CONTROL_PATH" -o ControlPersist=300s -o ConnectTimeout=10 -o ServerAliveInterval=60 -o ServerAliveCountMax=3 "$TARGET" "echo 'SSH connection established'" || {
+    echo -e "${RED}Failed to establish SSH connection${NC}"
+    echo -e "${YELLOW}Note: To avoid password prompts, set up SSH key authentication:${NC}"
+    echo -e "${YELLOW}   ssh-copy-id $TARGET${NC}"
+    exit 1
+}
+echo -e "${GREEN}✓ SSH connection established - subsequent commands will reuse this connection${NC}"
+echo ""
 
 # Check if dist directory exists
 if [ ! -d "$PROJECT_ROOT/dist" ]; then
@@ -49,71 +66,78 @@ fi
 
 echo -e "${GREEN}Step 1: Copying files to Raspberry Pi...${NC}"
 
-# Create remote directory structure
-ssh "$TARGET" "mkdir -p /home/pi/mediaserver/{dist,deployment/raspberry-pi}"
+# Create remote directory structure and make scripts executable in one SSH session
+# Use ControlMaster=auto to reuse the existing control connection
+ssh -o ControlMaster=auto -o ControlPath="$SSH_CONTROL_PATH" "$TARGET" "mkdir -p /home/avgustin/Desktop/MediaServer/{dist,deployment/raspberry-pi}"
 
 # Copy dist directory
 echo "Copying dist directory..."
-scp -r "$PROJECT_ROOT/dist/" "$TARGET:/home/pi/mediaserver/"
+# Use ControlMaster=auto to reuse the existing control connection
+scp -o ControlMaster=auto -o ControlPath="$SSH_CONTROL_PATH" -r "$PROJECT_ROOT/dist/" "$TARGET:/home/avgustin/Desktop/MediaServer/"
 
 # Copy deployment files
 echo "Copying deployment files..."
-scp "$SCRIPT_DIR/client-server.js" "$TARGET:/home/pi/mediaserver/deployment/raspberry-pi/"
-scp "$SCRIPT_DIR/kiosk-start.sh" "$TARGET:/home/pi/mediaserver/deployment/raspberry-pi/"
+scp -o ControlMaster=auto -o ControlPath="$SSH_CONTROL_PATH" "$SCRIPT_DIR/client-server.js" "$TARGET:/home/avgustin/Desktop/MediaServer/deployment/raspberry-pi/"
+scp -o ControlMaster=auto -o ControlPath="$SSH_CONTROL_PATH" "$SCRIPT_DIR/kiosk-start.sh" "$TARGET:/home/avgustin/Desktop/MediaServer/deployment/raspberry-pi/"
+scp -o ControlMaster=auto -o ControlPath="$SSH_CONTROL_PATH" "$SCRIPT_DIR/kiosk-launcher.html" "$TARGET:/home/avgustin/Desktop/MediaServer/deployment/raspberry-pi/"
+scp -o ControlMaster=auto -o ControlPath="$SSH_CONTROL_PATH" "$SCRIPT_DIR/configure-services.sh" "$TARGET:/home/avgustin/Desktop/MediaServer/deployment/raspberry-pi/"
 
-# Make scripts executable
-ssh "$TARGET" "chmod +x /home/pi/mediaserver/deployment/raspberry-pi/kiosk-start.sh"
-ssh "$TARGET" "chmod +x /home/pi/mediaserver/deployment/raspberry-pi/client-server.js"
+# Make scripts executable (combined into one command)
+ssh -o ControlMaster=auto -o ControlPath="$SSH_CONTROL_PATH" "$TARGET" "chmod +x /home/avgustin/Desktop/MediaServer/deployment/raspberry-pi/kiosk-start.sh /home/avgustin/Desktop/MediaServer/deployment/raspberry-pi/client-server.js /home/avgustin/Desktop/MediaServer/deployment/raspberry-pi/configure-services.sh"
 
 echo -e "${GREEN}Step 2: Installing Node.js dependencies...${NC}"
-ssh "$TARGET" "cd /home/pi/mediaserver/dist && npm install --production"
+ssh -o ControlMaster=auto -o ControlPath="$SSH_CONTROL_PATH" "$TARGET" "cd /home/avgustin/Desktop/MediaServer/dist && npm install --omit=dev"
 
 echo -e "${GREEN}Step 3: Installing systemd services...${NC}"
 
-# Copy service files
-scp "$SCRIPT_DIR/mediaserver.service" "$TARGET:/tmp/"
-scp "$SCRIPT_DIR/client-server.service" "$TARGET:/tmp/"
-scp "$SCRIPT_DIR/kiosk.service" "$TARGET:/tmp/"
+# Copy service files (all in parallel using connection reuse)
+scp -o ControlMaster=auto -o ControlPath="$SSH_CONTROL_PATH" "$SCRIPT_DIR/mediaserver.service" "$TARGET:/tmp/"
+scp -o ControlMaster=auto -o ControlPath="$SSH_CONTROL_PATH" "$SCRIPT_DIR/client-server.service" "$TARGET:/tmp/"
+scp -o ControlMaster=auto -o ControlPath="$SSH_CONTROL_PATH" "$SCRIPT_DIR/kiosk.service" "$TARGET:/tmp/"
+scp -o ControlMaster=auto -o ControlPath="$SSH_CONTROL_PATH" "$SCRIPT_DIR/numlock.service" "$TARGET:/tmp/" 2>/dev/null || true
 
 # Install services (requires sudo)
-ssh "$TARGET" "sudo cp /tmp/mediaserver.service /etc/systemd/system/ && \
+ssh -o ControlMaster=auto -o ControlPath="$SSH_CONTROL_PATH" "$TARGET" "sudo cp /tmp/mediaserver.service /etc/systemd/system/ && \
                sudo cp /tmp/client-server.service /etc/systemd/system/ && \
                sudo cp /tmp/kiosk.service /etc/systemd/system/ && \
+               sudo cp /tmp/numlock.service /etc/systemd/system/ 2>/dev/null || true && \
                sudo systemctl daemon-reload"
 
 echo -e "${GREEN}Step 4: Configuration instructions${NC}"
 echo -e "${YELLOW}The following steps need to be completed manually on the Raspberry Pi:${NC}"
 echo ""
 echo "1. Configure hostname:"
-echo "   sudo hostnamectl set-hostname projektor"
-echo "   sudo sed -i 's/127.0.1.1.*/127.0.1.1\tprojektor/' /etc/hosts"
+echo "   sudo hostnamectl set-hostname mediaplayer"
+echo "   sudo sed -i 's/127.0.1.1.*/127.0.1.1\tmediaplayer/' /etc/hosts"
 echo ""
-echo "2. Configure static IP (if needed):"
-echo "   Edit /etc/dhcpcd.conf or use raspi-config"
-echo ""
-echo "3. Set up WiFi Access Point (if needed):"
-echo "   - Copy hostapd.conf to /etc/hostapd/hostapd.conf"
-echo "   - Copy dnsmasq.conf to /etc/dnsmasq.conf (or merge with existing)"
-echo "   - Configure wlan0 IP: sudo ip addr add 192.168.4.1/24 dev wlan0"
-echo "   - Enable IP forwarding: sudo sysctl net.ipv4.ip_forward=1"
-echo "   - Configure NAT (see README.md for details)"
-echo "   - Enable services: sudo systemctl enable hostapd dnsmasq"
-echo ""
-echo "4. Enable MediaServer services:"
+echo "2. Enable MediaServer services:"
 echo "   sudo systemctl enable mediaserver"
 echo "   sudo systemctl enable client-server"
 echo "   sudo systemctl enable kiosk"
 echo ""
-echo "5. Start services:"
+echo "3. Start services:"
 echo "   sudo systemctl start mediaserver"
 echo "   sudo systemctl start client-server"
 echo "   sudo systemctl start kiosk"
 echo ""
-echo "6. Check service status:"
+echo "4. Check service status:"
 echo "   sudo systemctl status mediaserver"
 echo "   sudo systemctl status client-server"
 echo "   sudo systemctl status kiosk"
 echo ""
+# Close SSH control connection
+ssh -o ControlPath="$SSH_CONTROL_PATH" -O exit "$TARGET" 2>/dev/null || true
+
 echo -e "${GREEN}Deployment files copied successfully!${NC}"
-echo -e "${YELLOW}See README.md for detailed configuration instructions.${NC}"
+echo ""
+echo -e "${YELLOW}Next steps:${NC}"
+echo "  1. SSH into the Raspberry Pi: ssh $TARGET"
+echo "  2. Run the configuration script:"
+echo "     cd /home/avgustin/Desktop/MediaServer/deployment/raspberry-pi"
+echo "     bash configure-services.sh"
+echo ""
+echo "  Or configure manually - see instructions above."
+echo ""
+echo -e "${YELLOW}Tip: To avoid password prompts in the future, set up SSH key authentication:${NC}"
+echo "   ssh-copy-id $TARGET"
 

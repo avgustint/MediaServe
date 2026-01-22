@@ -53,6 +53,7 @@ export interface TranslationKeys {
   text: string;
   image: string;
   url: string;
+  video: string;
   page: string;
   pages: string;
   addPage: string;
@@ -188,6 +189,9 @@ export interface TranslationKeys {
     editLibraryItem: string;
     contentPages: string;
     imageFile: string;
+    videoFile: string;
+    uploading: string;
+    videoUrl: string;
     preview: string;
     item: string;
     editPlaylist: string;
@@ -352,9 +356,10 @@ export interface TranslationKeys {
     allTags: string;
   selectType: string;
   selectTags: string;
-  tagsSelected: string;
+    tagsSelected: string;
     clearAllFilters: string;
     clearFilter: string;
+    advancedFilters: string;
 }
 
 const translations: Record<SupportedLocale, TranslationKeys> = {
@@ -408,6 +413,7 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     text: 'text',
     image: 'image',
     url: 'url',
+    video: 'video',
     page: 'Page',
     pages: 'Pages',
     addPage: 'Add Page',
@@ -544,6 +550,9 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     editLibraryItem: 'Edit Library Item',
     contentPages: 'Content Pages',
     imageFile: 'Image File',
+    videoFile: 'Video File',
+    uploading: 'Uploading',
+    videoUrl: 'Video URL',
     preview: 'Preview',
     item: 'Item',
     editPlaylist: 'Edit Playlist',
@@ -709,7 +718,8 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     selectTags: 'Select tags',
     tagsSelected: 'tags selected',
     clearAllFilters: 'Clear All Filters',
-    clearFilter: 'Clear Filter'
+    clearFilter: 'Clear Filter',
+    advancedFilters: 'Advanced Filters'
   },
   'sl-SI': {
     // Login
@@ -761,6 +771,7 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     text: 'besedilo',
     image: 'slika',
     url: 'url',
+    video: 'video',
     page: 'Stran',
     pages: 'Strani',
     addPage: 'Dodaj stran',
@@ -902,6 +913,9 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     ok: 'V redu',
     contentPages: 'Vsebinske strani',
     imageFile: 'Slikovna datoteka',
+    videoFile: 'Video datoteka',
+    uploading: 'Nalaganje',
+    videoUrl: 'Video URL',
     preview: 'Predogled',
     item: 'Postavka',
     roles: 'Vloge',
@@ -1062,7 +1076,8 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     selectTags: 'Izberite oznake',
     tagsSelected: 'izbranih oznak',
     clearAllFilters: 'Počisti vse filtre',
-    clearFilter: 'Počisti filter'
+    clearFilter: 'Počisti filter',
+    advancedFilters: 'Napredni filtri'
   },
   'it-IT': {
     // Login
@@ -1114,6 +1129,7 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     text: 'testo',
     image: 'immagine',
     url: 'url',
+    video: 'video',
     page: 'Pagina',
     pages: 'Pagine',
     addPage: 'Aggiungi pagina',
@@ -1250,6 +1266,9 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     editLibraryItem: 'Modifica elemento biblioteca',
     contentPages: 'Pagine contenuto',
     imageFile: 'File immagine',
+    videoFile: 'File video',
+    uploading: 'Caricamento',
+    videoUrl: 'URL video',
     preview: 'Anteprima',
     item: 'Elemento',
     editPlaylist: 'Modifica playlist',
@@ -1415,7 +1434,8 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     selectTags: 'Seleziona tag',
     tagsSelected: 'tag selezionati',
     clearAllFilters: 'Cancella Tutti i Filtri',
-    clearFilter: 'Cancella Filtro'
+    clearFilter: 'Cancella Filtro',
+    advancedFilters: 'Filtri Avanzati'
   }
 };
 

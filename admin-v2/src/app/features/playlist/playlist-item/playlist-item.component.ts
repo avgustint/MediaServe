@@ -12,8 +12,18 @@ import { LibraryItem } from "../services/playlist.service";
 export class PlaylistItemComponent {
   @Input() item!: LibraryItem;
   @Input() index!: number;
+  @Input() currentItemGuid?: number;
+  @Input() currentPage?: number;
   @Output() itemClick = new EventEmitter<LibraryItem>();
   @Output() pageClick = new EventEmitter<{ item: LibraryItem; page: number }>();
+
+  isCurrentItem(): boolean {
+    return this.currentItemGuid !== undefined && this.item.guid === this.currentItemGuid;
+  }
+
+  isCurrentPage(pageNum: number): boolean {
+    return this.isCurrentItem() && this.currentPage !== undefined && this.currentPage === pageNum;
+  }
 
   onItemClick(event: Event): void {
     event.stopPropagation();

@@ -1,5 +1,6 @@
 const express = require('express');
 const path = require('path');
+const fs = require('fs');
 const { loadData } = require('./dataLoader');
 const { setupWebSocket } = require('./websocketHandler');
 const config = require('./config');
@@ -31,12 +32,39 @@ app.use(express.json({ limit: config.bodySizeLimit }));
 app.use(express.urlencoded({ extended: true, limit: config.bodySizeLimit }));
 app.use(corsMiddleware);
 
+// Ensure videos directory exists
+const videosDir = path.join(__dirname, 'data', 'videos');
+if (!fs.existsSync(videosDir)) {
+  fs.mkdirSync(videosDir, { recursive: true });
+  console.log('Created videos directory:', videosDir);
+}
+
 // Load initial data (for WebSocket)
 const data = loadData();
 
 // Serve admin app static files (before API routes to allow Angular routes to work)
 const adminAppPath = path.join(__dirname, '../admin-v2/dist/media-player-admin-v2/browser');
 app.use(express.static(adminAppPath));
+
+// Serve video files as static files
+app.use('/videos', express.static(videosDir, {
+  setHeaders: (res, filePath) => {
+    // Set appropriate MIME types for video files
+    const ext = path.extname(filePath).toLowerCase();
+    const mimeTypes = {
+      '.mp4': 'video/mp4',
+      '.webm': 'video/webm',
+      '.ogv': 'video/ogg',
+      '.ogg': 'video/ogg',
+      '.mov': 'video/quicktime',
+      '.avi': 'video/x-msvideo',
+      '.mkv': 'video/x-matroska'
+    };
+    if (mimeTypes[ext]) {
+      res.setHeader('Content-Type', mimeTypes[ext]);
+    }
+  }
+}));
 
 // Middleware to handle browser requests to routes that are both API and Angular routes
 // Routes like /settings, /playlist are both API endpoints and Angular pages

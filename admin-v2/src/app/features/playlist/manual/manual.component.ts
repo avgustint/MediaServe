@@ -4,7 +4,10 @@ import { FormsModule } from "@angular/forms";
 import { PlaylistService, LibraryItem, LibraryContent } from "../services/playlist.service";
 import { WebSocketService } from "../../../core/services/websocket.service";
 import { UserService } from "../../../core/services/user.service";
+import { ViewportService } from "../../../core/services/viewport.service";
+import { TranslationService } from "../../../core/services/translation.service";
 import { TranslatePipe } from "../../../shared/pipes/translation.pipe";
+import { Subscription } from "rxjs";
 
 @Component({
   selector: "app-manual",
@@ -21,17 +24,27 @@ export class ManualComponent implements OnInit, OnDestroy {
   libraryItem: LibraryItem | null = null;
   pages: LibraryContent[] = [];
   searchedGuid: string = ""; // Track the GUID that was searched to show error message
+  
+  viewportInfo: any = { availableHeight: 0, keyboardHeight: 0 };
+  private viewportSubscription?: Subscription;
 
   constructor(
     private playlistService: PlaylistService,
     private websocketService: WebSocketService,
-    private userService: UserService
+    private userService: UserService,
+    private viewportService: ViewportService,
+    private translationService: TranslationService
   ) {}
 
   ngOnInit(): void {
+    // Subscribe to viewport changes
+    this.viewportSubscription = this.viewportService.viewportInfo$.subscribe(info => {
+      this.viewportInfo = info;
+    });
   }
 
   ngOnDestroy(): void {
+    this.viewportSubscription?.unsubscribe();
   }
 
   onNumberClick(number: string): void {
@@ -109,12 +122,24 @@ export class ManualComponent implements OnInit, OnDestroy {
   }
 
   getDisplayGuid(): string {
-    // Show enteredGuid if typing, otherwise show searchedGuid if exists, otherwise show '0'
+    // Show enteredGuid if typing
     if (this.enteredGuid && this.enteredGuid.length > 0) {
       return this.enteredGuid;
-    } else if (this.searchedGuid) {
+    } 
+    // Show error message if item not found
+    else if (!this.libraryItem && this.searchedGuid) {
+      return `${this.translationService.translate('noLibraryItemFoundWithId')} ${this.searchedGuid}`;
+    } 
+    // Show placeholder if nothing entered
+    else if (!this.searchedGuid && !this.libraryItem) {
+      return this.translationService.translate('pleaseEnterItemNumber');
+    }
+    // Fallback to searchedGuid if item found
+    else if (this.searchedGuid) {
       return this.searchedGuid;
-    } else {
+    } 
+    // Final fallback
+    else {
       return '0';
     }
   }

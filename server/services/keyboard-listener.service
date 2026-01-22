@@ -6,6 +6,10 @@ After=network.target
 Type=simple
 User=pi
 WorkingDirectory=/path/to/MediaServer/server
+# IMPORTANT: PORT must match the port used by mediaserver.service
+# Default for Raspberry Pi deployment: 5000 (should match Environment="PORT=5000" in mediaserver.service)
+# For other deployments, adjust to match your server port (default is 8080)
+Environment="PORT=5000"
 ExecStart=/usr/bin/node /path/to/MediaServer/server/services/keyboardListener.js
 Restart=always
 RestartSec=10

@@ -4,7 +4,7 @@ import { ApiService } from "../../../core/services/api.service";
 
 export interface PlaylistItem {
   name: string;
-  type: "text" | "image" | "url";
+  type: "text" | "image" | "url" | "video";
   content: string;
   guid: number;
   page?: number;
@@ -17,7 +17,7 @@ export interface LibraryContent {
 
 export interface LibraryItem {
   name: string;
-  type: "text" | "image" | "url";
+  type: "text" | "image" | "url" | "video";
   content?: string | LibraryContent[];
   guid: number;
   description?: string;

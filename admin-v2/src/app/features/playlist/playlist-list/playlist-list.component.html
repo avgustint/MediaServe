@@ -44,6 +44,8 @@
         *ngFor="let item of playlist; let i = index"
         [item]="item"
         [index]="i"
+        [currentItemGuid]="currentItemGuid"
+        [currentPage]="currentPage"
         (itemClick)="onPlaylistItemClick($event)"
         (pageClick)="onPlaylistItemPageClick($event)">
       </app-playlist-item>

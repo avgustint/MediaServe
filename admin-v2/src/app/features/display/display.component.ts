@@ -1,6 +1,5 @@
 import { Component, OnInit, OnDestroy } from "@angular/core";
 import { CommonModule } from "@angular/common";
-import { FormsModule } from "@angular/forms";
 import { WebSocketService } from "../../core/services/websocket.service";
 import { Subscription } from "rxjs";
 
@@ -14,14 +13,12 @@ interface ActionStatus {
 @Component({
   selector: "app-display",
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule],
   templateUrl: "./display.component.html",
   styleUrls: ["./display.component.scss"]
 })
 export class DisplayComponent implements OnInit, OnDestroy {
   actionStatuses: Map<string, ActionStatus> = new Map();
-  customSourceName: string = '';
-  predefinedSources: string[] = ['HDMI1', 'HDMI2', 'HDMI3', 'HDMI4', '1', '2', '3', '4'];
   private messageSubscription?: Subscription;
 
   constructor(private websocketService: WebSocketService) {}
@@ -75,16 +72,6 @@ export class DisplayComponent implements OnInit, OnDestroy {
     this.sendAction('volumeDown');
   }
 
-  selectSource(sourceName?: string): void {
-    const source = sourceName || this.customSourceName || '1';
-    this.sendAction('selectSource', source);
-    this.customSourceName = ''; // Clear custom source after sending
-  }
-
-  selectPredefinedSource(source: string): void {
-    this.sendAction('selectSource', source);
-  }
-
   getStatus(actionType: string): ActionStatus | undefined {
     return this.actionStatuses.get(actionType);
   }
@@ -95,14 +82,11 @@ export class DisplayComponent implements OnInit, OnDestroy {
     return `status-${status.status}`;
   }
 
-  private sendAction(actionType: string, sourceName?: string): void {
+  private sendAction(actionType: string): void {
     const actionMessage: any = {
       type: 'Action',
       actionType: actionType
     };
-    if (sourceName) {
-      actionMessage.sourceName = sourceName;
-    }
     this.websocketService.send(JSON.stringify(actionMessage));
   }
 }

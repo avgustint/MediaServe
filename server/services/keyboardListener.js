@@ -1,4 +1,5 @@
 const http = require('http');
+const path = require('path');
 
 /**
  * OS-level keyboard listener service
@@ -6,8 +7,23 @@ const http = require('http');
  * Sends keyboard commands to server via HTTP POST
  */
 
-// Configuration
-const SERVER_URL = 'http://localhost:3000';
+// Configuration: Get port from environment variable, config.js, or default to 8080
+let serverPort = process.env.PORT;
+if (!serverPort) {
+  try {
+    // Try to load config.js if available (when running in server directory context)
+    const configPath = path.join(__dirname, '../config.js');
+    const config = require(configPath);
+    serverPort = config.port;
+  } catch (error) {
+    // Config not available, use default
+    serverPort = 8080;
+  }
+}
+// Ensure port is a number
+serverPort = parseInt(serverPort, 10) || 8080;
+
+const SERVER_URL = `http://localhost:${serverPort}`;
 const KEYBOARD_ENDPOINT = '/api/keyboard/command';
 
 // Key code mappings for arrow keys, numbers, and Enter
@@ -18,7 +34,7 @@ const KEY_MAPPINGS = {
   105: 'ArrowLeft',    // KEY_LEFT
  106: 'ArrowRight',    // KEY_RIGHT
   28: 'Enter',         // KEY_ENTER
-  // Number keys
+  // Number keys (top row)
   2: '1',
   3: '2',
   4: '3',
@@ -28,7 +44,19 @@ const KEY_MAPPINGS = {
   8: '7',
   9: '8',
   10: '9',
-  11: '0'
+  11: '0',
+  // Numeric keypad keys (work regardless of Num Lock state)
+  79: '1',             // KEY_KP1
+  80: '2',             // KEY_KP2
+  81: '3',             // KEY_KP3
+  75: '4',             // KEY_KP4
+  76: '5',             // KEY_KP5
+  77: '6',             // KEY_KP6
+  71: '7',             // KEY_KP7
+  72: '8',             // KEY_KP8
+  73: '9',             // KEY_KP9
+  82: '0',             // KEY_KP0
+  83: 'Enter'          // KEY_KPENTER
 };
 
 let listening = false;
@@ -45,7 +73,7 @@ function sendKeyboardCommand(key) {
 
   const options = {
     hostname: 'localhost',
-    port: 3000,
+    port: serverPort,
     path: KEYBOARD_ENDPOINT,
     method: 'POST',
     headers: {
@@ -185,6 +213,7 @@ function startListening() {
 
   listening = true;
   console.log('Starting OS-level keyboard listener...');
+  console.log(`Server URL: ${SERVER_URL}`);
   console.log('Listening for: Arrow keys, Number keys (0-9), Enter key');
 
   // Try to use ioHook first (if available)

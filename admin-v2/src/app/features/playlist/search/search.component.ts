@@ -6,6 +6,7 @@ import { CollectionsService, Collection } from "../../editor/services/collection
 import { TagsService, Tag } from "../../editor/services/tags.service";
 import { TranslatePipe } from "../../../shared/pipes/translation.pipe";
 import { TranslationService } from "../../../core/services/translation.service";
+import { ViewportService } from "../../../core/services/viewport.service";
 import { Observable, Subject, Subscription, debounceTime, distinctUntilChanged, switchMap, of, forkJoin } from "rxjs";
 import { InputTextModule } from "primeng/inputtext";
 import { SelectModule } from "primeng/select";
@@ -35,6 +36,7 @@ export class SearchComponent implements OnInit, OnDestroy, AfterViewInit {
   allCollections: Collection[] = [];
   allTags: Tag[] = [];
   showTagDropdown: boolean = false;
+  showAdvancedFilters: boolean = false;
   
   // For PrimeNG MultiSelect
   selectedTags: Tag[] = [];
@@ -42,14 +44,23 @@ export class SearchComponent implements OnInit, OnDestroy, AfterViewInit {
   // For PrimeNG Dropdown
   collectionOptions: Array<{ label: string; value: number | null }> = [];
 
+  viewportInfo: any = { availableHeight: 0, keyboardHeight: 0 };
+  private viewportSubscription?: Subscription;
+
   constructor(
     private playlistService: PlaylistService,
     private collectionsService: CollectionsService,
     private tagsService: TagsService,
-    private translationService: TranslationService
+    private translationService: TranslationService,
+    private viewportService: ViewportService
   ) {}
 
   ngOnInit(): void {
+    // Subscribe to viewport changes
+    this.viewportSubscription = this.viewportService.viewportInfo$.subscribe(info => {
+      this.viewportInfo = info;
+    });
+
     // Load collections and tags
     forkJoin({
       collections: this.collectionsService.getAllCollections(),
@@ -124,6 +135,7 @@ export class SearchComponent implements OnInit, OnDestroy, AfterViewInit {
 
   ngOnDestroy(): void {
     this.searchSubscription?.unsubscribe();
+    this.viewportSubscription?.unsubscribe();
   }
 
   // Removed body append logic - search results are always displayed in component
@@ -337,6 +349,26 @@ export class SearchComponent implements OnInit, OnDestroy, AfterViewInit {
 
   closeTagDropdown(): void {
     this.showTagDropdown = false;
+  }
+
+  onSearchInputFocus(): void {
+    // Scroll input into view when keyboard appears
+    setTimeout(() => {
+      if (this.searchInputWrapper?.nativeElement) {
+        this.searchInputWrapper.nativeElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 300);
+  }
+
+  toggleAdvancedFilters(): void {
+    this.showAdvancedFilters = !this.showAdvancedFilters;
+  }
+
+  getActiveFiltersCount(): number {
+    let count = 0;
+    if (this.selectedCollectionGuid !== null) count++;
+    if (this.selectedTagGuids && this.selectedTagGuids.length > 0) count += this.selectedTagGuids.length;
+    return count;
   }
 }
 

@@ -670,7 +670,7 @@ function setupWebSocket(server, library) {
         
         // Check if it's a direct content update message (with chordsVisible or chordTransposition properties)
         // This allows clients to send modified content with chord adjustments
-        if ((message.type === 'text' || message.type === 'image' || message.type === 'url') && 
+        if ((message.type === 'text' || message.type === 'image' || message.type === 'url' || message.type === 'video') && 
             (message.chordsVisible !== undefined || message.chordTransposition !== undefined) && 
             message.content !== undefined) {
           const locationId = message.locationId ? parseInt(message.locationId, 10) : null;

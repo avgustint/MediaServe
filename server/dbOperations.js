@@ -123,6 +123,33 @@ const dbOps = {
 
   deleteLibraryItem(guid) {
     const db = getDatabase();
+    const item = this.getLibraryItem(guid);
+    
+    // If it's a video item, delete the associated video file
+    if (item && item.type === 'video' && item.content) {
+      try {
+        const fs = require('fs');
+        const path = require('path');
+        const videosDir = path.join(__dirname, 'data', 'videos');
+        
+        // Extract filename from content URL (e.g., /videos/filename.mp4 -> filename.mp4)
+        const urlMatch = item.content.match(/\/videos\/(.+)$/);
+        if (urlMatch) {
+          const filename = urlMatch[1];
+          const filePath = path.join(videosDir, filename);
+          
+          // Delete file if it exists
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+            console.log(`Deleted video file: ${filePath}`);
+          }
+        }
+      } catch (error) {
+        console.warn(`Failed to delete video file for library item ${guid}:`, error.message);
+        // Continue with deletion even if file deletion fails
+      }
+    }
+    
     const result = db.prepare('DELETE FROM library_items WHERE guid = ?').run(guid);
     return result.changes > 0;
   },

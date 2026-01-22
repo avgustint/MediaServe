@@ -6,11 +6,11 @@ Wants=network.target
 
 [Service]
 Type=simple
-User=pi
-Group=pi
-WorkingDirectory=/home/pi/mediaserver/dist
+User=avgustin
+Group=avgustin
+WorkingDirectory=/home/avgustin/Desktop/MediaServer/dist
 Environment="PORT=5001"
-ExecStart=/usr/bin/node /home/pi/mediaserver/deployment/raspberry-pi/client-server.js
+ExecStart=/usr/bin/node /home/avgustin/Desktop/MediaServer/deployment/raspberry-pi/client-server.js
 Restart=always
 RestartSec=10
 StandardOutput=journal

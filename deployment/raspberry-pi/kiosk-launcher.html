@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MediaServer Launcher</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            color: #fff;
+            font-family: Arial, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+        #adminLink {
+            display: none;
+        }
+    </style>
+    <script>
+        const CLIENT_URL = 'http://localhost:5001';
+        
+        // Simple redirect to client - client app will open admin tab itself
+        // This ensures client tab is always the active one
+        window.location.replace(CLIENT_URL);
+    </script>
+</head>
+<body>
+    <div>Opening tabs...</div>
+    <a id="adminLink" href="" target="_blank" rel="noopener noreferrer"></a>
+</body>
+</html>
+

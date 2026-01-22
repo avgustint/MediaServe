@@ -174,7 +174,7 @@
       </div>
       
       <!-- Tags Selection -->
-      <div class="form-group" *ngIf="itemType === 'text' || itemType === 'image' || itemType === 'url'">
+      <div class="form-group" *ngIf="itemType === 'text' || itemType === 'image' || itemType === 'url' || itemType === 'video'">
         <label>{{ 'tags' | translate }}</label>
         <p-multiSelect
           [options]="allAvailableTags"
@@ -208,6 +208,25 @@
         />
         <div *ngIf="imagePreview" class="image-preview">
           <img [src]="imagePreview" [alt]="'preview' | translate" />
+        </div>
+      </div>
+
+      <!-- Video Type Content -->
+      <div class="form-group" *ngIf="itemType === 'video'">
+        <label>{{ 'videoFile' | translate }} *</label>
+        <input
+          type="file"
+          class="form-control"
+          accept="video/*"
+          (change)="onVideoFileSelected($event)"
+          [disabled]="videoUploading"
+        />
+        <div *ngIf="videoUploading" class="upload-status">
+          <span>{{ 'uploading' | translate }}...</span>
+        </div>
+        <div *ngIf="videoPreview && !videoUploading && safeVideoPreview" class="video-preview">
+          <video [src]="safeVideoPreview" controls [autoplay]="false" style="max-width: 100%; max-height: 300px;"></video>
+          <p *ngIf="videoUrl" class="video-url">{{ 'videoUrl' | translate }}: {{ videoUrl }}</p>
         </div>
       </div>
 

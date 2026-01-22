@@ -6,7 +6,7 @@ import { DomSanitizer, SafeResourceUrl } from "@angular/platform-browser";
 import { WebSocketService, WebSocketMessage } from "./websocket.service";
 import { FormatTextPipe } from "./format-text.pipe";
 import { Subscription } from "rxjs";
-import { SERVER_BASE_URL } from "./api.config";
+import { SERVER_BASE_URL, AUTO_LOGIN_LOCATION_ID } from "./api.config";
 
 @Component({
   selector: "app-root",
@@ -19,6 +19,7 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild("textContainer", { static: false }) textContainer!: ElementRef<HTMLDivElement>;
   @ViewChild("imageContainer", { static: false }) imageContainer!: ElementRef<HTMLDivElement>;
   @ViewChild("urlIframe", { static: false }) urlIframe!: ElementRef<HTMLIFrameElement>;
+  @ViewChild("videoElement", { static: false }) videoElement!: ElementRef<HTMLVideoElement>;
 
   currentContent: WebSocketMessage | null = null;
   private subscription?: Subscription;
@@ -27,6 +28,9 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
 
   // Chord display state: default is to show chords
   showChords: boolean = true;
+  
+  // Text transition state: true when text is ready to be shown (after font size calculation)
+  isTextReady: boolean = false;
 
   // Location handling
   locationId: number | null = null;
@@ -46,11 +50,15 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
     this.handleKeyboardEvent(event);
   };
 
+  private formatTextPipe: FormatTextPipe;
+
   constructor(
     private websocketService: WebSocketService,
     private sanitizer: DomSanitizer,
     private http: HttpClient
-  ) {}
+  ) {
+    this.formatTextPipe = new FormatTextPipe(sanitizer);
+  }
 
   ngOnInit(): void {
     this.initializeLocation();
@@ -80,13 +88,40 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
       // If chordsVisible is undefined, keep current state (don't default to true)
 
       // Update content (chords should always be in the content, visibility controlled by showChords)
-      // Only update if this is a content message (text, image, or url)
-      if (message.type === 'text' || message.type === 'image' || message.type === 'url') {
-        this.currentContent = message;
-
-        // Adjust font size for text after view update
+      // Only update if this is a content message (text, image, url, or video)
+      if (message.type === 'text' || message.type === 'image' || message.type === 'url' || message.type === 'video') {
+        // For text content, update content first but keep it hidden, then calculate font size
         if (message.type === "text") {
-          setTimeout(() => this.adjustTextSize(), 100);
+          // Set isTextReady to false FIRST - this ensures opacity class is removed before content update
+          this.isTextReady = false;
+          
+          // If switching from different content type, clear current content first
+          if (this.currentContent && this.currentContent.type !== "text") {
+            this.currentContent = null;
+          }
+          
+          // Update content first (it will be hidden by opacity: 0)
+          requestAnimationFrame(() => {
+            this.currentContent = message;
+            
+            // Wait for DOM to update, then calculate font size on the actual visible element
+            // (which is currently hidden with opacity: 0)
+            requestAnimationFrame(() => {
+              this.adjustTextSize();
+              // After font size calculation, show the text
+              requestAnimationFrame(() => {
+                this.isTextReady = true;
+              });
+            });
+          });
+        } else {
+          // For non-text content, hide text first if it was showing
+          if (this.currentContent?.type === "text") {
+            this.isTextReady = false;
+          }
+          // Update immediately for non-text content
+          this.currentContent = message;
+          this.isTextReady = true;
         }
       }
     });
@@ -97,6 +132,9 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
     window.addEventListener("resize", this.resizeHandler);
     // Listen for keyboard events to forward to admin app
     window.addEventListener("keydown", this.keyboardHandler, true);
+    
+    // Note: Admin app is opened as a separate Chromium window by kiosk-start.sh
+    // No need to open it from here
   }
 
   ngOnDestroy(): void {
@@ -135,7 +173,16 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
       }
     }
 
-    // 3) No location yet -> load locations and show selector UI
+    // 3) Try auto-login location from config (if enabled)
+    if (AUTO_LOGIN_LOCATION_ID && AUTO_LOGIN_LOCATION_ID > 0) {
+      this.locationId = AUTO_LOGIN_LOCATION_ID;
+      this.locationInput = String(AUTO_LOGIN_LOCATION_ID);
+      localStorage.setItem("displayLocationId", String(AUTO_LOGIN_LOCATION_ID));
+      this.initializeWebSocketConnection();
+      return;
+    }
+
+    // 4) No location yet -> load locations and show selector UI
     this.loadLocations();
     this.showLocationSelector = true;
   }
@@ -150,6 +197,16 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
         next: (locations) => {
           this.locations = locations || [];
           this.locationsLoading = false;
+          
+          // Auto-select if there's only one location available
+          if (this.locations.length === 1) {
+            const singleLocation = this.locations[0];
+            this.locationId = singleLocation.guid;
+            this.locationInput = String(singleLocation.guid);
+            localStorage.setItem("displayLocationId", String(singleLocation.guid));
+            this.showLocationSelector = false;
+            this.initializeWebSocketConnection();
+          }
         },
         error: (err) => {
           console.error("Failed to load locations", err);
@@ -186,8 +243,12 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
     this.initializeWebSocketConnection();
   }
 
+  /**
+   * Adjust text size - calculates on the actual visible element (which is hidden during calculation)
+   */
   adjustTextSize(): void {
     if (!this.textContainer || !this.currentContent || this.currentContent.type !== "text") {
+      this.isTextReady = true; // Mark as ready even if calculation fails
       return;
     }
 
@@ -195,8 +256,14 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
     const textElement = container.querySelector(".text-content") as HTMLElement;
 
     if (!textElement) {
+      this.isTextReady = true; // Mark as ready even if element not found
       return;
     }
+
+    // Ensure text is hidden during calculation (should already be hidden via opacity: 0)
+    // But we'll also use visibility as a backup
+    const originalVisibility = textElement.style.visibility;
+    textElement.style.visibility = 'hidden';
 
     // Get container dimensions, accounting for padding
     const containerStyle = window.getComputedStyle(container);
@@ -208,6 +275,8 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
     const text = this.currentContent.content;
 
     if (!text || text.trim().length === 0) {
+      textElement.style.visibility = originalVisibility;
+      this.isTextReady = true;
       return;
     }
 
@@ -216,7 +285,7 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
     let maxFont = Math.min(containerWidth, containerHeight);
     let bestFont = minFont;
 
-    // Set initial font size
+    // Set initial font size (hidden, so no flash)
     textElement.style.fontSize = `${minFont}px`;
 
     // Binary search to find maximum font size that fits
@@ -244,6 +313,9 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
 
     // Apply the best font size found
     textElement.style.fontSize = `${bestFont}px`;
+    
+    // Restore visibility - opacity transition will handle the fade-in
+    textElement.style.visibility = originalVisibility;
   }
 
   get imageSrc(): string {
@@ -313,6 +385,21 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
     return this.sanitizer.bypassSecurityTrustResourceUrl("about:blank");
   }
 
+  get videoSrc(): SafeResourceUrl {
+    if (this.currentContent?.type === "video" && this.currentContent.content) {
+      const videoUrl = this.currentContent.content as string;
+      // If it's already a full URL, use it; otherwise construct from SERVER_BASE_URL
+      if (videoUrl.startsWith('http://') || videoUrl.startsWith('https://')) {
+        return this.sanitizer.bypassSecurityTrustResourceUrl(videoUrl);
+      } else {
+        // Relative path - construct full URL
+        const fullUrl = `${SERVER_BASE_URL}${videoUrl.startsWith('/') ? videoUrl : '/' + videoUrl}`;
+        return this.sanitizer.bypassSecurityTrustResourceUrl(fullUrl);
+      }
+    }
+    return this.sanitizer.bypassSecurityTrustResourceUrl("about:blank");
+  }
+
   get text(): string {
     return this.currentContent?.type === "text" && this.currentContent.content ? this.currentContent.content : "";
   }
@@ -367,6 +454,13 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
     };
   }
 
+  get videoContainerStyle(): { [key: string]: string } {
+    // Container style only has background color - layout properties are in CSS
+    return {
+      'background-color': this.backgroundColor
+    };
+  }
+
   get imageStyle(): { [key: string]: string } {
     const style: { [key: string]: string } = {};
     
@@ -404,12 +498,18 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
     ];
 
     if (!allowedKeys.includes(key)) {
-      return; // Ignore other keys
+      return; // Ignore other keys (like space, which should work on video)
     }
 
     // Don't capture if user is typing in an input field
     const target = event.target as HTMLElement;
     if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+      return;
+    }
+
+    // Don't capture if target is a video element or inside a video container
+    // Let video handle its own controls (space for play/pause, arrow keys for seeking, etc.)
+    if (target.tagName === 'VIDEO' || target.closest('.video-container')) {
       return;
     }
 
@@ -435,6 +535,39 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
         // Don't log to avoid console spam
       }
     });
+  }
+
+  /**
+   * Handle keyboard events on video element
+   * Prevents default behavior for number keys and other allowed keys
+   * so they can bubble up to the window handler for forwarding to admin app
+   * Explicitly handles space key for play/pause
+   */
+  onVideoKeyDown(event: KeyboardEvent): void {
+    const key = event.key;
+
+    // Only intercept the same keys that the window handler processes
+    const allowedKeys = [
+      'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
+      '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+      'Enter', 'Escape'
+    ];
+
+    // Explicitly handle space key for play/pause
+    // Don't prevent default - let video handle it naturally, but ensure window handler doesn't interfere
+    if (key === ' ' || key === 'Space') {
+      // Stop propagation to prevent window handler from interfering
+      event.stopPropagation();
+      // Don't prevent default - let the video element's native behavior handle play/pause
+      return;
+    }
+
+    if (allowedKeys.includes(key)) {
+      // Prevent default behavior (e.g., video seeking/restarting on number keys)
+      event.preventDefault();
+      // Don't stop propagation - let the event bubble up so the window handler
+      // (which uses capture phase) can process it for forwarding to admin app
+    }
   }
 
 }

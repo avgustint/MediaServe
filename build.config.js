@@ -45,7 +45,14 @@ const configs = {
       apiUrl: 'http://localhost:8080',
       
       // WebSocket URL
-      wsUrl: 'ws://localhost:8080'
+      wsUrl: 'ws://localhost:8080',
+      
+      // Auto-login configuration (for kiosk mode)
+      // Set autoLoginTimeout to 0 to disable auto-login
+      autoLoginUsername: '',
+      autoLoginPassword: '',
+      autoLoginLocationId: 0,
+      autoLoginTimeout: 0
     },
 
     /**
@@ -57,13 +64,20 @@ const configs = {
       apiUrl: 'http://localhost:8080',
       
       // WebSocket URL (not currently used in client, but reserved for future)
-      wsUrl: 'ws://localhost:8080'
+      wsUrl: 'ws://localhost:8080',
+      
+      // Auto-login location configuration
+      // If set, the client will automatically select this location without showing the selector
+      // Set to 0 or null to disable auto-selection
+      autoLoginLocationId: 0  // Location ID to automatically select (0 = disabled)
     }
   },
 
   /**
    * Raspberry Pi deployment configuration
-   * Uses hostname 'projektor' and ports 5000/5001
+   * Uses hostname 'mediaplayer.local' (mDNS) and ports 5000/5001
+   * Note: mediaplayer.local works from other computers on the network (requires Avahi)
+   * On the Raspberry Pi itself, both mediaplayer and mediaplayer.local work
    */
   'raspberry-pi': {
     server: {
@@ -73,12 +87,25 @@ const configs = {
       corsCredentials: false
     },
     admin: {
-      apiUrl: 'http://projektor:5000',
-      wsUrl: 'ws://projektor:5000'
+      apiUrl: 'http://mediaplayer.local:5000',
+      wsUrl: 'ws://mediaplayer.local:5000',
+      
+      // Auto-login configuration for Raspberry Pi kiosk mode
+      // Configure these to automatically log in to admin app after timeout
+      // Set autoLoginTimeout to 0 to disable auto-login
+      autoLoginUsername: 'user',        // Username for auto-login (leave empty to disable)
+      autoLoginPassword: 'user',        // Password for auto-login (leave empty to disable)
+      autoLoginLocationId: 1,       // Location ID to select after auto-login
+      autoLoginTimeout: 5           // Seconds to wait before auto-login (0 = disabled)
     },
     client: {
-      apiUrl: 'http://projektor:5000',
-      wsUrl: 'ws://projektor:5000'
+      apiUrl: 'http://mediaplayer.local:5000',
+      wsUrl: 'ws://mediaplayer.local:5000',
+      
+      // Auto-login location configuration for client app
+      // If set, the client will automatically select this location without showing the selector
+      // Set to 0 or null to disable auto-selection (will show location selector if no URL param or localStorage)
+      autoLoginLocationId: 1  // Location ID to automatically select (0 = disabled)
     }
   }
 };

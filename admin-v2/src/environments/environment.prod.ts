@@ -4,6 +4,6 @@ export const environment = {
   wsUrl: 'ws://localhost:8080',
   autoLoginUsername: '',
   autoLoginPassword: '',
-  autoLoginLocationId: 0,
+  autoLoginLocationId: 1,
   autoLoginTimeout: 0
 };

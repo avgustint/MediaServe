@@ -6,7 +6,7 @@
     (click)="toggleSidebar()" 
     [attr.aria-label]="'toggleSidebar' | translate"
   >
-    <i class="fas fa-bars"></i>
+    <i class="fas fa-chevron-right"></i>
   </button>
   
   <!-- Sidebar overlay for mobile -->
@@ -61,6 +61,8 @@
         <app-playlist-list
           *ngIf="activeTab === 'playlist'"
           [selectedPlaylistGuid]="selectedPlaylistGuid"
+          [currentItemGuid]="currentItemGuid"
+          [currentPage]="currentPage"
           (playlistSelected)="onPlaylistSelected($event)"
           (playlistItemClick)="onPlaylistItemClick($event)"
           (playlistItemPageClick)="onPlaylistItemPageClick($event)"
@@ -76,95 +78,101 @@
         ></app-manual>
       </div>
     </div>
-    <div class="content-area" [class.fullscreen]="isFullscreen">
-      <!-- Fullscreen button (only shown when not in fullscreen) -->
-      <button 
-        *ngIf="!isFullscreen && currentContent" 
-        class="fullscreen-button" 
-        (click)="toggleFullscreen()"
-        [title]="'fullscreen' | translate"
-      >
-        <i class="fas fa-expand"></i>
-      </button>
+    <div class="content-area-wrapper">
+      <div class="content-area" [class.fullscreen]="isFullscreen">
+        <!-- Fullscreen button (only shown when not in fullscreen) -->
+        <button 
+          *ngIf="!isFullscreen && currentContent" 
+          class="fullscreen-button" 
+          (click)="toggleFullscreen()"
+          [title]="'fullscreen' | translate"
+        >
+          <i class="fas fa-expand"></i>
+        </button>
 
-      <!-- Exit fullscreen button (only shown when in fullscreen) -->
-      <button 
-        *ngIf="isFullscreen" 
-        class="exit-fullscreen-button" 
-        (click)="exitFullscreen()"
-        [title]="'exitFullscreen' | translate"
-      >
-        <i class="fas fa-compress"></i>
-      </button>
+        <!-- Exit fullscreen button (only shown when in fullscreen) -->
+        <button 
+          *ngIf="isFullscreen" 
+          class="exit-fullscreen-button" 
+          (click)="exitFullscreen()"
+          [title]="'exitFullscreen' | translate"
+        >
+          <i class="fas fa-compress"></i>
+        </button>
 
-      <!-- Chord display toggle button (only shown when text content is displayed) -->
-      <button 
-        *ngIf="currentContent?.type === 'text'" 
-        class="chord-display-button" 
-        [class.fullscreen-mode]="isFullscreen"
-        (click)="toggleChordDisplay()"
-        [title]="getChordDisplayTitle() | translate"
-      >
-        <i class="fas" [ngClass]="getChordDisplayIcon()"></i>
-      </button>
+        <!-- Chord display toggle button (commented out - only shown in dev mode if needed) -->
+        <!--
+        <button 
+          *ngIf="currentContent?.type === 'text' && isDevMode" 
+          class="chord-display-button" 
+          [class.fullscreen-mode]="isFullscreen"
+          (click)="toggleChordDisplay()"
+          [title]="getChordDisplayTitle() | translate"
+        >
+          <i class="fas" [ngClass]="getChordDisplayIcon()"></i>
+        </button>
 
-      <!-- Chord transposition increase/decrease buttons (only shown when chords are visible) -->
-      <button 
-        *ngIf="currentContent?.type === 'text' && chordsVisible" 
-        class="chord-size-decrease-button" 
-        [class.fullscreen-mode]="isFullscreen"
-        (click)="decreaseChordTransposition()"
-        [title]="'decreaseChordTransposition' | translate"
-      >
-        <i class="fas fa-minus"></i>
-      </button>
+        <button 
+          *ngIf="currentContent?.type === 'text' && chordsVisible && isDevMode" 
+          class="chord-size-decrease-button" 
+          [class.fullscreen-mode]="isFullscreen"
+          (click)="decreaseChordTransposition()"
+          [title]="'decreaseChordTransposition' | translate"
+        >
+          <i class="fas fa-minus"></i>
+        </button>
 
-      <button 
-        *ngIf="currentContent?.type === 'text' && chordsVisible" 
-        class="chord-size-increase-button" 
-        [class.fullscreen-mode]="isFullscreen"
-        (click)="increaseChordTransposition()"
-        [title]="'increaseChordTransposition' | translate"
-      >
-        <i class="fas fa-plus"></i>
-      </button>
+        <button 
+          *ngIf="currentContent?.type === 'text' && chordsVisible && isDevMode" 
+          class="chord-size-increase-button" 
+          [class.fullscreen-mode]="isFullscreen"
+          (click)="increaseChordTransposition()"
+          [title]="'increaseChordTransposition' | translate"
+        >
+          <i class="fas fa-plus"></i>
+        </button>
 
-      <button 
-        *ngIf="currentContent?.type === 'text' && chordsVisible" 
-        class="chord-size-reset-button" 
-        [class.fullscreen-mode]="isFullscreen"
-        [class.disabled]="chordTransposition === 0"
-        (click)="resetChordTransposition()"
-        [title]="'resetChordTransposition' | translate"
-        [disabled]="chordTransposition === 0"
-      >
-        <i class="fas fa-undo"></i>
-      </button>
+        <button 
+          *ngIf="currentContent?.type === 'text' && chordsVisible && isDevMode" 
+          class="chord-size-reset-button" 
+          [class.fullscreen-mode]="isFullscreen"
+          [class.disabled]="chordTransposition === 0"
+          (click)="resetChordTransposition()"
+          [title]="'resetChordTransposition' | translate"
+          [disabled]="chordTransposition === 0"
+        >
+          <i class="fas fa-undo"></i>
+        </button>
+        -->
 
-      <!-- Text Content -->
-      <div *ngIf="currentContent?.type === 'text'" class="content-container text-container" [ngStyle]="textContainerStyle" [class.chords-hidden]="chordDisplayState === 'hidden'" [class.chords-local]="chordDisplayState === 'local'" [class.chords-everywhere]="chordDisplayState === 'everywhere'" #textContainer>
-        <div class="text-content" [ngStyle]="textContentStyle" [innerHTML]="text | formatText"></div>
+        <!-- Text Content -->
+        <div *ngIf="currentContent?.type === 'text'" class="content-container text-container" [ngStyle]="textContainerStyle" [class.chords-hidden]="chordDisplayState === 'hidden'" [class.chords-local]="chordDisplayState === 'local'" [class.chords-everywhere]="chordDisplayState === 'everywhere'" #textContainer>
+          <div class="text-content" [ngStyle]="textContentStyle" [innerHTML]="text | formatText"></div>
+        </div>
+
+        <!-- Image Content -->
+        <div *ngIf="currentContent?.type === 'image'" class="content-container image-container" [ngStyle]="imageContainerStyle" #imageContainer>
+          <img [src]="imageSrc" alt="Received image" class="display-image" [ngStyle]="imageStyle" />
+        </div>
+
+        <!-- URL Content (iframe) -->
+        <div *ngIf="currentContent?.type === 'url'" class="content-container iframe-container">
+          <iframe #urlIframe [src]="safeUrl" class="display-iframe" frameborder="0" allowfullscreen allow="autoplay; encrypted-media; picture-in-picture" tabindex="-1"></iframe>
+        </div>
+
+        <!-- Video Content -->
+        <div *ngIf="currentContent?.type === 'video'" class="content-container video-container" [ngStyle]="videoContainerStyle">
+          <video #videoElement [src]="videoSrc" class="display-video" controls></video>
+        </div>
+
+        <!-- No content message -->
+        <div *ngIf="!currentContent" class="content-container no-content">
+          <div class="waiting-message">{{ 'waitingForContent' | translate }}</div>
+        </div>
       </div>
-
-      <!-- Image Content -->
-      <div *ngIf="currentContent?.type === 'image'" class="content-container image-container" [ngStyle]="imageContainerStyle" #imageContainer>
-        <img [src]="imageSrc" alt="Received image" class="display-image" [ngStyle]="imageStyle" />
-      </div>
-
-      <!-- URL Content (iframe) -->
-      <div *ngIf="currentContent?.type === 'url'" class="content-container iframe-container">
-        <iframe #urlIframe [src]="safeUrl" class="display-iframe" frameborder="0" allowfullscreen allow="autoplay; encrypted-media; picture-in-picture" tabindex="-1"></iframe>
-      </div>
-
-      <!-- No content message -->
-      <div *ngIf="!currentContent" class="content-container no-content">
-        <div class="waiting-message">{{ 'waitingForContent' | translate }}</div>
-      </div>
-    </div>
-  </div>
-  
-  <!-- Footer -->
-  <div class="footer" [class.hidden]="isFullscreen">
+      
+      <!-- Footer -->
+      <div class="footer" [class.hidden]="isFullscreen">
     <div class="footer-info">
       <div class="current-item-info">
         <div class="current-item-guid-badge" *ngIf="currentItemGuid">{{ currentItemGuid }}</div>

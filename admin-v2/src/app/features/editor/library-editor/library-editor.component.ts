@@ -1,6 +1,8 @@
 import { Component, OnInit, ViewChild, ElementRef, QueryList, ViewChildren, AfterViewInit } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
+import { HttpClient, HttpHeaders } from "@angular/common/http";
+import { DomSanitizer, SafeResourceUrl } from "@angular/platform-browser";
 import { PlaylistService, LibraryItem, LibraryContent } from "../../playlist/services/playlist.service";
 import { PagesService, Page } from "../services/pages.service";
 import { TagsService, Tag } from "../services/tags.service";
@@ -10,6 +12,7 @@ import { ConfirmDialogComponent } from "../../../shared/feedback/confirm-dialog/
 import { TranslatePipe } from "../../../shared/pipes/translation.pipe";
 import { LocalizedDatePipe } from "../../../shared/pipes/localized-date.pipe";
 import { TranslationService } from "../../../core/services/translation.service";
+import { environment } from "../../../../environments/environment";
 import { debounceTime, distinctUntilChanged, Subject, switchMap, of, forkJoin } from "rxjs";
 import { InputTextModule } from "primeng/inputtext";
 import { TextareaModule } from "primeng/textarea";
@@ -44,12 +47,12 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
 
   // Form fields
   itemName: string = "";
-  itemType: "text" | "image" | "url" = "text";
+  itemType: "text" | "image" | "url" | "video" = "text";
   itemDescription: string = "";
   itemAuthor: string = "";
   
   // Dropdown options
-  typeOptions: Array<{ label: string; value: "text" | "image" | "url" }> = [];
+  typeOptions: Array<{ label: string; value: "text" | "image" | "url" | "video" }> = [];
   
   // Text type fields - new page management system
   pageReferences: Array<{ pageGuid: number | string; orderNumber: number; page?: Page }> = [];
@@ -82,6 +85,19 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
   
   // URL type field
   urlContent: string = "";
+  
+  // Video type fields
+  videoFile: File | null = null;
+  videoPreview: string | null = null;
+  videoUrl: string = "";
+  videoUploading: boolean = false;
+
+  get safeVideoPreview(): SafeResourceUrl | null {
+    if (this.videoPreview) {
+      return this.sanitizer.bypassSecurityTrustResourceUrl(this.videoPreview);
+    }
+    return null;
+  }
 
   // Color fields
   backgroundColor: string = "";
@@ -111,7 +127,9 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
     private pagesService: PagesService,
     private tagsService: TagsService,
     private userService: UserService,
-    private translationService: TranslationService
+    private translationService: TranslationService,
+    private http: HttpClient,
+    private sanitizer: DomSanitizer
   ) {}
 
   hasManageLibraryPermission(): boolean {
@@ -127,7 +145,8 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
     this.typeOptions = [
       { label: this.translationService.translate('text'), value: 'text' },
       { label: this.translationService.translate('image'), value: 'image' },
-      { label: this.translationService.translate('url'), value: 'url' }
+      { label: this.translationService.translate('url'), value: 'url' },
+      { label: this.translationService.translate('video') || 'Video', value: 'video' }
     ];
     
     // Load recently modified items
@@ -536,6 +555,22 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
       this.urlContent = "";
     }
 
+    if (item.type === "video") {
+      this.videoUrl = item.content as string;
+      // Convert relative URL to full URL for preview
+      if (this.videoUrl && this.videoUrl.startsWith('/')) {
+        this.videoPreview = `${environment.apiUrl}${this.videoUrl}`;
+      } else if (this.videoUrl) {
+        this.videoPreview = this.videoUrl;
+      } else {
+        this.videoPreview = null;
+      }
+    } else {
+      this.videoUrl = "";
+      this.videoPreview = null;
+      this.videoFile = null;
+    }
+
     // Set color fields
     this.backgroundColor = item.background_color || "";
     this.fontColor = item.font_color || "";
@@ -564,6 +599,9 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
     this.imagePreview = null;
     this.imageBase64 = null;
     this.urlContent = "";
+    this.videoFile = null;
+    this.videoPreview = null;
+    this.videoUrl = "";
     this.backgroundColor = "";
     this.fontColor = "";
     this.cssProperties = "";
@@ -584,6 +622,9 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
     this.imagePreview = null;
     this.imageBase64 = null;
     this.urlContent = "";
+    this.videoFile = null;
+    this.videoPreview = null;
+    this.videoUrl = "";
     this.backgroundColor = "";
     this.fontColor = "";
     this.cssProperties = "";
@@ -598,9 +639,15 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
       this.imagePreview = null;
       this.imageBase64 = null;
       this.urlContent = "";
+      this.videoFile = null;
+      this.videoPreview = null;
+      this.videoUrl = "";
     } else if (this.itemType === "image") {
       this.textPages = [{ page: 1, content: "" }];
       this.urlContent = "";
+      this.videoFile = null;
+      this.videoPreview = null;
+      this.videoUrl = "";
       this.imageFile = null;
       this.imagePreview = null;
       this.imageBase64 = null;
@@ -609,7 +656,19 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
       this.imageFile = null;
       this.imagePreview = null;
       this.imageBase64 = null;
+      this.videoFile = null;
+      this.videoPreview = null;
+      this.videoUrl = "";
       this.urlContent = "";
+    } else if (this.itemType === "video") {
+      this.textPages = [{ page: 1, content: "" }];
+      this.imageFile = null;
+      this.imagePreview = null;
+      this.imageBase64 = null;
+      this.urlContent = "";
+      this.videoFile = null;
+      this.videoPreview = null;
+      this.videoUrl = "";
     }
   }
 
@@ -1222,6 +1281,57 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
     }
   }
 
+  onVideoFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files[0]) {
+      this.videoFile = input.files[0];
+      this.uploadVideo();
+    }
+  }
+
+  uploadVideo(): void {
+    if (!this.videoFile) {
+      return;
+    }
+
+    this.videoUploading = true;
+    const formData = new FormData();
+    formData.append('video', this.videoFile);
+
+    // Get authentication headers
+    const username = localStorage.getItem('admin_username');
+    let headers = new HttpHeaders();
+    if (username) {
+      headers = headers.set('Authorization', `Bearer ${username}`);
+    }
+    // Don't set Content-Type for FormData - let browser set it with boundary
+
+    this.http.post<{ success: boolean; filename: string; url: string }>(`${environment.apiUrl}/library/upload-video`, formData, {
+      headers: headers
+    }).subscribe({
+        next: (response) => {
+          if (response.success) {
+            this.videoUrl = response.url;
+            // Convert relative URL to full URL for preview
+            if (response.url && response.url.startsWith('/')) {
+              this.videoPreview = `${environment.apiUrl}${response.url}`;
+            } else {
+              this.videoPreview = response.url;
+            }
+            this.videoUploading = false;
+        } else {
+          this.showErrorPopup('Failed to upload video');
+          this.videoUploading = false;
+        }
+      },
+      error: (error) => {
+        console.error('Video upload error:', error);
+        this.showErrorPopup(error.error?.message || 'Failed to upload video');
+        this.videoUploading = false;
+      }
+    });
+  }
+
   showErrorPopup(message: string): void {
     this.errorMessage = message;
     this.showError = true;
@@ -1275,6 +1385,18 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
         return;
       }
       content = this.urlContent.trim();
+    } else if (this.itemType === "video") {
+      if (!this.videoUrl && !this.videoFile) {
+        this.showErrorPopup("Please upload a video file");
+        return;
+      }
+      // If videoUrl is set (from upload), use it; otherwise upload first
+      if (!this.videoUrl && this.videoFile) {
+        // Video needs to be uploaded first - this should be handled by onVideoFileSelected
+        this.showErrorPopup("Please wait for video upload to complete");
+        return;
+      }
+      content = this.videoUrl || "";
     } else {
       content = "";
     }

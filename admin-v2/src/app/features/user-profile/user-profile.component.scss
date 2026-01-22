@@ -2,6 +2,10 @@
   padding: 40px;
   max-width: 800px;
   margin: 0 auto;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .profile-header {
@@ -20,6 +24,10 @@
   border-radius: 8px;
   padding: 30px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  min-height: 0;
 }
 
 .info-section {
@@ -117,6 +125,34 @@
       outline: none;
       border-color: #007bff;
       box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+    }
+  }
+  
+  /* PrimeNG component mobile styles */
+  ::ng-deep {
+    .p-inputtext,
+    .p-password input,
+    .p-select {
+      width: 100% !important;
+      font-size: 16px !important; /* Prevent zoom on iOS */
+    }
+    
+    .p-password {
+      width: 100%;
+      
+      input {
+        min-height: 44px; /* Better touch target */
+        padding: clamp(10px, 2.5vw, 12px) !important;
+      }
+    }
+    
+    .p-select {
+      min-height: 44px; /* Better touch target */
+      
+      .p-select-label {
+        padding: clamp(10px, 2.5vw, 12px) !important;
+        font-size: 16px !important; /* Prevent zoom on iOS */
+      }
     }
   }
   
@@ -241,40 +277,167 @@
   }
 }
 
+/* Mobile Responsive Styles */
 @media (max-width: 768px) {
   .user-profile-container {
-    padding: 20px;
-    min-height: 100%;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+    padding: clamp(12px, 3vw, 20px);
+    height: 100%;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .profile-header {
+    margin-bottom: clamp(16px, 4vw, 24px);
+    
+    h1 {
+      font-size: clamp(24px, 6vw, 32px);
+    }
   }
   
   .profile-content {
-    padding: 20px;
+    padding: clamp(16px, 4vw, 24px);
+    border-radius: clamp(6px, 1.5vw, 8px);
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    min-height: 0;
+  }
+  
+  .info-section {
+    .info-item {
+      flex-direction: column;
+      padding: clamp(12px, 3vw, 16px) 0;
+      gap: clamp(4px, 1vw, 8px);
+      
+      label {
+        min-width: auto;
+        margin-bottom: clamp(4px, 1vw, 6px);
+        font-size: clamp(14px, 3.5vw, 16px);
+      }
+      
+      span {
+        font-size: clamp(14px, 3.5vw, 16px);
+        word-break: break-word;
+      }
+    }
+    
+    .action-buttons {
+      margin-top: clamp(20px, 5vw, 30px);
+      flex-direction: column;
+      gap: clamp(10px, 2.5vw, 15px);
+      
+      button {
+        width: 100%;
+        padding: clamp(12px, 3vw, 14px) clamp(16px, 4vw, 24px);
+        font-size: clamp(14px, 3.5vw, 16px);
+        min-height: 44px; /* Better touch target */
+        
+        i {
+          margin-right: clamp(6px, 1.5vw, 8px);
+          font-size: clamp(14px, 3.5vw, 16px);
+        }
+      }
+    }
+  }
+  
+  .edit-section,
+  .password-section {
+    h2 {
+      font-size: clamp(20px, 5vw, 24px);
+      margin-bottom: clamp(16px, 4vw, 20px);
+    }
+    
+    .form-group {
+      margin-bottom: clamp(16px, 4vw, 20px);
+      
+      label {
+        font-size: clamp(14px, 3.5vw, 16px);
+        margin-bottom: clamp(6px, 1.5vw, 8px);
+      }
+      
+      input {
+        padding: clamp(10px, 2.5vw, 12px);
+        font-size: clamp(16px, 4vw, 18px); /* Prevent zoom on iOS */
+        min-height: 44px; /* Better touch target */
+        border-radius: clamp(4px, 1vw, 6px);
+      }
+      
+      .help-text {
+        font-size: clamp(11px, 2.75vw, 12px);
+        margin-top: clamp(4px, 1vw, 5px);
+      }
+    }
+    
+    .form-actions {
+      margin-top: clamp(24px, 6vw, 30px);
+      flex-direction: column;
+      gap: clamp(10px, 2.5vw, 15px);
+      
+      button {
+        width: 100%;
+        padding: clamp(12px, 3vw, 14px) clamp(16px, 4vw, 24px);
+        font-size: clamp(14px, 3.5vw, 16px);
+        min-height: 44px; /* Better touch target */
+        
+        i {
+          font-size: clamp(14px, 3.5vw, 16px);
+        }
+        
+        span {
+          font-size: clamp(14px, 3.5vw, 16px);
+        }
+      }
+    }
+  }
+  
+  .logout-section {
+    margin-top: clamp(24px, 6vw, 40px);
+    padding-top: clamp(20px, 5vw, 30px);
+    
+    .btn-logout {
+      padding: clamp(14px, 3.5vw, 16px);
+      font-size: clamp(16px, 4vw, 18px);
+      min-height: 48px; /* Better touch target */
+      
+      i {
+        margin-right: clamp(8px, 2vw, 10px);
+        font-size: clamp(16px, 4vw, 18px);
+      }
+    }
+  }
+}
+
+/* Small mobile devices (phones in portrait) */
+@media (max-width: 480px) {
+  .user-profile-container {
+    padding: clamp(10px, 2.5vw, 16px);
+  }
+  
+  .profile-content {
+    padding: clamp(14px, 3.5vw, 20px);
   }
   
   .info-section .info-item {
-    flex-direction: column;
-    
-    label {
-      min-width: auto;
-      margin-bottom: 5px;
-    }
+    padding: clamp(10px, 2.5vw, 14px) 0;
   }
   
-  .action-buttons {
-    flex-direction: column;
-    
-    button {
-      width: 100%;
-    }
+  .action-buttons button,
+  .form-actions button {
+    padding: clamp(14px, 3.5vw, 16px);
   }
   
-  .form-actions {
-    flex-direction: column;
+  /* PrimeNG components on small screens */
+  ::ng-deep {
+    .p-inputtext,
+    .p-password input {
+      font-size: 16px !important; /* Prevent zoom on iOS */
+      padding: clamp(12px, 3vw, 14px) !important;
+    }
     
-    button {
-      width: 100%;
+    .p-select .p-select-label {
+      font-size: 16px !important; /* Prevent zoom on iOS */
+      padding: clamp(12px, 3vw, 14px) !important;
     }
   }
 }

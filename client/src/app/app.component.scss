@@ -4,6 +4,7 @@
   position: relative;
   overflow: hidden;
   background-color: #000;
+  cursor: none; // Hide cursor everywhere except on location selector
 }
 
 .location-overlay {
@@ -17,6 +18,7 @@
   align-items: center;
   justify-content: center;
   z-index: 2000;
+  cursor: default; // Show cursor on location selection overlay
 }
 
 .location-dialog {
@@ -132,6 +134,18 @@
   font-weight: 500;
   display: block; // Ensure block display for proper measurement
   overflow: hidden; // Prevent text from overflowing container
+  // Default opacity is 0 - prevents flash when content changes
+  // Class binding is more immediate than style binding on slow devices
+  opacity: 0;
+  // Ensure text is completely hidden until ready - prevents any flash
+  // Will be removed when font size is calculated and applied
+  will-change: opacity, font-size; // Optimize for transitions
+  transition: opacity 200ms ease-in-out; // Smooth fade-in transition
+  
+  // When ready, opacity transitions to 1
+  &.text-ready {
+    opacity: 1;
+  }
   
   // Style HTML formatting tags
   ::ng-deep b,
@@ -207,6 +221,21 @@
 }
 
 .display-image {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  display: block;
+}
+
+/* Video Container */
+.video-container {
+  background-color: #000;
+  padding: 10px;
+}
+
+.display-video {
   max-width: 100%;
   max-height: 100%;
   width: auto;

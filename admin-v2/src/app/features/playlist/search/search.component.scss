@@ -15,13 +15,83 @@
 }
 
 .filters-section {
-  padding: 1.25rem;
+  padding: 0.75rem 1.25rem;
   background-color: #fff;
   border-bottom: 1px solid #ddd;
   flex-shrink: 0;
   position: relative;
   z-index: 100; // Higher z-index to ensure it stays above search results
   overflow: visible;
+}
+
+.advanced-filters-toggle {
+  width: 100%;
+  padding: 0.625rem 0.75rem;
+  background-color: #f8f9fa;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #333;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  transition: all 0.2s;
+  min-height: 44px;
+  
+  &:hover {
+    background-color: #e9ecef;
+    border-color: #667eea;
+  }
+  
+  &:active {
+    transform: scale(0.98);
+  }
+  
+  &.active {
+    background-color: #667eea;
+    color: white;
+    border-color: #667eea;
+    
+    &:hover {
+      background-color: #5568d3;
+    }
+  }
+  
+  i {
+    font-size: 0.75rem;
+    transition: transform 0.2s;
+  }
+  
+  .active-filters-badge {
+    background-color: #dc3545;
+    color: white;
+    border-radius: 12px;
+    padding: 0.125rem 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    min-width: 20px;
+    text-align: center;
+  }
+  
+  &.active .active-filters-badge {
+    background-color: rgba(255, 255, 255, 0.3);
+  }
+}
+
+.advanced-filters-content {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease-out, padding 0.3s ease-out;
+  padding: 0;
+  
+  &.expanded {
+    max-height: 500px;
+    padding-top: 0.75rem;
+    transition: max-height 0.3s ease-in, padding 0.3s ease-in;
+  }
 }
 
 .filter-group {
@@ -138,12 +208,10 @@
 .search-input-wrapper {
   position: relative;
   display: flex;
-  flex-direction: column;
+  align-items: center;
   flex-shrink: 0;
   width: 100%;
-  flex: 1;
-  min-height: 350px; // Minimum height to ensure filters section stays visible when results shrink
-  overflow: hidden;
+  z-index: 10;
 }
 
 .clear-search-btn {
@@ -181,31 +249,30 @@
   }
 }
 
-.search-results {
+.search-results-overlay-wrapper {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 1000;
   margin-top: 0.5rem;
-  min-height: 300px; // Fixed minimum height to prevent shrinking when results change
-  max-height: calc(100vh - 400px); // Prevent growing too large, leave space for filters and other UI
+}
+
+.search-results {
+  display: flex;
+  flex-direction: column;
+  min-height: 200px;
+  max-height: calc(var(--available-height, 100vh) - 400px);
   overflow-y: auto;
   overflow-x: hidden;
   background-color: #fff;
   border: 1px solid #ddd;
   border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  display: flex !important;
-  flex-direction: column;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   gap: 0.5rem;
   padding: 0.5rem;
   width: 100%;
-  z-index: 1000;
-  visibility: visible !important;
-  opacity: 1 !important;
-  margin-left: 0;
-  margin-right: 0;
-  flex: 1;
-  position: relative;
-  top: unset;
-  left: unset;
-  right: unset;
+  -webkit-overflow-scrolling: touch; // Smooth scrolling on iOS
 }
 
 .no-results {

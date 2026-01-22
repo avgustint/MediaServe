@@ -1,56 +1,70 @@
 <div class="search-container">
   <!-- Filters Section -->
   <div class="filters-section">
-    <!-- Collection Filter -->
-    <div class="filter-group">
-      <label for="collection-filter">{{ 'collection' | translate }}:</label>
-      <p-select
-        id="collection-filter"
-        [(ngModel)]="selectedCollectionGuid"
-        [options]="collectionOptions"
-        optionLabel="label"
-        optionValue="value"
-        [placeholder]="'allCollections' | translate"
-        [showClear]="true"
-        (onChange)="onCollectionChange()"
-        styleClass="w-full"
-        [appendTo]="'body'"
-      ></p-select>
-    </div>
-
-    <!-- Tags Filter (Multiselect) -->
-    <div class="filter-group">
-      <label>{{ 'tags' | translate }}:</label>
-      <p-multiSelect
-        [(ngModel)]="selectedTags"
-        [options]="allTags"
-        optionLabel="name"
-        [placeholder]="'allTags' | translate"
-        [filter]="true"
-        [showClear]="true"
-        styleClass="w-full"
-        [displaySelectedLabel]="true"
-        [selectedItemsLabel]="'{0} ' + ('tagsSelected' | translate)"
-        [appendTo]="'body'"
-        (onChange)="onTagsChange()"
-      >
-        <ng-template let-tag pTemplate="item">
-          <div>
-            <div>{{ tag.name }}</div>
-            <small *ngIf="tag.description" class="text-muted">{{ tag.description }}</small>
-          </div>
-        </ng-template>
-      </p-multiSelect>
-    </div>
-
-    <!-- Clear All Filters Button -->
+    <!-- Advanced Filters Toggle -->
     <button
-      *ngIf="hasActiveFilters()"
-      class="clear-all-filters-btn"
-      (click)="clearFilters()"
+      class="advanced-filters-toggle"
+      (click)="toggleAdvancedFilters()"
+      [class.active]="showAdvancedFilters"
     >
-      <i class="fas fa-times"></i> {{ 'clearAllFilters' | translate }}
+      <i class="fas" [ngClass]="showAdvancedFilters ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+      {{ 'advancedFilters' | translate }}
+      <span *ngIf="hasActiveFilters()" class="active-filters-badge">{{ getActiveFiltersCount() }}</span>
     </button>
+
+    <!-- Advanced Filters (Collapsible) -->
+    <div class="advanced-filters-content" [class.expanded]="showAdvancedFilters">
+      <!-- Collection Filter -->
+      <div class="filter-group">
+        <label for="collection-filter">{{ 'collection' | translate }}:</label>
+        <p-select
+          id="collection-filter"
+          [(ngModel)]="selectedCollectionGuid"
+          [options]="collectionOptions"
+          optionLabel="label"
+          optionValue="value"
+          [placeholder]="'allCollections' | translate"
+          [showClear]="true"
+          (onChange)="onCollectionChange()"
+          styleClass="w-full"
+          [appendTo]="'body'"
+        ></p-select>
+      </div>
+
+      <!-- Tags Filter (Multiselect) -->
+      <div class="filter-group">
+        <label>{{ 'tags' | translate }}:</label>
+        <p-multiSelect
+          [(ngModel)]="selectedTags"
+          [options]="allTags"
+          optionLabel="name"
+          [placeholder]="'allTags' | translate"
+          [filter]="true"
+          [showClear]="true"
+          styleClass="w-full"
+          [displaySelectedLabel]="true"
+          [selectedItemsLabel]="'{0} ' + ('tagsSelected' | translate)"
+          [appendTo]="'body'"
+          (onChange)="onTagsChange()"
+        >
+          <ng-template let-tag pTemplate="item">
+            <div>
+              <div>{{ tag.name }}</div>
+              <small *ngIf="tag.description" class="text-muted">{{ tag.description }}</small>
+            </div>
+          </ng-template>
+        </p-multiSelect>
+      </div>
+
+      <!-- Clear All Filters Button -->
+      <button
+        *ngIf="hasActiveFilters()"
+        class="clear-all-filters-btn"
+        (click)="clearFilters()"
+      >
+        <i class="fas fa-times"></i> {{ 'clearAllFilters' | translate }}
+      </button>
+    </div>
   </div>
 
   <!-- Search Input -->
@@ -62,13 +76,15 @@
         class="search-input"
         [(ngModel)]="searchTerm"
         (input)="onSearchChange()"
+        (focus)="onSearchInputFocus()"
         [placeholder]="'searchLibraryItems' | translate"
         styleClass="w-full"
       />
       <button *ngIf="searchTerm" class="clear-search-btn" (click)="clearSearch()" [title]="'clearSearch' | translate">
         <i class="fas fa-times"></i>
       </button>
-      <div class="search-results" *ngIf="showSearchResults" #searchResultsContainer>
+      <div class="search-results-overlay-wrapper" *ngIf="showSearchResults" #searchResultsContainer>
+      <div class="search-results">
         <div
           *ngIf="searchResults.length === 0 && (searchTerm.trim().length > 0 || hasActiveFilters())"
           class="no-results"
@@ -94,6 +110,7 @@
             <div class="item-guid-badge">{{ result.guid }}</div>
           </div>
         </div>
+      </div>
       </div>
     </div>
   </div>

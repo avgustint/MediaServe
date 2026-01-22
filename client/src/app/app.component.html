@@ -41,7 +41,11 @@
        [ngStyle]="textContainerStyle"
        [class.chords-hidden]="!showChords"
        #textContainer>
-    <div class="text-content" [ngStyle]="textContentStyle" [innerHTML]="text | formatText" [style.--chord-color]="chordFontColor"></div>
+    <div class="text-content" 
+         [ngStyle]="textContentStyle" 
+         [class.text-ready]="isTextReady"
+         [innerHTML]="text | formatText" 
+         [style.--chord-color]="chordFontColor"></div>
   </div>
 
   <!-- Image Content -->
@@ -61,6 +65,20 @@
             frameborder="0"
             allowfullscreen
             allow="autoplay; encrypted-media; picture-in-picture"></iframe>
+  </div>
+
+  <!-- Video Content -->
+  <div *ngIf="currentContent?.type === 'video'" 
+       class="content-container video-container" 
+       [ngStyle]="videoContainerStyle"
+       #videoContainer>
+    <video #videoElement
+            [src]="videoSrc" 
+            class="display-video" 
+            controls
+            autoplay
+            (keydown)="onVideoKeyDown($event)"
+            [ngStyle]="imageStyle"></video>
   </div>
 
   <!-- Loading spinner when not connected -->

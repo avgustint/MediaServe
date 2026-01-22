@@ -1,4 +1,4 @@
-<div class="playlist-item" (click)="onItemClick($event)">
+<div class="playlist-item" [class.current-song]="isCurrentItem()" (click)="onItemClick($event)">
   <div class="playlist-item-main">
     <div class="playlist-item-number">{{ index + 1 }}</div>
     <div class="playlist-item-content">
@@ -13,7 +13,8 @@
        *ngIf="item.type === 'text' && item.pages && item.pages.length > 1">
     <button *ngFor="let pageNum of item.pages"
             (click)="onPageClick($event, pageNum)"
-            class="page-button">
+            class="page-button"
+            [class.active]="isCurrentPage(pageNum)">
       {{ pageNum }}
     </button>
   </div>

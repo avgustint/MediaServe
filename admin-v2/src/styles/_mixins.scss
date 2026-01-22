@@ -17,6 +17,18 @@
   }
 }
 
+@mixin tablet-landscape {
+  @media (min-width: 769px) and (max-width: 1024px) and (orientation: landscape) {
+    @content;
+  }
+}
+
+@mixin tablet-portrait {
+  @media (min-width: 769px) and (max-width: 1024px) and (orientation: portrait) {
+    @content;
+  }
+}
+
 @mixin desktop {
   @media (min-width: 1025px) {
     @content;

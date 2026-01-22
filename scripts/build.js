@@ -153,10 +153,17 @@ console.log('  ✓ Generated config.js');
 const serverJsPath = path.join(serverDistDir, 'server.js');
 if (fs.existsSync(serverJsPath)) {
   let serverJs = fs.readFileSync(serverJsPath, 'utf8');
-  // Update admin app path to point to dist/admin
+  // Update admin app path to point to dist/admin/browser
+  // Note: Angular build outputs to dist/media-player-admin-v2 which gets copied to dist/admin
+  // So the final path is dist/admin/browser (not dist/admin/media-player-admin-v2/browser)
   serverJs = serverJs.replace(
     /path\.join\(__dirname, '\.\.\/admin-v2\/dist\/media-player-admin-v2\/browser'\)/g,
-    "path.join(__dirname, '../admin/media-player-admin-v2/browser')"
+    "path.join(__dirname, '../admin/browser')"
+  );
+  // Also handle case where it was already updated to wrong path
+  serverJs = serverJs.replace(
+    /path\.join\(__dirname, '\.\.\/admin\/media-player-admin-v2\/browser'\)/g,
+    "path.join(__dirname, '../admin/browser')"
   );
   fs.writeFileSync(serverJsPath, serverJs);
   console.log('  ✓ Updated server.js paths');
@@ -167,14 +174,27 @@ console.log('\n📦 Building admin app...');
 const adminDir = path.join(ROOT_DIR, 'admin-v2');
 
 // Generate admin environment files with build-time config
+// Use config values if provided, otherwise use defaults
+// Defaults: dev environment has auto-login enabled, prod has it disabled
+const autoLoginUsername = config.admin.autoLoginUsername !== undefined ? config.admin.autoLoginUsername : '';
+const autoLoginPassword = config.admin.autoLoginPassword !== undefined ? config.admin.autoLoginPassword : '';
+const autoLoginLocationId = config.admin.autoLoginLocationId !== undefined ? config.admin.autoLoginLocationId : 0;
+const autoLoginTimeout = config.admin.autoLoginTimeout !== undefined ? config.admin.autoLoginTimeout : 0;
+
+// For dev environment, use different defaults if not specified
+const devAutoLoginUsername = config.admin.autoLoginUsername !== undefined ? config.admin.autoLoginUsername : 'user';
+const devAutoLoginPassword = config.admin.autoLoginPassword !== undefined ? config.admin.autoLoginPassword : 'user';
+const devAutoLoginLocationId = config.admin.autoLoginLocationId !== undefined ? config.admin.autoLoginLocationId : 1;
+const devAutoLoginTimeout = config.admin.autoLoginTimeout !== undefined ? config.admin.autoLoginTimeout : 10;
+
 const adminEnvDev = `export const environment = {
   production: false,
   apiUrl: '${config.admin.apiUrl}',
   wsUrl: '${config.admin.wsUrl}',
-  autoLoginUsername: 'user',
-  autoLoginPassword: 'user',
-  autoLoginLocationId: 1,
-  autoLoginTimeout: 10
+  autoLoginUsername: '${devAutoLoginUsername}',
+  autoLoginPassword: '${devAutoLoginPassword}',
+  autoLoginLocationId: ${devAutoLoginLocationId},
+  autoLoginTimeout: ${devAutoLoginTimeout}
 };
 `;
 
@@ -182,10 +202,10 @@ const adminEnvProd = `export const environment = {
   production: true,
   apiUrl: '${config.admin.apiUrl}',
   wsUrl: '${config.admin.wsUrl}',
-  autoLoginUsername: '',
-  autoLoginPassword: '',
-  autoLoginLocationId: 0,
-  autoLoginTimeout: 0
+  autoLoginUsername: '${autoLoginUsername}',
+  autoLoginPassword: '${autoLoginPassword}',
+  autoLoginLocationId: ${autoLoginLocationId},
+  autoLoginTimeout: ${autoLoginTimeout}
 };
 `;
 
@@ -235,7 +255,9 @@ console.log('\n📦 Building client app...');
 const clientDir = path.join(ROOT_DIR, 'client');
 
 // Generate client api.config.ts with build-time config
+const clientAutoLoginLocationId = config.client.autoLoginLocationId !== undefined ? config.client.autoLoginLocationId : 0;
 const clientApiConfig = `export const SERVER_BASE_URL = "${config.client.apiUrl}";
+export const AUTO_LOGIN_LOCATION_ID = ${clientAutoLoginLocationId};
 `;
 
 const clientApiConfigPath = path.join(clientDir, 'src/app/api.config.ts');
@@ -277,7 +299,7 @@ const distPackageJson = {
   description: 'Media Server distribution package',
   main: 'server/server.js',
   scripts: {
-    start: 'cd server && npm install --production && node server.js'
+    start: 'cd server && npm install --omit=dev && node server.js'
   },
   dependencies: {}
 };

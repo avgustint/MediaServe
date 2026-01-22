@@ -18,8 +18,8 @@
 # static domain_name_servers=8.8.8.8 8.8.4.4
 
 # For hostname configuration:
-# 1. Edit /etc/hostname - change to "projektor"
-# 2. Edit /etc/hosts - add line: "127.0.1.1 projektor"
+# 1. Edit /etc/hostname - change to "mediaplayer"
+# 2. Edit /etc/hosts - add line: "127.0.1.1 mediaplayer"
 
 # WiFi Access Point uses separate configuration:
 # - wlan0 interface configured as AP via hostapd

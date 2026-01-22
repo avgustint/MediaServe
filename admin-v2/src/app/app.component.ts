@@ -5,6 +5,7 @@ import { AuthService } from './core/services/auth.service';
 import { UserService, User } from './core/services/user.service';
 import { WebSocketService } from './core/services/websocket.service';
 import { TranslationService, SupportedLocale } from './core/services/translation.service';
+import { ViewportService } from './core/services/viewport.service';
 import { LoadingComponent } from './shared/feedback/loading/loading.component';
 import { NavbarComponent } from './shared/layout/navbar/navbar.component';
 import { ApiService } from './core/services/api.service';
@@ -29,7 +30,9 @@ import { Subscription } from 'rxjs';
     
     .app-wrapper {
       height: 100vh;
+      height: var(--viewport-height, 100vh);
       width: 100vw;
+      width: var(--viewport-width, 100vw);
       display: flex;
       flex-direction: column;
       overflow: hidden;
@@ -40,6 +43,7 @@ import { Subscription } from 'rxjs';
       flex: 1;
       overflow: hidden;
       min-height: 0;
+      max-height: var(--available-height, 100vh);
       -webkit-overflow-scrolling: touch;
       position: relative;
       display: flex;
@@ -60,9 +64,12 @@ export class AppComponent implements OnInit, OnDestroy {
         private userService: UserService,
         private websocketService: WebSocketService,
         private translationService: TranslationService,
+        private viewportService: ViewportService,
         private apiService: ApiService,
         private keyboardCommandService: KeyboardCommandService
-      ) {}
+      ) {
+        // ViewportService is initialized in constructor, this ensures it starts tracking immediately
+      }
 
   ngOnInit(): void {
     // Subscribe to user changes
@@ -121,23 +128,56 @@ export class AppComponent implements OnInit, OnDestroy {
     const storedUser = this.userService.getUser();
     const preservedLocationId = storedUser?.locationId;
     const preservedLocation = storedUser?.location;
+    const storedUsername = this.authService.getStoredUsername();
     
-    this.authService.getCurrentUser().subscribe(user => {
-      if (user) {
-        if (!user.locationId && preservedLocationId) {
-          user.locationId = preservedLocationId;
+    // Retry logic: server might not be ready immediately after restart
+    let retryCount = 0;
+    const maxRetries = 10;
+    const retryDelay = 1000; // 1 second
+    
+    const attemptLoadUser = () => {
+      this.authService.getCurrentUser().subscribe({
+        next: (user) => {
+          if (user) {
+            if (!user.locationId && preservedLocationId) {
+              user.locationId = preservedLocationId;
+            }
+            if (!user.location && preservedLocation) {
+              user.location = preservedLocation;
+            }
+            
+            this.userService.setUser(user);
+            // Don't call connect() directly here - the user$ subscription will handle it
+            // This prevents duplicate connections when setUser() triggers the subscription
+          } else {
+            // User not found or API failed - retry if we haven't exceeded max retries
+            if (retryCount < maxRetries && storedUsername) {
+              retryCount++;
+              console.log(`Failed to load user data, retrying... (${retryCount}/${maxRetries})`);
+              setTimeout(attemptLoadUser, retryDelay);
+            } else {
+              // Only logout if we've exhausted retries or no username stored
+              console.warn('Failed to load user data after retries, logging out');
+              this.logout();
+            }
+          }
+        },
+        error: (error) => {
+          // Network/server error - retry if we haven't exceeded max retries
+          if (retryCount < maxRetries && storedUsername) {
+            retryCount++;
+            console.log(`Error loading user data (${error.message}), retrying... (${retryCount}/${maxRetries})`);
+            setTimeout(attemptLoadUser, retryDelay);
+          } else {
+            // Only logout if we've exhausted retries
+            console.error('Failed to load user data after retries:', error);
+            this.logout();
+          }
         }
-        if (!user.location && preservedLocation) {
-          user.location = preservedLocation;
-        }
-        
-        this.userService.setUser(user);
-        // Don't call connect() directly here - the user$ subscription will handle it
-        // This prevents duplicate connections when setUser() triggers the subscription
-      } else {
-        this.logout();
-      }
-    });
+      });
+    };
+    
+    attemptLoadUser();
   }
 
   logout(): void {

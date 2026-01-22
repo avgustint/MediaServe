@@ -20,7 +20,7 @@ if (useDist) {
   
   if (!require('fs').existsSync(distNodeModules) && require('fs').existsSync(distPackageJson)) {
     console.log('📥 Installing production dependencies...');
-    execSync('npm install --production', { cwd: distDir, stdio: 'inherit' });
+    execSync('npm install --omit=dev', { cwd: distDir, stdio: 'inherit' });
   }
   
   // Start server

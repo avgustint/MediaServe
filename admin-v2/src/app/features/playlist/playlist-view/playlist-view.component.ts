@@ -11,6 +11,7 @@ import { TranslatePipe } from "../../../shared/pipes/translation.pipe";
 import { FormatTextPipe } from "../../../shared/pipes/format-text.pipe";
 import { UserService } from "../../../core/services/user.service";
 import { KeyboardCommandService } from "../../../core/services/keyboard-command.service";
+import { environment } from "../../../../environments/environment";
 import { Subscription } from "rxjs";
 
 @Component({
@@ -24,6 +25,7 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild("textContainer", { static: false }) textContainer!: ElementRef<HTMLDivElement>;
   @ViewChild("imageContainer", { static: false }) imageContainer!: ElementRef<HTMLDivElement>;
   @ViewChild("urlIframe", { static: false }) urlIframe!: ElementRef<HTMLIFrameElement>;
+  @ViewChild("videoElement", { static: false }) videoElement!: ElementRef<HTMLVideoElement>;
   @ViewChild(ManualComponent, { static: false }) manualComponent!: ManualComponent;
 
   currentContent: WebSocketMessage | null = null;
@@ -64,6 +66,9 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
 
   // Fullscreen state
   isFullscreen: boolean = false;
+
+  // Dev mode flag - show chord controls only in development
+  readonly isDevMode: boolean = !environment.production;
 
   // Chord display state: 'local' (only on admin), 'everywhere' (all clients), 'hidden' (no chords)
   // Default: 'hidden' (chords hidden by default)
@@ -158,7 +163,7 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
       }
 
       // Handle content messages
-      if (message.type === 'text' || message.type === 'image' || message.type === 'url') {
+      if (message.type === 'text' || message.type === 'image' || message.type === 'url' || message.type === 'video') {
         // Determine the GUID for this message
         const messageGuid = message.guid !== undefined ? message.guid : this.currentItemGuid;
         
@@ -173,7 +178,7 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
         
         // Always use service value for chord display state (preserve user's selection)
         // Only update from message if we don't have a stored preference yet (initial load)
-        if (message.type === 'text' || message.type === 'image' || message.type === 'url') {
+        if (message.type === 'text' || message.type === 'image' || message.type === 'url' || message.type === 'video') {
           // Always restore from service to preserve user's chord display preference
           this.chordDisplayState = this.chordSettingsService.getChordDisplayState();
         }
@@ -264,7 +269,7 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
         // If received message's chordsVisible doesn't match what clients should see, rebroadcast
         // This ensures clients always get the correct visibility state
         // BUT: Only rebroadcast if we explicitly requested different visibility (not for initial loads)
-        if ((message.type === 'text' || message.type === 'image' || message.type === 'url')) {
+        if ((message.type === 'text' || message.type === 'image' || message.type === 'url' || message.type === 'video')) {
           const expectedChordsVisible = this.chordsVisibleForClients;
           // Only rebroadcast if:
           // 1. chordsVisible is explicitly set in the message
@@ -497,6 +502,21 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
     return this.sanitizer.bypassSecurityTrustResourceUrl("about:blank");
   }
 
+  get videoSrc(): SafeResourceUrl {
+    if (this.currentContent?.type === "video" && this.currentContent.content) {
+      const videoUrl = this.currentContent.content as string;
+      // If it's already a full URL, use it; otherwise construct from environment.apiUrl
+      if (videoUrl.startsWith('http://') || videoUrl.startsWith('https://')) {
+        return this.sanitizer.bypassSecurityTrustResourceUrl(videoUrl);
+      } else {
+        // Relative path - construct full URL
+        const fullUrl = `${environment.apiUrl}${videoUrl.startsWith('/') ? videoUrl : '/' + videoUrl}`;
+        return this.sanitizer.bypassSecurityTrustResourceUrl(fullUrl);
+      }
+    }
+    return this.sanitizer.bypassSecurityTrustResourceUrl("about:blank");
+  }
+
   private addParamsToUrl(url: string): string {
     try {
       const urlObj = new URL(url);
@@ -591,6 +611,13 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
     }
     
     return style;
+  }
+
+  get videoContainerStyle(): { [key: string]: string } {
+    // Container style only has background color - layout properties are in CSS
+    return {
+      'background-color': this.backgroundColor
+    };
   }
 
   getPlaylistItemType(item: LibraryItem): string {
@@ -796,6 +823,11 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
   onManualItemSelected(item: LibraryItem, page: number = 1): void {
     this.handleLibraryItemSelection(item.guid, page, false, item);
     this.currentItemIndex = -1; // Not in playlist
+    
+    // Auto-close sidebar on mobile when item is found
+    if (window.innerWidth <= 768 && this.sidebarOpen) {
+      this.closeSidebar();
+    }
     
     // Fetch full library item details to get pages information
     this.playlistService.getLibraryItemByGuid(item.guid).subscribe({

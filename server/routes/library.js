@@ -1,5 +1,8 @@
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 const dbOps = require('../dbOperations');
 const cache = require('../utils/cache');
 const { invalidateLibraryCache } = require('../dataLoader');
@@ -8,9 +11,75 @@ const { validateGuid, validatePagination, sanitizeString } = require('../middlew
 const { authMiddleware, requirePermission } = require('../middleware/auth');
 const config = require('../config');
 
+// Configure multer for video file uploads
+const videosDir = path.join(__dirname, '..', 'data', 'videos');
+if (!fs.existsSync(videosDir)) {
+  fs.mkdirSync(videosDir, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, videosDir);
+  },
+  filename: (req, file, cb) => {
+    // Generate unique filename to prevent conflicts
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname);
+    const name = path.basename(file.originalname, ext);
+    // Sanitize filename
+    const sanitizedName = name.replace(/[^a-zA-Z0-9-_]/g, '_');
+    cb(null, `${sanitizedName}-${uniqueSuffix}${ext}`);
+  }
+});
+
+// File filter for video files
+const fileFilter = (req, file, cb) => {
+  const allowedExtensions = ['.mp4', '.webm', '.ogv', '.ogg', '.mov', '.avi', '.mkv', '.flv', '.wmv'];
+  const ext = path.extname(file.originalname).toLowerCase();
+  
+  if (allowedExtensions.includes(ext)) {
+    cb(null, true);
+  } else {
+    cb(new Error(`Invalid file type. Allowed types: ${allowedExtensions.join(', ')}`), false);
+  }
+};
+
+const upload = multer({
+  storage: storage,
+  fileFilter: fileFilter,
+  limits: {
+    fileSize: 500 * 1024 * 1024 // 500MB limit
+  }
+});
+
 // Apply pagination middleware to list endpoints
 router.use('/search', validatePagination);
 router.use('/recent', validatePagination);
+
+/**
+ * POST /library/upload-video
+ * Upload video file
+ */
+router.post('/upload-video', authMiddleware, requirePermission('ManageLibrary'), upload.single('video'), asyncHandler(async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({
+      success: false,
+      message: 'No video file uploaded'
+    });
+  }
+
+  // Generate URL for the uploaded video
+  // The video will be served at /videos/filename
+  const videoUrl = `/videos/${req.file.filename}`;
+  
+  res.json({
+    success: true,
+    filename: req.file.filename,
+    url: videoUrl,
+    size: req.file.size,
+    mimetype: req.file.mimetype
+  });
+}));
 
 /**
  * GET /library

@@ -1,18 +1,12 @@
 <div class="manual-container">
   <div class="guid-display">
     <div class="guid-badge-container">
-      <div class="guid-badge">
+      <div class="guid-badge" [class.placeholder]="!searchedGuid && !libraryItem && !enteredGuid" [class.error]="!libraryItem && searchedGuid">
         {{ getDisplayGuid() }}
       </div>
       <button *ngIf="enteredGuid.length > 0 || searchedGuid" class="clear-guid-btn" (click)="onClearGuid()" [title]="'clearId' | translate">
         <i class="fas fa-times"></i>
       </button>
-    </div>
-    <div class="no-item" *ngIf="!libraryItem && searchedGuid">
-      {{ 'noLibraryItemFoundWithId' | translate }} {{ searchedGuid }}
-    </div>
-    <div class="no-item placeholder" *ngIf="!searchedGuid && !libraryItem">
-      {{ 'pleaseEnterItemNumber' | translate }}
     </div>
   </div>
 

@@ -16,6 +16,8 @@ import { InputTextModule } from "primeng/inputtext";
 })
 export class PlaylistListComponent implements OnInit, OnDestroy, OnChanges {
   @Input() selectedPlaylistGuid?: number;
+  @Input() currentItemGuid?: number;
+  @Input() currentPage?: number;
   @Output() playlistItemClick = new EventEmitter<LibraryItem>();
   @Output() playlistItemPageClick = new EventEmitter<{ item: LibraryItem; page: number }>();
   @Output() clearClick = new EventEmitter<void>();

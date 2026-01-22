@@ -3,7 +3,7 @@ import { Observable, Subject, BehaviorSubject } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
 export interface WebSocketMessage {
-  type: 'text' | 'image' | 'url' | 'SelectPlaylist' | 'SelectLibraryItem' | 'ActionResponse' | 'KeyboardCommand' | 'UrlPlayPause';
+  type: 'text' | 'image' | 'url' | 'video' | 'SelectPlaylist' | 'SelectLibraryItem' | 'ActionResponse' | 'KeyboardCommand' | 'UrlPlayPause';
   content?: string;
   guid?: number;
   page?: number;

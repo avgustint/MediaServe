@@ -5,9 +5,9 @@ Wants=network.target
 
 [Service]
 Type=simple
-User=pi
-Group=pi
-WorkingDirectory=/home/pi/mediaserver/dist/server
+User=avgustin
+Group=avgustin
+WorkingDirectory=/home/avgustin/Desktop/MediaServer/dist/server
 Environment="NODE_ENV=production"
 Environment="PORT=5000"
 ExecStart=/usr/bin/node server.js

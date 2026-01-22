@@ -70,16 +70,134 @@ function createTables() {
   `);
 
   // Library items table
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS library_items (
-      guid INTEGER PRIMARY KEY,
-      name TEXT NOT NULL,
-      type TEXT NOT NULL CHECK(type IN ('text', 'image', 'url')),
-      content TEXT NOT NULL,
-      description TEXT,
-      modified TEXT
-    )
-  `);
+  // Check if table exists and if it needs migration for 'video' type
+  const tableExists = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='library_items'").get();
+  const tempTableExists = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='library_items_new'").get();
+  
+  // Clean up any leftover temp table from previous failed migration
+  if (tempTableExists && !tableExists) {
+    console.log('Found incomplete migration - completing it...');
+    // Disable foreign key constraints temporarily
+    db.pragma('foreign_keys = OFF');
+    try {
+      // Rename temp table to original name
+      db.exec(`ALTER TABLE library_items_new RENAME TO library_items`);
+      // Recreate indexes
+      db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_library_items_type ON library_items(type);
+        CREATE INDEX IF NOT EXISTS idx_library_items_modified ON library_items(modified);
+      `);
+      console.log('Completed incomplete migration: library_items table now supports video type');
+    } finally {
+      db.pragma('foreign_keys = ON');
+    }
+  } else if (tempTableExists && tableExists) {
+    // Both tables exist - drop the temp table
+    console.log('Cleaning up leftover temp table from previous migration...');
+    db.pragma('foreign_keys = OFF');
+    try {
+      db.exec(`DROP TABLE library_items_new`);
+    } finally {
+      db.pragma('foreign_keys = ON');
+    }
+  }
+  
+  if (tableExists) {
+    // Table exists - check if it needs migration
+    // Try to get the table schema to see if it includes 'video' in the CHECK constraint
+    const tableSchema = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='library_items'").get();
+    
+    if (tableSchema && tableSchema.sql && !tableSchema.sql.includes("'video'")) {
+      // Table exists but doesn't have 'video' in CHECK constraint - need to migrate
+      console.log('Migrating library_items table to support video type...');
+      
+      // Disable foreign key constraints temporarily
+      db.pragma('foreign_keys = OFF');
+      
+      try {
+        // Get all existing columns to preserve them
+        const existingColumns = db.prepare("PRAGMA table_info(library_items)").all();
+        const columnNames = existingColumns.map(col => col.name);
+        
+        // Drop temp table if it exists
+        const tempExists = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='library_items_new'").get();
+        if (tempExists) {
+          db.exec(`DROP TABLE library_items_new`);
+        }
+        
+        // Create new table with updated constraint and all existing columns
+        db.exec(`
+          CREATE TABLE library_items_new (
+            guid INTEGER PRIMARY KEY,
+            name TEXT NOT NULL,
+            type TEXT NOT NULL CHECK(type IN ('text', 'image', 'url', 'video')),
+            content TEXT NOT NULL,
+            description TEXT,
+            modified TEXT,
+            background_color TEXT,
+            font_color TEXT,
+            author TEXT,
+            css TEXT
+          )
+        `);
+        
+        // Copy all data from old table to new table (only columns that exist in both)
+        const columnsToCopy = ['guid', 'name', 'type', 'content', 'description', 'modified', 
+                              'background_color', 'font_color', 'author', 'css']
+          .filter(col => columnNames.includes(col));
+        
+        const selectColumns = columnsToCopy.join(', ');
+        const insertColumns = columnsToCopy.join(', ');
+        
+        db.exec(`
+          INSERT INTO library_items_new (${insertColumns})
+          SELECT ${selectColumns} FROM library_items
+        `);
+        
+        // Drop old table
+        db.exec(`DROP TABLE library_items`);
+        
+        // Rename new table to original name
+        db.exec(`ALTER TABLE library_items_new RENAME TO library_items`);
+        
+        // Recreate indexes that might have been dropped
+        db.exec(`
+          CREATE INDEX IF NOT EXISTS idx_library_items_type ON library_items(type);
+          CREATE INDEX IF NOT EXISTS idx_library_items_modified ON library_items(modified);
+        `);
+        
+        console.log('Migration completed: library_items table now supports video type');
+      } finally {
+        // Re-enable foreign key constraints
+        db.pragma('foreign_keys = ON');
+      }
+    } else {
+      // Table exists and already has 'video' in constraint, or constraint check failed
+      // Just ensure the table exists with CREATE IF NOT EXISTS (won't recreate if exists)
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS library_items (
+          guid INTEGER PRIMARY KEY,
+          name TEXT NOT NULL,
+          type TEXT NOT NULL CHECK(type IN ('text', 'image', 'url', 'video')),
+          content TEXT NOT NULL,
+          description TEXT,
+          modified TEXT
+        )
+      `);
+    }
+  } else {
+    // Table doesn't exist - create it with the new constraint
+    db.exec(`
+      CREATE TABLE library_items (
+        guid INTEGER PRIMARY KEY,
+        name TEXT NOT NULL,
+        type TEXT NOT NULL CHECK(type IN ('text', 'image', 'url', 'video')),
+        content TEXT NOT NULL,
+        description TEXT,
+        modified TEXT
+      )
+    `);
+  }
 
   // Playlists table
   db.exec(`

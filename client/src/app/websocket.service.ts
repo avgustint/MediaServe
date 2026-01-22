@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { Observable, Subject } from 'rxjs';
 
 export interface WebSocketMessage {
-  type: 'text' | 'image' | 'url' | 'UrlPlayPause';
+  type: 'text' | 'image' | 'url' | 'video' | 'UrlPlayPause';
   content?: string;
   background_color?: string;
   font_color?: string;

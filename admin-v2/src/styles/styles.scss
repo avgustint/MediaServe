@@ -42,8 +42,18 @@ body {
 
 html, body {
   height: 100%;
+  height: var(--viewport-height, 100%);
   width: 100%;
+  width: var(--viewport-width, 100%);
   overflow: hidden;
+}
+
+// Initialize viewport CSS custom properties
+:root {
+  --viewport-height: 100vh;
+  --viewport-width: 100vw;
+  --available-height: 100vh;
+  --keyboard-height: 0px;
 }
 
 /* Global styles for chord tags - display above text */

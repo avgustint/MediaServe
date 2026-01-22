@@ -1,14 +1,21 @@
 # MediaServer Raspberry Pi Deployment Guide
 
-Complete guide for deploying MediaServer to Raspberry Pi with WiFi access point, custom hostname, auto-start services, and Chromium kiosk mode.
+Complete guide for deploying MediaServer to Raspberry Pi with custom hostname, auto-start services, and Chromium kiosk mode.
 
 ## Architecture Overview
 
 - **Server (port 5000)**: Node.js backend serving API and admin app
 - **Client Server (port 5001)**: Simple HTTP server serving client display app
-- **Chromium Kiosk**: Fullscreen display in foreground with auto-play enabled
-- **WiFi Access Point**: Raspberry Pi broadcasts WiFi network "projektor"
-- **Hostname**: `projektor` (accessible via http://projektor:5000 and http://projektor:5001)
+- **Chromium Windows**: Opens both apps in separate browser windows
+  - Client window (port 5001): Fullscreen, focused display with auto-play enabled
+  - Admin window (port 5000): Normal window, minimized in background, maintains WebSocket connection for keyboard events
+  - Access admin: Use Alt+Tab or window manager to switch to admin window
+- **Hostname**: `mediaplayer` 
+  - **From Raspberry Pi**: http://mediaplayer:5000 or http://localhost:5000
+  - **From other computers**: 
+    - Use IP address: http://<raspberry-pi-ip>:5000 (most reliable)
+    - Or use mDNS: http://mediaplayer.local:5000 (requires Avahi - see Step 4.5)
+    - Note: `mediaplayer` without .local only works on the Raspberry Pi itself
 
 ## Prerequisites
 
@@ -31,9 +38,10 @@ Complete guide for deploying MediaServer to Raspberry Pi with WiFi access point,
 
 2. **First Boot Setup**
    ```bash
-   # SSH into Raspberry Pi (default: pi@raspberrypi.local)
-   ssh pi@raspberrypi.local
-   # Default password: raspberry (change it!)
+   # SSH into Raspberry Pi
+   ssh avgustin@raspberrypi.local
+   # Or use your configured username and hostname
+   # Or use your configured username
    ```
 
 3. **Update System**
@@ -60,14 +68,80 @@ npm --version
 sudo apt install -y chromium-browser
 ```
 
+## Step 3.5: Install additional tools
+
+```bash
+sudo apt install -y wmctrl xdotool numlockx
+```
+
+**Note**: 
+- `wmctrl` and `xdotool` are used by the kiosk startup script to minimize the admin window after it opens
+- `numlockx` is used to enable Num Lock by default on startup (useful for numeric keypad input)
+
+## Step 3.6: Configure Num Lock to Enable by Default (System-Wide)
+
+There are several ways to enable Num Lock by default. Choose the method that works best for your setup:
+
+### Option A: Systemd Service (Recommended for Kiosk Mode)
+
+This creates a systemd service that enables Num Lock when the graphical session starts:
+
+```bash
+# Copy the numlock service file
+sudo cp /home/avgustin/Desktop/MediaServer/deployment/raspberry-pi/numlock.service /etc/systemd/system/
+
+# Update the service file with your username (if not avgustin)
+sudo sed -i "s/User=avgustin/User=$(whoami)/g" /etc/systemd/system/numlock.service
+sudo sed -i "s/Group=avgustin/Group=$(id -gn)/g" /etc/systemd/system/numlock.service
+sudo sed -i "s|/home/avgustin|/home/$(whoami)|g" /etc/systemd/system/numlock.service
+
+# Reload systemd and enable the service
+sudo systemctl daemon-reload
+sudo systemctl enable numlock.service
+```
+
+### Option B: LightDM Configuration (For Login Screen)
+
+If you want Num Lock enabled at the login screen (before auto-login):
+
+```bash
+# Edit LightDM configuration
+sudo nano /usr/share/lightdm/lightdm.conf.d/01_debian.conf
+```
+
+Add or modify the `[Seat:*]` section:
+```ini
+[Seat:*]
+greeter-setup-script=/usr/bin/numlockx on
+```
+
+### Option C: X11 Autostart Script (User-Level)
+
+Create an autostart script that runs when the user logs in:
+
+```bash
+mkdir -p ~/.config/autostart
+cat > ~/.config/autostart/numlock.desktop << EOF
+[Desktop Entry]
+Type=Application
+Name=NumLock
+Exec=/usr/bin/numlockx on
+Hidden=false
+NoDisplay=false
+X-GNOME-Autostart-enabled=true
+EOF
+```
+
+**Note**: Option A (systemd service) is recommended for kiosk mode as it's more reliable and runs at the system level.
+
 ## Step 4: Configure Hostname
 
 ```bash
-# Set hostname to "projektor"
-sudo hostnamectl set-hostname projektor
+# Set hostname to "mediaplayer"
+sudo hostnamectl set-hostname mediaplayer
 
 # Update /etc/hosts
-sudo sed -i 's/127.0.1.1.*/127.0.1.1\tprojektor/' /etc/hosts
+sudo sed -i 's/127.0.1.1.*/127.0.1.1\tmediaplayer/' /etc/hosts
 ```
 
 Reboot to apply hostname changes:
@@ -75,39 +149,49 @@ Reboot to apply hostname changes:
 sudo reboot
 ```
 
-## Step 5: Configure Static IP (Optional but Recommended)
+## Step 4.5: Configure mDNS/Avahi for Network Hostname Resolution (Optional but Recommended)
 
-### Option A: Using dhcpcd (Raspberry Pi OS)
+By default, the hostname "mediaplayer" is only known locally on the Raspberry Pi. To allow other computers on your network to resolve the hostname, you can set up mDNS (multicast DNS) using Avahi.
 
-Edit `/etc/dhcpcd.conf`:
-```bash
-sudo nano /etc/dhcpcd.conf
-```
+**Note**: Without mDNS, you'll need to use the Raspberry Pi's IP address directly (e.g., `http://192.168.1.100:5000`) instead of the hostname.
 
-Add at the end (for wired connection on eth0):
-```
-interface eth0
-static ip_address=1.2.3.4/24
-static routers=1.2.3.4
-static domain_name_servers=8.8.8.8 8.8.4.4
-```
+1. **Install Avahi daemon:**
+   ```bash
+   sudo apt update
+   sudo apt install -y avahi-daemon
+   ```
 
-For WiFi (if not using AP mode), replace `eth0` with `wlan0`.
+2. **Enable and start the service:**
+   ```bash
+   sudo systemctl enable avahi-daemon
+   sudo systemctl start avahi-daemon
+   ```
 
-Apply changes:
-```bash
-sudo systemctl restart dhcpcd
-```
+3. **Verify Avahi is running:**
+   ```bash
+   sudo systemctl status avahi-daemon
+   ```
 
-### Option B: Using raspi-config
+4. **Test hostname resolution:**
+   ```bash
+   # From Raspberry Pi itself
+   ping mediaplayer.local
+   
+   # From another computer on the same network
+   ping mediaplayer.local
+   ```
 
-```bash
-sudo raspi-config
-# Navigate to: System Options → Network → IP Address
-# Enter: 1.2.3.4/24
-```
+**Important Notes:**
+- After installing Avahi, use `mediaplayer.local` (with `.local` suffix) from other computers, not just `mediaplayer`
+- The `.local` suffix is required for mDNS resolution
+- On the Raspberry Pi itself, both `mediaplayer` and `mediaplayer.local` should work
+- If mDNS doesn't work, use the IP address directly: `http://<raspberry-pi-ip>:5000`
 
-## Step 6: Build and Deploy Application
+**Alternative: Use IP Address (No Setup Required)**
+- Find the Raspberry Pi's IP address: `ip addr` or `hostname -I`
+- Access directly: `http://<raspberry-pi-ip>:5000` (most reliable method)
+
+## Step 5: Build and Deploy Application
 
 ### Option A: Automated Deployment (from your development machine)
 
@@ -117,18 +201,60 @@ sudo raspi-config
    npm run build -- --profile raspberry-pi
    ```
 
-2. **Run deployment script**
+2. **Configure auto-login (optional)** - Edit `build.config.js` before building:
+   ```javascript
+   // In build.config.js, find the 'raspberry-pi' profile
+   'raspberry-pi': {
+     // ... other config ...
+     admin: {
+       // ... other admin config ...
+       
+       // Auto-login configuration for admin app
+       autoLoginUsername: 'your-username',    // Username for auto-login
+       autoLoginPassword: 'your-password',    // Password for auto-login
+       autoLoginLocationId: 1,                // Location ID to select after login
+       autoLoginTimeout: 5                    // Seconds to wait before auto-login (0 = disabled)
+     },
+     client: {
+       // ... other client config ...
+       
+       // Auto-login location configuration for client app
+       autoLoginLocationId: 1                 // Location ID to automatically select (0 = disabled)
+     }
+   }
+   ```
+   
+   **Note**: 
+   - **Admin app**: Set `autoLoginTimeout: 0` to disable auto-login
+   - **Client app**: Set `autoLoginLocationId: 0` to disable auto-selection (will show location selector)
+   - Auto-login is useful for kiosk mode where you want apps to automatically configure themselves
+   - Make sure the username/password and location IDs exist in your database
+
+3. **Run deployment script**
    ```bash
    cd deployment/raspberry-pi
    chmod +x deploy.sh
-   ./deploy.sh pi@projektor.local
-   # Or use IP: ./deploy.sh pi@1.2.3.4
+   ./deploy.sh avgustin@mediaplayer.local
+   # Or use IP: ./deploy.sh avgustin@1.2.3.4
    ```
 
    The script will:
    - Copy `dist/` directory to Raspberry Pi
    - Install Node.js dependencies
    - Copy systemd service files
+   - Copy configuration script (`configure-services.sh`)
+
+4. **Configure services** (on Raspberry Pi)
+   ```bash
+   # SSH into Raspberry Pi
+   ssh avgustin@mediaplayer.local
+   
+   # Run configuration script
+   cd /home/avgustin/Desktop/MediaServer/deployment/raspberry-pi
+   bash configure-services.sh
+   ```
+   
+   This script will configure hostname, services, permissions, and restart everything. See **Step 6** for details.
 
 ### Option B: Manual Deployment
 
@@ -143,31 +269,68 @@ sudo raspi-config
 
 2. **Copy files**
    ```bash
-   sudo mkdir -p /home/pi/mediaserver
-   sudo cp -r dist /home/pi/mediaserver/
-   sudo cp -r deployment/raspberry-pi /home/pi/mediaserver/deployment/
-   sudo chown -R pi:pi /home/pi/mediaserver
+   sudo mkdir -p /home/avgustin/Desktop/MediaServer
+   sudo cp -r dist /home/avgustin/Desktop/MediaServer/
+   sudo cp -r deployment/raspberry-pi /home/avgustin/Desktop/MediaServer/deployment/
+   sudo chown -R avgustin:avgustin /home/avgustin/Desktop/MediaServer
    ```
 
 3. **Install dependencies**
    ```bash
-   cd /home/pi/mediaserver/dist
-   npm install --production
+   cd /home/avgustin/Desktop/MediaServer/dist
+   npm install --omit=dev
    ```
 
 4. **Make scripts executable**
    ```bash
-   chmod +x /home/pi/mediaserver/deployment/raspberry-pi/kiosk-start.sh
-   chmod +x /home/pi/mediaserver/deployment/raspberry-pi/client-server.js
+   chmod +x /home/avgustin/Desktop/MediaServer/deployment/raspberry-pi/kiosk-start.sh
+   chmod +x /home/avgustin/Desktop/MediaServer/deployment/raspberry-pi/client-server.js
+   chmod +x /home/avgustin/Desktop/MediaServer/deployment/raspberry-pi/configure-services.sh
+   # Ensure launcher HTML file is readable
+   chmod 644 /home/avgustin/Desktop/MediaServer/deployment/raspberry-pi/kiosk-launcher.html
    ```
 
-## Step 7: Configure Systemd Services
+5. **Run configuration script** (recommended)
+   ```bash
+   cd /home/avgustin/Desktop/MediaServer/deployment/raspberry-pi
+   bash configure-services.sh
+   ```
+   
+   This will automatically configure all services, permissions, and restart them. See **Step 6** for details.
+
+## Step 6: Configure Systemd Services
+
+### Option A: Automated Configuration (Recommended)
+
+Use the `configure-services.sh` script to automatically configure all services, permissions, and restart them:
+
+```bash
+cd /home/avgustin/Desktop/MediaServer/deployment/raspberry-pi
+bash configure-services.sh
+```
+
+The script will:
+- Configure hostname (optional)
+- Enable all MediaServer services (mediaserver, client-server, kiosk)
+- Reload systemd daemon
+- Restart all services
+- Display service status
+
+The script is interactive and will prompt you for optional configurations. It automatically detects:
+- Current user and group
+- MediaServer directory path
+- Server port from mediaserver.service
+
+### Option B: Manual Configuration
+
+If you prefer to configure services manually, follow these steps:
 
 1. **Copy service files**
    ```bash
-   sudo cp /home/pi/mediaserver/deployment/raspberry-pi/mediaserver.service /etc/systemd/system/
-   sudo cp /home/pi/mediaserver/deployment/raspberry-pi/client-server.service /etc/systemd/system/
-   sudo cp /home/pi/mediaserver/deployment/raspberry-pi/kiosk.service /etc/systemd/system/
+   sudo cp /home/avgustin/Desktop/MediaServer/deployment/raspberry-pi/mediaserver.service /etc/systemd/system/
+   sudo cp /home/avgustin/Desktop/MediaServer/deployment/raspberry-pi/client-server.service /etc/systemd/system/
+   sudo cp /home/avgustin/Desktop/MediaServer/deployment/raspberry-pi/kiosk.service /etc/systemd/system/
+   sudo cp /home/avgustin/Desktop/MediaServer/deployment/raspberry-pi/numlock.service /etc/systemd/system/
    ```
 
 2. **Reload systemd**
@@ -180,6 +343,7 @@ sudo raspi-config
    sudo systemctl enable mediaserver
    sudo systemctl enable client-server
    sudo systemctl enable kiosk
+   sudo systemctl enable numlock
    ```
 
 4. **Start services manually** (test before reboot)
@@ -187,6 +351,7 @@ sudo raspi-config
    sudo systemctl start mediaserver
    sudo systemctl start client-server
    sudo systemctl start kiosk
+   sudo systemctl start numlock
    ```
 
 5. **Check service status**
@@ -194,168 +359,90 @@ sudo raspi-config
    sudo systemctl status mediaserver
    sudo systemctl status client-server
    sudo systemctl status kiosk
+   sudo systemctl status numlock
    ```
 
-## Step 8: Configure WiFi Access Point
+### 7.6 Fix Service User (If Username is Not 'avgustin')
 
-### 8.1 Install Required Packages
+If your Raspberry Pi username is not `avgustin`, you'll need to update the service files:
 
+**Option A: Use the fix script** (easiest)
 ```bash
-sudo apt install -y hostapd dnsmasq
+# Copy fix script to Raspberry Pi if not already there
+cd /home/$(whoami)/Desktop/MediaServer/deployment/raspberry-pi
+chmod +x fix-services-user.sh
+./fix-services-user.sh
 ```
 
-### 8.2 Configure hostapd
-
-1. **Copy configuration**
-   ```bash
-   sudo cp /home/pi/mediaserver/deployment/raspberry-pi/hostapd.conf /etc/hostapd/hostapd.conf
-   ```
-
-2. **Set daemon configuration**
-   ```bash
-   sudo nano /etc/default/hostapd
-   ```
-   Add or update:
-   ```
-   DAEMON_CONF="/etc/hostapd/hostapd.conf"
-   ```
-
-### 8.3 Configure dnsmasq
-
-1. **Backup original config** (if exists)
-   ```bash
-   sudo mv /etc/dnsmasq.conf /etc/dnsmasq.conf.orig
-   ```
-
-2. **Copy configuration**
-   ```bash
-   sudo cp /home/pi/mediaserver/deployment/raspberry-pi/dnsmasq.conf /etc/dnsmasq.conf
-   ```
-
-### 8.4 Configure Network Interface
-
-1. **Stop services**
-   ```bash
-   sudo systemctl stop hostapd
-   sudo systemctl stop dnsmasq
-   ```
-
-2. **Configure static IP for wlan0**
-   ```bash
-   sudo nano /etc/dhcpcd.conf
-   ```
-   Add at the end:
-   ```
-   interface wlan0
-   static ip_address=192.168.4.1/24
-   nohook wpa_supplicant
-   ```
-
-3. **Disable wpa_supplicant for wlan0**
-   ```bash
-   sudo systemctl stop wpa_supplicant
-   sudo systemctl disable wpa_supplicant
-   ```
-
-4. **Restart networking**
-   ```bash
-   sudo systemctl restart dhcpcd
-   ```
-
-5. **Configure wlan0 IP manually** (immediate)
-   ```bash
-   sudo ip addr add 192.168.4.1/24 dev wlan0
-   ```
-
-### 8.5 Enable IP Forwarding
-
+**Option B: Manual fix**
 ```bash
-# Enable IP forwarding
-sudo sysctl net.ipv4.ip_forward=1
+CURRENT_USER=$(whoami)
+CURRENT_GROUP=$(id -gn)
 
-# Make it permanent
-sudo sed -i 's/#net.ipv4.ip_forward=1/net.ipv4.ip_forward=1/' /etc/sysctl.conf
+# Update all service files
+sudo sed -i "s/User=avgustin/User=$CURRENT_USER/g" /etc/systemd/system/mediaserver.service
+sudo sed -i "s/Group=avgustin/Group=$CURRENT_GROUP/g" /etc/systemd/system/mediaserver.service
+sudo sed -i "s|/home/avgustin/Desktop/MediaServer|/home/$CURRENT_USER/Desktop/MediaServer|g" /etc/systemd/system/mediaserver.service
+
+sudo sed -i "s/User=avgustin/User=$CURRENT_USER/g" /etc/systemd/system/client-server.service
+sudo sed -i "s/Group=avgustin/Group=$CURRENT_GROUP/g" /etc/systemd/system/client-server.service
+sudo sed -i "s|/home/avgustin/Desktop/MediaServer|/home/$CURRENT_USER/Desktop/MediaServer|g" /etc/systemd/system/client-server.service
+
+sudo sed -i "s/User=avgustin/User=$CURRENT_USER/g" /etc/systemd/system/kiosk.service
+sudo sed -i "s/Group=avgustin/Group=$CURRENT_GROUP/g" /etc/systemd/system/kiosk.service
+sudo sed -i "s|/home/avgustin/Desktop/MediaServer|/home/$CURRENT_USER/Desktop/MediaServer|g" /etc/systemd/system/kiosk.service
+
+# Reload systemd
+sudo systemctl daemon-reload
+
+# Restart services
+sudo systemctl restart mediaserver
+sudo systemctl restart client-server
+sudo systemctl restart kiosk
+sudo systemctl restart numlock
 ```
 
-### 8.6 Configure NAT (IP Masquerading)
-
-Create iptables rules:
+After fixing, verify services are running:
 ```bash
-# Allow forwarding between wlan0 and eth0
-sudo iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
-sudo iptables -A FORWARD -i eth0 -o wlan0 -m state --state RELATED,ESTABLISHED -j ACCEPT
-sudo iptables -A FORWARD -i wlan0 -o eth0 -j ACCEPT
-
-# Save iptables rules
-sudo sh -c "iptables-save > /etc/iptables.ipv4.nat"
+sudo systemctl status mediaserver
+sudo systemctl status numlock
 ```
 
-Make iptables persistent:
-```bash
-sudo apt install -y iptables-persistent
-sudo netfilter-persistent save
-```
+## Step 7: Verify Deployment
 
-Or create a systemd service to restore rules on boot:
-```bash
-sudo nano /etc/systemd/system/iptables-restore.service
-```
-
-Add:
-```ini
-[Unit]
-Description=Restore iptables rules
-After=network.target
-
-[Service]
-Type=oneshot
-ExecStart=/sbin/iptables-restore < /etc/iptables.ipv4.nat
-RemainAfterExit=yes
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Enable:
-```bash
-sudo systemctl enable iptables-restore
-```
-
-### 8.7 Start Access Point Services
-
-```bash
-sudo systemctl unmask hostapd
-sudo systemctl enable hostapd
-sudo systemctl enable dnsmasq
-sudo systemctl start hostapd
-sudo systemctl start dnsmasq
-```
-
-### 8.8 Verify WiFi Access Point
-
-- Scan for WiFi networks on your phone/computer
-- Look for network named "projektor"
-- Connect using password: `projektor123` (configured in hostapd.conf)
-- Your device should get IP in range 192.168.4.2-20
-- Access admin at: http://projektor:5000 or http://192.168.4.1:5000
-
-## Step 9: Verify Deployment
-
-### 9.1 Check Services
+### 7.1 Check Services
 
 ```bash
 # Check all services are running
 sudo systemctl status mediaserver
 sudo systemctl status client-server
 sudo systemctl status kiosk
+sudo systemctl status numlock
 
 # View logs
 sudo journalctl -u mediaserver -f
 sudo journalctl -u client-server -f
 sudo journalctl -u kiosk -f
+sudo journalctl -u numlock -f
 ```
 
-### 9.2 Test Access
+### 7.2 Test Access
+
+```bash
+# Check all services are running
+sudo systemctl status mediaserver
+sudo systemctl status client-server
+sudo systemctl status kiosk
+sudo systemctl status numlock
+
+# View logs
+sudo journalctl -u mediaserver -f
+sudo journalctl -u client-server -f
+sudo journalctl -u kiosk -f
+sudo journalctl -u numlock -f
+```
+
+### 7.2 Test Access
 
 1. **From Raspberry Pi itself:**
    ```bash
@@ -363,20 +450,30 @@ sudo journalctl -u kiosk -f
    curl http://localhost:5001
    ```
 
-2. **From connected device (via WiFi AP or network):**
-   - Open browser: http://projektor:5000 (admin app)
-   - Open browser: http://projektor:5001 (client app)
-   - Or use IP: http://1.2.3.4:5000 or http://192.168.4.1:5000
+2. **From connected device (on same network):**
+   - **Recommended**: Use IP address directly (most reliable)
+     - Find IP: `ssh` to Raspberry Pi and run `hostname -I` or `ip addr`
+     - Open browser: http://<raspberry-pi-ip>:5000 (admin app)
+     - Open browser: http://<raspberry-pi-ip>:5001 (client app)
+   - **Alternative**: Use mDNS with .local suffix (requires Avahi - see Step 4.5)
+     - Open browser: http://mediaplayer.local:5000 (admin app)
+     - Open browser: http://mediaplayer.local:5001 (client app)
+   - **Note**: `mediaplayer` without .local only works on the Raspberry Pi itself
 
 3. **Check Chromium kiosk mode:**
    - Should automatically open fullscreen on boot
-   - Display client app from port 5001
-   - No browser UI visible
+   - Displays client app from port 5001 in fullscreen
+   - Admin app (port 5000) is available in a separate minimized window
+   - Use Alt+Tab or window manager to switch to admin window
 
-## Step 10: Troubleshooting
+## Step 8: Troubleshooting
 
 ### Services Not Starting
 
+**If you see `status=217/USER` error:**
+This means the service file specifies a user that doesn't exist. See **Step 6.6** above to fix this.
+
+**Other service issues:**
 ```bash
 # Check service status
 sudo systemctl status <service-name>
@@ -388,89 +485,337 @@ sudo journalctl -u <service-name> -n 50 --no-pager
 sudo netstat -tlnp | grep -E ':(5000|5001)'
 ```
 
-### WiFi Access Point Not Working
+### Accessing Admin App in Kiosk Mode
 
-```bash
-# Check hostapd status
-sudo systemctl status hostapd
+**The kiosk launcher opens both client and admin apps in separate browser windows:**
 
-# Check dnsmasq status
-sudo systemctl status dnsmasq
+1. **Client window:**
+   - Opens in fullscreen mode automatically
+   - Displays the media content
+   - Always focused on startup
 
-# Check wlan0 interface
-ip addr show wlan0
+2. **Admin window:**
+   - Opens as a normal window (not fullscreen)
+   - Automatically minimized after opening
+   - Use **Alt+Tab** or your window manager to switch to it when needed
+   - Maintains WebSocket connection for keyboard events even when minimized
 
-# Check iptables rules
-sudo iptables -t nat -L -v -n
+3. **Access from another device** (alternative):
+   - Connect to the same network
+   - **Recommended**: Use IP address: `http://<raspberry-pi-ip>:5000` (find IP with `hostname -I` on Raspberry Pi)
+   - **Alternative**: Use mDNS: `http://mediaplayer.local:5000` (requires Avahi - see Step 4.5)
+   - **Note**: `http://mediaplayer:5000` only works on the Raspberry Pi itself
 
-# Restart services
-sudo systemctl restart hostapd
-sudo systemctl restart dnsmasq
-sudo systemctl restart dhcpcd
-```
+**Note:** Having the admin app open in a separate minimized window ensures it maintains a WebSocket connection and can receive keyboard events from the client app, even when the client window is active and fullscreen. The client window is always focused on startup.
+
+### White Screen / Empty Pages After Reboot
+
+**If Chromium opens but shows white/empty pages:**
+
+This usually means Chromium launched before the services were fully ready or Angular apps finished loading. The kiosk-start.sh script includes comprehensive waiting logic, but if you still see this issue:
+
+1. **Check service logs for timing issues:**
+   ```bash
+   sudo journalctl -u kiosk -n 100 --no-pager | grep -E "ready|Waiting|verification"
+   ```
+
+2. **Verify services started in correct order:**
+   ```bash
+   sudo systemctl status mediaserver
+   sudo systemctl status client-server
+   sudo systemctl status kiosk
+   sudo systemctl status numlock
+   ```
+   
+   Check the timestamps - kiosk should start AFTER mediaserver and client-server.
+
+3. **Check if services are actually responding:**
+   ```bash
+   # Test admin server
+   curl -v http://localhost:5000/health
+   curl -v http://localhost:5000 | head -20
+   
+   # Test client server
+   curl -v http://localhost:5001 | head -20
+   ```
+
+4. **Verify Angular apps are built and JavaScript files exist:**
+   ```bash
+   # Check admin app
+   ls -la /home/avgustin/Desktop/MediaServer/dist/admin/*.js 2>/dev/null | head -5
+   
+   # Check client app  
+   ls -la /home/avgustin/Desktop/MediaServer/dist/client/*.js 2>/dev/null | head -5
+   ```
+
+5. **Increase wait times** (if Raspberry Pi is very slow):
+   Edit `/home/avgustin/Desktop/MediaServer/deployment/raspberry-pi/kiosk-start.sh`:
+   - Increase `MAX_ATTEMPTS` from 60 to 90 or 120
+   - Increase the Angular bootstrap wait from 12 to 20 seconds
+   - Increase systemd `ExecStartPre` sleep in `kiosk.service` from 20 to 30 seconds
+
+6. **Manually reload pages in Chromium:**
+   - Press F11 to exit fullscreen
+   - Press Ctrl+R or F5 to reload both tabs
+   - Press F11 again to return to fullscreen
+
+7. **Check if it's a database initialization issue:**
+   ```bash
+   # Check if database exists and is accessible
+   ls -la /home/avgustin/Desktop/MediaServer/dist/server/data/
+   sudo journalctl -u mediaserver -n 50 --no-pager | grep -i "database\|error"
+   ```
+
+8. **Restart services in order with delays:**
+   ```bash
+   sudo systemctl restart mediaserver
+   sleep 10
+   sudo systemctl restart client-server
+   sleep 10
+   sudo systemctl restart kiosk
+   ```
+
+1. **Check service logs:**
+   ```bash
+   sudo journalctl -u kiosk -n 50 --no-pager
+   ```
+
+2. **Verify services are running:**
+   ```bash
+   sudo systemctl status mediaserver
+   sudo systemctl status client-server
+   ```
+
+3. **Check if services are listening on ports:**
+   ```bash
+   sudo netstat -tlnp | grep -E ':(5000|5001)'
+   # Or use ss:
+   sudo ss -tlnp | grep -E ':(5000|5001)'
+   ```
+
+4. **Manually test URLs:**
+   ```bash
+   curl http://localhost:5000/health
+   curl http://localhost:5001
+   ```
+
+5. **Restart services in order:**
+   ```bash
+   sudo systemctl restart mediaserver
+   sleep 5
+   sudo systemctl restart client-server
+   sleep 5
+   sudo systemctl restart kiosk
+   ```
+
+6. **Increase wait time** (if services are slow to start):
+   Edit `kiosk-start.sh` and increase `MAX_ATTEMPTS` or add more sleep time.
 
 ### Chromium Not Starting
 
-```bash
-# Check if X server is running
-echo $DISPLAY
+**Common causes and solutions:**
 
-# Check kiosk service logs
-sudo journalctl -u kiosk -n 50
+1. **Check kiosk service status:**
+   ```bash
+   sudo systemctl status kiosk
+   sudo journalctl -u kiosk -n 100 --no-pager
+   ```
 
-# Test Chromium manually
-DISPLAY=:0 chromium-browser --kiosk http://localhost:5001
+2. **Check if X server is running:**
+   ```bash
+   echo $DISPLAY
+   xset q  # Should not error if X is running
+   ```
 
-# Check if client server is accessible
-curl http://localhost:5001
-```
+3. **Ensure auto-login is enabled** (Raspberry Pi desktop):
+   ```bash
+   sudo raspi-config
+   # Navigate to: System Options → Boot / Auto Login → Desktop Autologin
+   ```
+
+4. **Check XAUTHORITY permissions:**
+   ```bash
+   ls -la ~/.Xauthority
+   # If file doesn't exist, start X session once manually, then restart service
+   ```
+
+5. **Test Chromium manually** (as the service user):
+   ```bash
+   DISPLAY=:0 XAUTHORITY=/home/avgustin/.Xauthority chromium-browser --kiosk http://localhost:5001
+   ```
+
+6. **Check if client server is accessible:**
+   ```bash
+   curl http://localhost:5001
+   # Should return HTML, not connection error
+   ```
+
+7. **Verify X server starts on boot:**
+   ```bash
+   sudo systemctl status lightdm  # or gdm3, depending on desktop
+   # Enable if not running: sudo systemctl enable lightdm
+   ```
+
+8. **Check if graphical.target is reached:**
+   ```bash
+   systemctl get-default  # Should show graphical.target or multi-user.target
+   ```
+
+9. **Restart kiosk service after ensuring X is running:**
+   ```bash
+   sudo systemctl restart kiosk
+   sudo journalctl -u kiosk -f  # Watch logs in real-time
+   ```
 
 ### Hostname Not Resolving
 
-```bash
-# Check /etc/hostname
-cat /etc/hostname
+**Understanding the Issue:**
+- The hostname `mediaplayer` is only configured locally on the Raspberry Pi (in `/etc/hostname` and `/etc/hosts`)
+- Other computers on the network don't know how to resolve `mediaplayer` to an IP address
+- This is normal behavior - hostnames are not automatically shared across the network
 
-# Check /etc/hosts
-cat /etc/hosts
+**Solutions (choose one):**
 
-# Test hostname
-hostname
-ping projektor
-```
+1. **Use IP Address Directly (Recommended - Most Reliable)**
+   ```bash
+   # Find Raspberry Pi's IP address
+   ip addr
+   # Or
+   hostname -I
+   
+   # Then access from other computers using:
+   # http://<raspberry-pi-ip>:5000
+   # Example: http://192.168.1.100:5000
+   ```
+   This works immediately without any additional setup.
+
+2. **Use mDNS with .local Suffix (Requires Avahi)**
+   ```bash
+   # On Raspberry Pi, install Avahi (if not already installed)
+   sudo apt install -y avahi-daemon
+   sudo systemctl enable avahi-daemon
+   sudo systemctl start avahi-daemon
+   
+   # From other computers, use:
+   # http://mediaplayer.local:5000
+   ```
+   Note: Requires Avahi to be installed on both the Raspberry Pi and the client computer (most modern systems have it).
+
+3. **Check Current Configuration:**
+   ```bash
+   # Check /etc/hostname
+   cat /etc/hostname
+   
+   # Check /etc/hosts
+   cat /etc/hosts
+   
+   # Test hostname locally
+   hostname
+   ping mediaplayer
+   
+   # Check if Avahi is running
+   sudo systemctl status avahi-daemon
+   
+   # Test .local resolution
+   ping mediaplayer.local
+   ```
+
+4. **Verify from Another Computer:**
+   ```bash
+   # Try pinging with .local suffix
+   ping mediaplayer.local
+   
+   # If that fails, try with IP address
+   ping <raspberry-pi-ip>
+   
+   # Check DNS resolution
+   nslookup mediaplayer.local
+   ```
+
+**Troubleshooting Steps:**
+- If `ping mediaplayer.local` fails from another computer, ensure Avahi is installed and running on the Raspberry Pi
+- If Avahi is running but still not resolving, check firewall settings: `sudo ufw status`
+- Some networks block mDNS traffic - in that case, use IP address directly
+- Windows computers may need "Bonjour Print Services" installed for .local resolution
 
 ### Network Issues
 
+**If you cannot access the server from other computers:**
+
+1. **Find the Raspberry Pi's IP address:**
+   ```bash
+   # On Raspberry Pi
+   ip addr
+   # Look for inet address under eth0 (Ethernet) or wlan0 (WiFi)
+   # Or use:
+   hostname -I
+   ```
+
+2. **Test connectivity from another computer:**
+   ```bash
+   # Replace <raspberry-pi-ip> with actual IP address
+   ping <raspberry-pi-ip>
+   
+   # Test HTTP access
+   curl http://<raspberry-pi-ip>:5000/health
+   ```
+
+3. **Check network interfaces:**
+   ```bash
+   ip addr
+   ip route
+   ```
+
+4. **Check if services are listening on all interfaces:**
+   ```bash
+   # Should show 0.0.0.0:5000 (listening on all interfaces)
+   sudo netstat -tlnp | grep -E ':(5000|5001)'
+   # Or use:
+   sudo ss -tlnp | grep -E ':(5000|5001)'
+   ```
+
+5. **Check firewall settings:**
+   ```bash
+   # Check if firewall is blocking ports
+   sudo ufw status
+   # If firewall is active, allow ports:
+   sudo ufw allow 5000/tcp
+   sudo ufw allow 5001/tcp
+   ```
+
+6. **Check DNS resolution (for hostname):**
+   ```bash
+   # This will only work on Raspberry Pi itself
+   nslookup mediaplayer
+   
+   # For network resolution, use:
+   nslookup mediaplayer.local
+   # Or use IP address directly
+   ```
+
+7. **Restart networking (use with caution):**
+   ```bash
+   sudo systemctl restart networking
+   # Or for NetworkManager:
+   sudo systemctl restart NetworkManager
+   ```
+
+**Quick Fix: Use IP Address**
+- The most reliable method is to use the IP address directly
+- Find IP: `hostname -I` on Raspberry Pi
+- Access: `http://<raspberry-pi-ip>:5000` from any computer on the network
+
+## Step 9: Configuration Customization
+
+### Customize Startup/Boot Splash Screen
+
+You can customize the Raspberry Pi boot splash screen (the image shown during boot). See **[CUSTOMIZE_STARTUP_IMAGE.md](./CUSTOMIZE_STARTUP_IMAGE.md)** for detailed instructions.
+
+Quick setup:
 ```bash
-# Check network interfaces
-ip addr
-
-# Check routing
-ip route
-
-# Check DNS resolution
-nslookup projektor
-
-# Restart networking (use with caution)
-sudo systemctl restart networking
-```
-
-## Step 11: Configuration Customization
-
-### Change WiFi SSID/Password
-
-Edit `/etc/hostapd/hostapd.conf`:
-```bash
-sudo nano /etc/hostapd/hostapd.conf
-```
-Update:
-```
-ssid=your-network-name
-wpa_passphrase=your-password
-```
-Restart:
-```bash
-sudo systemctl restart hostapd
+cd ~/Desktop/MediaServer/deployment/raspberry-pi
+chmod +x customize-splash.sh
+./customize-splash.sh /path/to/your/splash.png
 ```
 
 ### Change Server Ports
@@ -503,7 +848,7 @@ sudo systemctl stop kiosk
 
 Then access admin via browser normally.
 
-## Step 12: Maintenance
+## Step 10: Maintenance
 
 ### Update Application
 
@@ -514,12 +859,12 @@ Then access admin via browser normally.
 
 2. **Copy new dist folder**
    ```bash
-   scp -r dist/ pi@projektor.local:/home/pi/mediaserver/
+   scp -r dist/ avgustin@mediaplayer.local:/home/avgustin/Desktop/MediaServer/
    ```
 
 3. **Restart services**
    ```bash
-   ssh pi@projektor.local
+   ssh avgustin@mediaplayer.local
    sudo systemctl restart mediaserver
    sudo systemctl restart client-server
    ```
@@ -528,7 +873,7 @@ Then access admin via browser normally.
 
 ```bash
 # All services
-sudo journalctl -u mediaserver -u client-server -u kiosk -f
+sudo journalctl -u mediaserver -u client-server -u kiosk -u numlock -f
 
 # Specific service
 sudo journalctl -u mediaserver -f
@@ -541,11 +886,11 @@ sudo journalctl -u mediaserver -n 100
 
 ```bash
 # Database is located at:
-# /home/pi/mediaserver/dist/server/data/mediaserver.db
+# /home/avgustin/Desktop/MediaServer/dist/server/data/mediaserver.db
 
 # Create backup
-cp /home/pi/mediaserver/dist/server/data/mediaserver.db \
-   /home/pi/mediaserver/dist/server/data/mediaserver.db.backup.$(date +%Y%m%d)
+cp /home/avgustin/Desktop/MediaServer/dist/server/data/mediaserver.db \
+   /home/avgustin/Desktop/MediaServer/dist/server/data/mediaserver.db.backup.$(date +%Y%m%d)
 ```
 
 ## Security Notes
@@ -554,13 +899,17 @@ cp /home/pi/mediaserver/dist/server/data/mediaserver.db \
 2. **Update regularly**: `sudo apt update && sudo apt upgrade`
 3. **Firewall**: Consider enabling UFW or iptables rules for additional security
 4. **SSH keys**: Use SSH key authentication instead of passwords
-5. **WiFi password**: Change default WiFi password in hostapd.conf
+5. **Network security**: Ensure your network is properly secured
 
 ## Next Steps
 
-- Access admin interface at http://projektor:5000
+- Access admin interface:
+  - From Raspberry Pi: http://mediaplayer:5000 or http://localhost:5000
+  - From other computers: http://<raspberry-pi-ip>:5000 or http://mediaplayer.local:5000 (if Avahi is configured)
 - Configure library items and playlists
-- Connect display devices to the client app at http://projektor:5001
+- Connect display devices to the client app:
+  - From Raspberry Pi: http://mediaplayer:5001 or http://localhost:5001
+  - From other computers: http://<raspberry-pi-ip>:5001 or http://mediaplayer.local:5001 (if Avahi is configured)
 - Monitor logs for any issues
 
 ## Support
@@ -577,5 +926,5 @@ For issues or questions:
 **Deployment profile**: raspberry-pi  
 **Server port**: 5000  
 **Client port**: 5001  
-**Hostname**: projektor  
+**Hostname**: mediaplayer  
 

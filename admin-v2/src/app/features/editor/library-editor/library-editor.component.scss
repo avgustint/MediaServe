@@ -532,7 +532,28 @@
   img {
     max-width: 100%;
     height: auto;
+  }
+}
+
+.video-preview {
+  margin-top: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 0.5rem;
+  background-color: #f8f9fa;
+  max-width: 500px;
+
+  video {
+    max-width: 100%;
+    height: auto;
     display: block;
+  }
+
+  .video-url {
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+    color: #666;
+    word-break: break-all;
   }
 }
 

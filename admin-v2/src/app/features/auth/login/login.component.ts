@@ -163,6 +163,14 @@ export class LoginComponent implements OnInit, OnDestroy {
       next: (locations) => {
         this.locations = locations;
         this.loadingLocations = false;
+        
+        // Auto-select if there's only one location available
+        if (this.locations.length === 1) {
+          const singleLocation = this.locations[0];
+          this.loginForm.patchValue({
+            locationId: singleLocation.guid
+          });
+        }
       },
       error: (error) => {
         console.error('Error loading locations:', error);
