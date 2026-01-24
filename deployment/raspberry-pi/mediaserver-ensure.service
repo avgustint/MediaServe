@@ -1,0 +1,16 @@
+[Unit]
+Description=Ensure MediaServer Services Are Enabled and Running
+After=network-online.target
+Wants=network-online.target
+Before=mediaserver.service client-server.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# Ensure services are enabled and started
+# This script ensures services are enabled (for boot) and attempts to start them if not running
+ExecStart=/home/avgustin/Desktop/MediaServer/deployment/raspberry-pi/ensure-services.sh
+
+[Install]
+WantedBy=multi-user.target
+

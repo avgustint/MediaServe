@@ -11,7 +11,10 @@ Group=avgustin
 Environment="DISPLAY=:0"
 Environment="XAUTHORITY=/home/avgustin/.Xauthority"
 Environment="HOME=/home/avgustin"
-ExecStartPre=/bin/sleep 20
+# Wait for X11 to be ready before starting (use xset which is more commonly available)
+ExecStartPre=/bin/bash -c 'for i in {1..60}; do (xset q >/dev/null 2>&1 || xdpyinfo -display :0 >/dev/null 2>&1) && echo "X server is ready" && break || (if [ $((i % 10)) -eq 0 ]; then echo "Waiting for X server... ($i/60)"; fi && sleep 1); done'
+# Additional delay to ensure everything is ready
+ExecStartPre=/bin/sleep 5
 ExecStart=/home/avgustin/Desktop/MediaServer/deployment/raspberry-pi/kiosk-start.sh
 Restart=always
 RestartSec=10

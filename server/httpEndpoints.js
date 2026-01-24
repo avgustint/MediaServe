@@ -3,6 +3,66 @@ const dbOps = require('./dbOperations');
 const { loadData } = require('./dataLoader');
 
 /**
+ * Check if origin should be allowed
+ * Handles localhost and mediaplayer.local variants
+ */
+function isAllowedOrigin(origin) {
+  if (!origin) return false;
+  
+  // Normalize origin for comparison (remove trailing slash, convert to lowercase)
+  const normalizedOrigin = origin.toLowerCase().replace(/\/$/, '');
+  
+  // List of allowed origins
+  const allowedOrigins = [
+    'http://localhost',
+    'http://localhost:4200',
+    'http://localhost:4201',
+    'http://localhost:5000',
+    'http://localhost:5001',
+    'http://127.0.0.1',
+    'http://127.0.0.1:4200',
+    'http://127.0.0.1:4201',
+    'http://127.0.0.1:5000',
+    'http://127.0.0.1:5001',
+    'http://mediaplayer.local',
+    'http://mediaplayer.local:4200',
+    'http://mediaplayer.local:4201',
+    'http://mediaplayer.local:5000',
+    'http://mediaplayer.local:5001',
+  ];
+  
+  // Check exact match
+  if (allowedOrigins.includes(normalizedOrigin)) {
+    return true;
+  }
+  
+  // Check if origin matches any allowed pattern (with any port)
+  const originHost = normalizedOrigin.replace(/^https?:\/\//, '').split(':')[0];
+  const allowedHosts = ['localhost', '127.0.0.1', 'mediaplayer.local'];
+  
+  if (allowedHosts.includes(originHost)) {
+    return true;
+  }
+  
+  // Check config allowed origins
+  const config = require('./config');
+  if (config.cors.origin && Array.isArray(config.cors.origin)) {
+    for (const allowedOrigin of config.cors.origin) {
+      if (normalizedOrigin === allowedOrigin.toLowerCase().replace(/\/$/, '')) {
+        return true;
+      }
+    }
+  }
+  
+  // In development, allow all origins
+  if (config.nodeEnv === 'development') {
+    return true;
+  }
+  
+  return false;
+}
+
+/**
  * CORS helper function
  * @param {http.ServerResponse} res - HTTP response object
  * @param {http.IncomingMessage} req - HTTP request object (optional, for origin detection)
@@ -10,14 +70,22 @@ const { loadData } = require('./dataLoader');
 function setCorsHeaders(res, req = null) {
   // Allow all origins - use request origin if available, otherwise allow all
   const origin = req && req.headers && req.headers.origin;
-  if (origin) {
+  
+  if (origin && isAllowedOrigin(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Access-Control-Allow-Credentials', 'true');
-  } else {
+  } else if (!origin) {
+    // No origin header (e.g., same-origin request or non-browser client)
     res.setHeader('Access-Control-Allow-Origin', '*');
+  } else {
+    // Origin not explicitly allowed, but allow it anyway (for development/flexibility)
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
   }
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  res.setHeader('Access-Control-Expose-Headers', 'Content-Length, Content-Type');
 }
 
 /**

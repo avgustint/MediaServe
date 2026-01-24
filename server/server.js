@@ -145,8 +145,12 @@ app.use(errorHandler);
 // Create HTTP server
 const server = require('http').createServer(app);
 
-// Setup WebSocket server
+// Setup WebSocket server (must be before server.listen)
+// The WebSocket server handles upgrade requests automatically
 setupWebSocket(server, data.library);
+
+// Log WebSocket setup
+console.log('WebSocket server attached to HTTP server');
 
 // Start the server
 const PORT = config.port;

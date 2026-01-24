@@ -1,8 +1,8 @@
 [Unit]
 Description=MediaServer Client App Static Server
-After=network.target mediaserver.service
+After=network-online.target mediaserver.service
 Requires=mediaserver.service
-Wants=network.target
+Wants=network-online.target
 
 [Service]
 Type=simple

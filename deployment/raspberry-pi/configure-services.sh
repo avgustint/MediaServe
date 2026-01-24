@@ -50,8 +50,16 @@ echo
 if [[ $REPLY =~ ^[Yy]$ ]]; then
     echo "Setting hostname to 'mediaplayer'..."
     sudo hostnamectl set-hostname mediaplayer
-    sudo sed -i "s/127.0.1.1.*/127.0.1.1\tmediaplayer/" /etc/hosts
-    echo -e "${GREEN}✓ Hostname configured${NC}"
+    
+    # Update /etc/hosts to include both mediaplayer and mediaplayer.local
+    if grep -q "^127.0.1.1" /etc/hosts; then
+        sudo sed -i "s/127.0.1.1.*/127.0.1.1\tmediaplayer mediaplayer.local/" /etc/hosts
+    else
+        echo -e "127.0.1.1\tmediaplayer mediaplayer.local" | sudo tee -a /etc/hosts
+    fi
+    
+    echo -e "${GREEN}✓ Hostname configured (mediaplayer and mediaplayer.local)${NC}"
+    echo -e "${YELLOW}Note: Install Avahi for network resolution: sudo apt install -y avahi-daemon${NC}"
 else
     echo -e "${YELLOW}Hostname configuration skipped${NC}"
 fi

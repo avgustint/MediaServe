@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewInit } from "@angular/core";
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewInit, ChangeDetectorRef } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { HttpClient } from "@angular/common/http";
@@ -22,6 +22,19 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild("videoElement", { static: false }) videoElement!: ElementRef<HTMLVideoElement>;
 
   currentContent: WebSocketMessage | null = null;
+  // Separate state for text pages so we can prepare next page off-screen
+  currentTextContent: WebSocketMessage | null = null;
+  nextTextContent: WebSocketMessage | null = null;
+  // Index of the currently visible text page (0 or 1)
+  activeTextPageIndex: 0 | 1 = 0;
+  // True while slide transition between pages is running
+  isTextTransitioning: boolean = false;
+  // Duration of slide transition in ms (keep in sync with CSS)
+  private readonly textTransitionDuration = 400;
+
+  // Simple slide-in animation toggle for non-text content (image, url, video)
+  mediaSlideToggle: boolean = false;
+
   private subscription?: Subscription;
   private connectionStatusSubscription?: Subscription;
   connectionStatus: "connecting" | "connected" | "disconnected" = "disconnected";
@@ -41,8 +54,9 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
   locationsError: string | null = null;
 
   private resizeHandler = () => {
-    if (this.currentContent?.type === "text") {
-      this.adjustTextSize();
+    if (this.currentTextContent) {
+      // Recalculate font size for currently visible text page
+      this.adjustTextSizeForPage(this.activeTextPageIndex);
     }
   };
 
@@ -55,7 +69,8 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
   constructor(
     private websocketService: WebSocketService,
     private sanitizer: DomSanitizer,
-    private http: HttpClient
+    private http: HttpClient,
+    private cdr: ChangeDetectorRef
   ) {
     this.formatTextPipe = new FormatTextPipe(sanitizer);
   }
@@ -90,38 +105,106 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
       // Update content (chords should always be in the content, visibility controlled by showChords)
       // Only update if this is a content message (text, image, url, or video)
       if (message.type === 'text' || message.type === 'image' || message.type === 'url' || message.type === 'video') {
-        // For text content, update content first but keep it hidden, then calculate font size
         if (message.type === "text") {
-          // Set isTextReady to false FIRST - this ensures opacity class is removed before content update
-          this.isTextReady = false;
-          
-          // If switching from different content type, clear current content first
-          if (this.currentContent && this.currentContent.type !== "text") {
-            this.currentContent = null;
-          }
-          
-          // Update content first (it will be hidden by opacity: 0)
-          requestAnimationFrame(() => {
+          // Text content uses a double-buffered slide transition between two pages.
+          // First text message: show immediately (no slide), still using font-size calculation.
+          // Also handle case where we're switching from non-text content to text
+          if (!this.currentTextContent && !this.nextTextContent) {
+            this.isTextReady = false;
+            this.currentTextContent = message;
             this.currentContent = message;
-            
-            // Wait for DOM to update, then calculate font size on the actual visible element
-            // (which is currently hidden with opacity: 0)
+            this.activeTextPageIndex = 0;
+            this.isTextTransitioning = false;
+            this.nextTextContent = null; // Ensure nextTextContent is null
+
+            // Wait for DOM to render current page, then calculate font-size on page 0
             requestAnimationFrame(() => {
-              this.adjustTextSize();
-              // After font size calculation, show the text
               requestAnimationFrame(() => {
+                this.adjustTextSizeForPage(0);
+                requestAnimationFrame(() => {
+                  this.isTextReady = true;
+                });
+              });
+            });
+            return;
+          }
+
+          // If a transition is already running, replace the nextTextContent
+          // so that the latest page is shown next.
+          if (this.isTextTransitioning) {
+            this.nextTextContent = message;
+            this.currentContent = message;
+            return;
+          }
+
+          // All subsequent text messages (after the first one) use slide transition
+          // This includes both page changes within a song and song changes
+          const nextPageIndex: 0 | 1 = this.activeTextPageIndex === 0 ? 1 : 0;
+          this.isTextReady = false;
+          // Store the new content in nextTextContent (this will be shown on the next page)
+          this.nextTextContent = message;
+          this.currentContent = message;
+
+          // Render next page off-screen, then calculate its font size
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              // Calculate font size for the page that will become active
+              this.adjustTextSizeForPage(nextPageIndex);
+
+              // After calculation, trigger slide transition
+              requestAnimationFrame(() => {
+                // Mark text as ready BEFORE changing active page so content is visible
                 this.isTextReady = true;
+                this.isTextTransitioning = true;
+                
+                // Change which page is active - this triggers the CSS transition
+                // The new active page will show nextTextContent via getTextForPage logic
+                this.activeTextPageIndex = nextPageIndex;
+
+                // After transition completes, swap content and reset flags
+                setTimeout(() => {
+                  // Swap: next becomes current (the transitioned page is now the current one)
+                  // Ensure we have valid content before swapping
+                  if (this.nextTextContent) {
+                    this.currentTextContent = this.nextTextContent;
+                    this.nextTextContent = null;
+                  }
+                  this.isTextTransitioning = false;
+                  // Ensure text remains ready after transition
+                  this.isTextReady = true;
+                  // Trigger change detection to ensure view updates
+                  this.cdr.detectChanges();
+                }, this.textTransitionDuration);
               });
             });
           });
         } else {
-          // For non-text content, hide text first if it was showing
-          if (this.currentContent?.type === "text") {
+          // For non-text content (image, url, video), always use slide transition
+          // Hide text first if it was showing
+          if (this.currentTextContent) {
             this.isTextReady = false;
+            this.currentTextContent = null;
+            this.nextTextContent = null;
+            this.isTextTransitioning = false;
           }
-          // Update immediately for non-text content
-          this.currentContent = message;
-          this.isTextReady = true;
+
+          // Update non-text content and trigger slide-in animation
+          // First, hide the current content by moving it off-screen
+          this.mediaSlideToggle = false;
+          
+          // Wait for the container to move off-screen, then update content and slide in
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              // Update content while off-screen
+              this.currentContent = message;
+              this.cdr.detectChanges();
+              
+              // Now slide it in from the right
+              requestAnimationFrame(() => {
+                this.mediaSlideToggle = true;
+              });
+            });
+          });
         }
       }
     });
@@ -187,12 +270,36 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
     this.showLocationSelector = true;
   }
 
+  // Get server URL at runtime (like websocket service does)
+  private getServerBaseUrl(): string {
+    if (typeof window !== 'undefined' && window.location) {
+      const hostname = window.location.hostname;
+      const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
+      
+      // If accessing from localhost, use fixed Raspberry Pi IP (192.168.0.100)
+      if (hostname === 'localhost' || hostname === '127.0.0.1') {
+        return `${protocol}//192.168.0.100:5000`;
+      }
+      
+      // If accessing from Raspberry Pi fixed IP, use that IP with port 5000
+      if (hostname === '192.168.0.100') {
+        return `${protocol}//192.168.0.100:5000`;
+      }
+      
+      // For any other hostname (including mediaplayer.local), use fixed IP
+      return `${protocol}//192.168.0.100:5000`;
+    }
+    
+    // Fallback
+    return "http://192.168.0.100:5000";
+  }
+
   private loadLocations(): void {
     this.locationsLoading = true;
     this.locationsError = null;
 
     this.http
-      .get<{ guid: number; name: string; description?: string }[]>(`${SERVER_BASE_URL}/locations`)
+      .get<{ guid: number; name: string; description?: string }[]>(`${this.getServerBaseUrl()}/locations`)
       .subscribe({
         next: (locations) => {
           this.locations = locations || [];
@@ -221,11 +328,10 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
 
-    // Convert HTTP URL to WebSocket URL (replace http:// with ws:// or https:// with wss://)
-    const wsBaseUrl = SERVER_BASE_URL.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:');
-    // Connect to WebSocket with locationId as query parameter so server can route by location
-    const wsUrl = `${wsBaseUrl}?locationId=${this.locationId}`;
-    this.websocketService.connect(wsUrl);
+    // Connect to WebSocket with locationId (websocket service will determine URL at runtime)
+    // This matches the admin app pattern - the websocket service handles URL detection
+    console.log(`[WebSocket] Connecting with locationId: ${this.locationId}`);
+    this.websocketService.connect(undefined, this.locationId);
   }
 
   onConfirmLocation(): void {
@@ -244,19 +350,52 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   /**
-   * Adjust text size - calculates on the actual visible element (which is hidden during calculation)
+   * Convenience method to adjust font size for a specific text page (0 or 1).
+   * It will locate the corresponding .text-content element and run the
+   * font-size calculation on that element.
    */
-  adjustTextSize(): void {
-    if (!this.textContainer || !this.currentContent || this.currentContent.type !== "text") {
+  private adjustTextSizeForPage(pageIndex: 0 | 1): void {
+    if (!this.textContainer) {
+      this.isTextReady = true;
+      return;
+    }
+
+    const container = this.textContainer.nativeElement;
+    const selector =
+      pageIndex === 0
+        ? ".text-page.page-0 .text-content"
+        : ".text-page.page-1 .text-content";
+    const textElement = container.querySelector(selector) as HTMLElement | null;
+
+    // Get the content for this specific page
+    const pageContent = pageIndex === this.activeTextPageIndex ? this.currentTextContent : this.nextTextContent;
+    this.adjustTextSize(textElement, pageContent);
+  }
+
+  /**
+   * Adjust text size - calculates on the provided element (or the first .text-content if omitted)
+   * @param targetTextElement The text element to calculate font size for
+   * @param contentOverride Optional content to use instead of currentContent
+   */
+  adjustTextSize(targetTextElement?: HTMLElement | null, contentOverride?: WebSocketMessage | null): void {
+    if (!this.textContainer) {
       this.isTextReady = true; // Mark as ready even if calculation fails
       return;
     }
 
     const container = this.textContainer.nativeElement;
-    const textElement = container.querySelector(".text-content") as HTMLElement;
+    const textElement =
+      targetTextElement || (container.querySelector(".text-content") as HTMLElement | null);
 
     if (!textElement) {
       this.isTextReady = true; // Mark as ready even if element not found
+      return;
+    }
+
+    // Use provided content or fall back to currentTextContent
+    const content = contentOverride || this.currentTextContent;
+    if (!content || content.type !== "text") {
+      this.isTextReady = true;
       return;
     }
 
@@ -272,7 +411,7 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
     
     const containerWidth = container.clientWidth - paddingX;
     const containerHeight = container.clientHeight - paddingY;
-    const text = this.currentContent.content;
+    const text = content.content;
 
     if (!text || text.trim().length === 0) {
       textElement.style.visibility = originalVisibility;
@@ -388,12 +527,12 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
   get videoSrc(): SafeResourceUrl {
     if (this.currentContent?.type === "video" && this.currentContent.content) {
       const videoUrl = this.currentContent.content as string;
-      // If it's already a full URL, use it; otherwise construct from SERVER_BASE_URL
+      // If it's already a full URL, use it; otherwise construct from runtime server URL
       if (videoUrl.startsWith('http://') || videoUrl.startsWith('https://')) {
         return this.sanitizer.bypassSecurityTrustResourceUrl(videoUrl);
       } else {
-        // Relative path - construct full URL
-        const fullUrl = `${SERVER_BASE_URL}${videoUrl.startsWith('/') ? videoUrl : '/' + videoUrl}`;
+        // Relative path - construct full URL using runtime method
+        const fullUrl = `${this.getServerBaseUrl()}${videoUrl.startsWith('/') ? videoUrl : '/' + videoUrl}`;
         return this.sanitizer.bypassSecurityTrustResourceUrl(fullUrl);
       }
     }
@@ -405,7 +544,9 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   get backgroundColor(): string {
-    return this.currentContent?.background_color || "#000000";
+    // For text content, prefer currentTextContent; otherwise use currentContent
+    const content = this.currentTextContent || this.currentContent;
+    return content?.background_color || "#000000";
   }
 
   get fontColor(): string {
@@ -417,14 +558,16 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   get textContainerStyle(): { [key: string]: string } {
+    // For text container, use currentTextContent if available, otherwise currentContent
+    const content = this.currentTextContent || this.currentContent;
     const style: { [key: string]: string } = {
-      'background-color': this.backgroundColor
+      'background-color': content?.background_color || "#000000"
     };
     
     // Apply CSS custom properties from library item if present
     // Only apply safe properties that won't break the layout (no display, width, height, flex properties)
-    if (this.currentContent?.css && typeof this.currentContent.css === 'object') {
-      const cssObj = this.currentContent.css;
+    if (content?.css && typeof content.css === 'object') {
+      const cssObj = content.css;
       const safeProperties = Object.keys(cssObj).filter(key => {
         // Only allow CSS custom properties (--*) or safe styling properties
         // Exclude layout-critical properties
@@ -445,6 +588,71 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
     return {
       'color': this.fontColor
     };
+  }
+
+  /**
+   * Get text content for a specific page (0 or 1)
+   */
+  getTextForPage(pageIndex: 0 | 1): string {
+    // During transition, the page that's becoming active should show nextTextContent
+    // After transition, active page shows currentTextContent
+    if (this.isTextTransitioning && pageIndex === this.activeTextPageIndex) {
+      // We're transitioning to this page, show nextTextContent (which will become current)
+      // Fallback to currentTextContent if nextTextContent is not available (safety)
+      const content = this.nextTextContent || this.currentTextContent;
+      return content?.type === "text" && content.content ? content.content : "";
+    } else if (pageIndex === this.activeTextPageIndex) {
+      // Active page shows currentTextContent
+      // After transition completes, currentTextContent should have the new content
+      // Fallback to nextTextContent if currentTextContent is not available (safety during swap)
+      const content = this.currentTextContent || this.nextTextContent;
+      return content?.type === "text" && content.content ? content.content : "";
+    } else {
+      // Inactive page: during transition it shows old currentTextContent (sliding out)
+      // When not transitioning, it shows nextTextContent if available (preparing for next transition)
+      if (this.isTextTransitioning) {
+        // During transition, inactive page shows the old currentTextContent
+        return this.currentTextContent?.type === "text" && this.currentTextContent.content ? this.currentTextContent.content : "";
+      } else {
+        // Not transitioning, inactive page shows nextTextContent if preparing
+        return this.nextTextContent?.type === "text" && this.nextTextContent.content ? this.nextTextContent.content : "";
+      }
+    }
+  }
+
+  /**
+   * Get text content style (color) for a specific page
+   */
+  textContentStyleForPage(pageIndex: 0 | 1): { [key: string]: string } {
+    let content: WebSocketMessage | null = null;
+    if (this.isTextTransitioning && pageIndex === this.activeTextPageIndex && this.nextTextContent) {
+      content = this.nextTextContent;
+    } else if (pageIndex === this.activeTextPageIndex) {
+      content = this.currentTextContent;
+    } else {
+      // Inactive page: during transition show old currentTextContent, otherwise show nextTextContent if available
+      content = this.isTextTransitioning ? this.currentTextContent : (this.nextTextContent || this.currentTextContent);
+    }
+    const fontColor = content?.font_color || "#FFFFFF";
+    return {
+      'color': fontColor
+    };
+  }
+
+  /**
+   * Get chord font color for a specific page
+   */
+  getChordFontColorForPage(pageIndex: 0 | 1): string {
+    let content: WebSocketMessage | null = null;
+    if (this.isTextTransitioning && pageIndex === this.activeTextPageIndex && this.nextTextContent) {
+      content = this.nextTextContent;
+    } else if (pageIndex === this.activeTextPageIndex) {
+      content = this.currentTextContent;
+    } else {
+      // Inactive page: during transition show old currentTextContent, otherwise show nextTextContent if available
+      content = this.isTextTransitioning ? this.currentTextContent : (this.nextTextContent || this.currentTextContent);
+    }
+    return content?.chord_font_color || "#210789";
   }
 
   get imageContainerStyle(): { [key: string]: string } {
@@ -522,7 +730,7 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
    * Send keyboard command to server via HTTP POST
    */
   private sendKeyboardCommand(key: string): void {
-    this.http.post(`${SERVER_BASE_URL}/api/keyboard/command`, {
+    this.http.post(`${this.getServerBaseUrl()}/api/keyboard/command`, {
       key: key,
       timestamp: Date.now()
     }).subscribe({

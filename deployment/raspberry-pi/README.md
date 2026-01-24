@@ -10,12 +10,11 @@ Complete guide for deploying MediaServer to Raspberry Pi with custom hostname, a
   - Client window (port 5001): Fullscreen, focused display with auto-play enabled
   - Admin window (port 5000): Normal window, minimized in background, maintains WebSocket connection for keyboard events
   - Access admin: Use Alt+Tab or window manager to switch to admin window
-- **Hostname**: `mediaplayer` 
-  - **From Raspberry Pi**: http://mediaplayer:5000 or http://localhost:5000
+- **Hostname**: `mediaplayer.local` 
+  - **From Raspberry Pi**: http://mediaplayer.local:5000 or http://localhost:5000
   - **From other computers**: 
-    - Use IP address: http://<raspberry-pi-ip>:5000 (most reliable)
-    - Or use mDNS: http://mediaplayer.local:5000 (requires Avahi - see Step 4.5)
-    - Note: `mediaplayer` without .local only works on the Raspberry Pi itself
+    - Use mDNS: http://mediaplayer.local:5000 (requires Avahi - see Step 4.5)
+    - Or use IP address: http://<raspberry-pi-ip>:5000 (fallback if mDNS not available)
 
 ## Prerequisites
 
@@ -140,8 +139,12 @@ EOF
 # Set hostname to "mediaplayer"
 sudo hostnamectl set-hostname mediaplayer
 
-# Update /etc/hosts
-sudo sed -i 's/127.0.1.1.*/127.0.1.1\tmediaplayer/' /etc/hosts
+# Update /etc/hosts to include both mediaplayer and mediaplayer.local
+sudo sed -i 's/127.0.1.1.*/127.0.1.1\tmediaplayer mediaplayer.local/' /etc/hosts
+# If the line doesn't exist, add it:
+if ! grep -q "127.0.1.1.*mediaplayer" /etc/hosts; then
+  echo -e "127.0.1.1\tmediaplayer mediaplayer.local" | sudo tee -a /etc/hosts
+fi
 ```
 
 Reboot to apply hostname changes:
@@ -149,9 +152,9 @@ Reboot to apply hostname changes:
 sudo reboot
 ```
 
-## Step 4.5: Configure mDNS/Avahi for Network Hostname Resolution (Optional but Recommended)
+## Step 4.5: Configure mDNS/Avahi for Network Hostname Resolution (Required for mediaplayer.local)
 
-By default, the hostname "mediaplayer" is only known locally on the Raspberry Pi. To allow other computers on your network to resolve the hostname, you can set up mDNS (multicast DNS) using Avahi.
+To allow other computers on your network to resolve `mediaplayer.local`, you need to set up mDNS (multicast DNS) using Avahi. The `.local` suffix is required by the mDNS protocol.
 
 **Note**: Without mDNS, you'll need to use the Raspberry Pi's IP address directly (e.g., `http://192.168.1.100:5000`) instead of the hostname.
 
@@ -182,10 +185,20 @@ By default, the hostname "mediaplayer" is only known locally on the Raspberry Pi
    ```
 
 **Important Notes:**
-- After installing Avahi, use `mediaplayer.local` (with `.local` suffix) from other computers, not just `mediaplayer`
-- The `.local` suffix is required for mDNS resolution
-- On the Raspberry Pi itself, both `mediaplayer` and `mediaplayer.local` should work
+- Always use `mediaplayer.local` (with `.local` suffix) - this works both locally and from network devices
+- The `.local` suffix is required by the mDNS protocol and cannot be changed
+- After installing Avahi and configuring `/etc/hosts`, `mediaplayer.local` should work everywhere
 - If mDNS doesn't work, use the IP address directly: `http://<raspberry-pi-ip>:5000`
+
+**Ensure Local Resolution Works:**
+
+Run the fix script to ensure `mediaplayer.local` works locally:
+
+```bash
+sudo /home/avgustin/Desktop/MediaServer/deployment/raspberry-pi/fix-local-hostname-resolution.sh
+```
+
+This ensures `/etc/hosts` has both `mediaplayer` and `mediaplayer.local` entries, so `mediaplayer.local` resolves both locally and from network devices.
 
 **Alternative: Use IP Address (No Setup Required)**
 - Find the Raspberry Pi's IP address: `ip addr` or `hostname -I`
@@ -455,10 +468,10 @@ sudo journalctl -u numlock -f
      - Find IP: `ssh` to Raspberry Pi and run `hostname -I` or `ip addr`
      - Open browser: http://<raspberry-pi-ip>:5000 (admin app)
      - Open browser: http://<raspberry-pi-ip>:5001 (client app)
-   - **Alternative**: Use mDNS with .local suffix (requires Avahi - see Step 4.5)
+   - **Recommended**: Use mDNS (requires Avahi - see Step 4.5)
      - Open browser: http://mediaplayer.local:5000 (admin app)
      - Open browser: http://mediaplayer.local:5001 (client app)
-   - **Note**: `mediaplayer` without .local only works on the Raspberry Pi itself
+   - **Alternative**: Use IP address directly (if mDNS not available)
 
 3. **Check Chromium kiosk mode:**
    - Should automatically open fullscreen on boot
@@ -502,9 +515,8 @@ sudo netstat -tlnp | grep -E ':(5000|5001)'
 
 3. **Access from another device** (alternative):
    - Connect to the same network
-   - **Recommended**: Use IP address: `http://<raspberry-pi-ip>:5000` (find IP with `hostname -I` on Raspberry Pi)
-   - **Alternative**: Use mDNS: `http://mediaplayer.local:5000` (requires Avahi - see Step 4.5)
-   - **Note**: `http://mediaplayer:5000` only works on the Raspberry Pi itself
+   - **Recommended**: Use mDNS: `http://mediaplayer.local:5000` (requires Avahi - see Step 4.5)
+   - **Alternative**: Use IP address: `http://<raspberry-pi-ip>:5000` (find IP with `hostname -I` on Raspberry Pi)
 
 **Note:** Having the admin app open in a separate minimized window ensures it maintains a WebSocket connection and can receive keyboard events from the client app, even when the client window is active and fullscreen. The client window is always focused on startup.
 
@@ -785,12 +797,10 @@ This usually means Chromium launched before the services were fully ready or Ang
 
 6. **Check DNS resolution (for hostname):**
    ```bash
-   # This will only work on Raspberry Pi itself
-   nslookup mediaplayer
-   
-   # For network resolution, use:
+   # Test mediaplayer.local resolution
    nslookup mediaplayer.local
-   # Or use IP address directly
+   ping mediaplayer.local
+   # Or use IP address directly if mDNS not available
    ```
 
 7. **Restart networking (use with caution):**
@@ -798,6 +808,71 @@ This usually means Chromium launched before the services were fully ready or Ang
    sudo systemctl restart networking
    # Or for NetworkManager:
    sudo systemctl restart NetworkManager
+   ```
+
+### DNS Resolution Issues When Using Wired Network
+
+**Problem**: When switching from WiFi Access Point mode to wired network, DNS resolution may stop working.
+
+**Cause**: 
+- `dnsmasq` (used for AP mode) may still be running and interfering with DNS
+- DNS configuration may not be updated when switching network modes
+- `/etc/resolv.conf` may not be properly configured
+
+**Solution**:
+
+1. **Run the DNS fix script:**
+   ```bash
+   sudo /home/avgustin/Desktop/MediaServer/deployment/raspberry-pi/fix-dns-wired-network.sh
+   ```
+   
+   Or if deployed:
+   ```bash
+   sudo bash fix-dns-wired-network.sh
+   ```
+
+2. **Manual fix - Stop dnsmasq if using wired network:**
+   ```bash
+   # Check if dnsmasq is running
+   sudo systemctl status dnsmasq
+   
+   # If running and you're using wired network, stop it:
+   sudo systemctl stop dnsmasq
+   sudo systemctl disable dnsmasq
+   ```
+
+3. **Manual fix - Configure DNS in NetworkManager:**
+   ```bash
+   # Check current DNS
+   nmcli dev show | grep DNS
+   
+   # Set DNS servers (if needed)
+   sudo nmcli connection modify "Wired connection 1" ipv4.dns "8.8.8.8 8.8.4.4"
+   sudo nmcli connection up "Wired connection 1"
+   ```
+
+4. **Manual fix - Configure DNS in dhcpcd.conf:**
+   ```bash
+   # Edit /etc/dhcpcd.conf
+   sudo nano /etc/dhcpcd.conf
+   
+   # Add or uncomment (for static IP):
+   # interface eth0
+   # static domain_name_servers=8.8.8.8 8.8.4.4
+   
+   # Or let DHCP provide DNS (remove static DNS lines)
+   ```
+
+5. **Test DNS resolution:**
+   ```bash
+   # Test DNS
+   nslookup google.com
+   ping google.com
+   
+   # Check current DNS servers
+   cat /etc/resolv.conf
+   # Or if using systemd-resolved:
+   resolvectl status
    ```
 
 **Quick Fix: Use IP Address**
@@ -904,12 +979,12 @@ cp /home/avgustin/Desktop/MediaServer/dist/server/data/mediaserver.db \
 ## Next Steps
 
 - Access admin interface:
-  - From Raspberry Pi: http://mediaplayer:5000 or http://localhost:5000
-  - From other computers: http://<raspberry-pi-ip>:5000 or http://mediaplayer.local:5000 (if Avahi is configured)
+  - From any computer: http://mediaplayer.local:5000 (requires Avahi - see Step 4.5)
+  - Alternative: http://<raspberry-pi-ip>:5000 (if mDNS not available)
 - Configure library items and playlists
 - Connect display devices to the client app:
-  - From Raspberry Pi: http://mediaplayer:5001 or http://localhost:5001
-  - From other computers: http://<raspberry-pi-ip>:5001 or http://mediaplayer.local:5001 (if Avahi is configured)
+  - From any computer: http://mediaplayer.local:5001 (requires Avahi - see Step 4.5)
+  - Alternative: http://<raspberry-pi-ip>:5001 (if mDNS not available)
 - Monitor logs for any issues
 
 ## Support
@@ -926,5 +1001,5 @@ For issues or questions:
 **Deployment profile**: raspberry-pi  
 **Server port**: 5000  
 **Client port**: 5001  
-**Hostname**: mediaplayer  
+**Hostname**: mediaplayer.local (works both locally and from network devices via mDNS/Avahi)  
 

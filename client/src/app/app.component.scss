@@ -116,11 +116,52 @@
   }
 }
 
-/* Text Container */
 .text-container {
   background-color: #000;
   padding: 20px;
+  position: relative;
 }
+
+.text-pages {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.text-page {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 400ms ease-in-out;
+}
+
+.text-page.page-0 {
+  transform: translateX(0);
+}
+
+.text-page.page-1 {
+  transform: translateX(100%);
+}
+
+.text-pages.show-page-0 .text-page.page-0,
+.text-pages.show-page-1 .text-page.page-1 {
+  transform: translateX(0);
+}
+
+.text-pages.show-page-0 .text-page.page-1 {
+  transform: translateX(100%);
+}
+
+.text-pages.show-page-1 .text-page.page-0 {
+  transform: translateX(-100%);
+}
+
+// Removed animation keyframes - using CSS transition instead for smoother performance
 
 .text-content {
   color: #fff;
@@ -128,53 +169,38 @@
   word-wrap: break-word;
   overflow-wrap: break-word;
   white-space: pre-wrap;
-  max-width: 95%;
-  max-height: 95%;
-  line-height: 1.5; // Base line height
+  max-width: 98%;
+  max-height: 98%;
+  line-height: 1.2; // Base line height
   font-weight: 500;
   display: block; // Ensure block display for proper measurement
   overflow: hidden; // Prevent text from overflowing container
-  // Default opacity is 0 - prevents flash when content changes
-  // Class binding is more immediate than style binding on slow devices
   opacity: 0;
-  // Ensure text is completely hidden until ready - prevents any flash
-  // Will be removed when font size is calculated and applied
-  will-change: opacity, font-size; // Optimize for transitions
-  transition: opacity 200ms ease-in-out; // Smooth fade-in transition
+  will-change: opacity, font-size;
+  transition: opacity 200ms ease-in-out;
   
-  // When ready, opacity transitions to 1
   &.text-ready {
     opacity: 1;
   }
   
-  // Style HTML formatting tags
-  ::ng-deep b,
-  ::ng-deep strong {
+  ::ng-deep b, ::ng-deep strong {
     font-weight: bolder;
   }
   
-  ::ng-deep i,
-  ::ng-deep em {
+  ::ng-deep i, ::ng-deep em {
     font-style: italic;
   }
   
   ::ng-deep p {
     margin: 0.5em 0;
-    
-    &:first-child {
-      margin-top: 0;
-    }
-    
-    &:last-child {
-      margin-bottom: 0;
-    }
+    &:first-child { margin-top: 0; }
+    &:last-child { margin-bottom: 0; }
   }
   
   ::ng-deep br {
     line-height: 1.2;
   }
 
-  // Style chord tags to display above text - matching server styles
   ::ng-deep chord {
     display: inline-block;
     font-size: 60%;
@@ -182,76 +208,50 @@
     position: relative;
     top: -1.15em;
     overflow: visible;
-    color: var(--chord-color, #210789) !important; // Use CSS variable from message or default
+    color: var(--chord-color, #210789) !important;
     white-space: nowrap;
   }
   
-  // Style chi tags (numbers inside chords) - matching server styles
   ::ng-deep chi {
     font-size: 60%;
     vertical-align: -0.2em;
   }
 }
 
-// Hide chords when chords-hidden class is applied
-.text-container.chords-hidden {
-  ::ng-deep chord {
-    display: none !important;
-  }
+.text-container.chords-hidden ::ng-deep chord {
+  display: none !important;
 }
 
-// Show chords when chords-visible class is applied
-.text-container.chords-visible {
-  .text-content {
-    line-height: 1.8; // More space between lines when chords are displayed
-  }
+.text-container.chords-visible .text-content,
+.text-container:not(.chords-hidden) .text-content {
+  line-height: 1.8;
 }
 
-// Increase line spacing when chords are shown (not hidden)
-.text-container:not(.chords-hidden) {
-  .text-content {
-    line-height: 1.8; // More space between lines when chords are displayed
-  }
-}
-
-/* Image Container */
-.image-container {
+.image-container, .video-container, .iframe-container {
   background-color: #000;
   padding: 10px;
+  // Start off-screen to the right, will slide in when media-slide class is applied
+  transform: translateX(100%);
+  transition: transform 400ms ease-in-out;
+  
+  &.media-slide {
+    transform: translateX(0);
+  }
 }
 
-.display-image {
-  max-width: 100%;
-  max-height: 100%;
-  width: auto;
-  height: auto;
-  object-fit: contain;
-  display: block;
-}
-
-/* Video Container */
-.video-container {
-  background-color: #000;
-  padding: 10px;
-}
-
-.display-video {
-  max-width: 100%;
-  max-height: 100%;
-  width: auto;
-  height: auto;
-  object-fit: contain;
-  display: block;
-}
-
-/* Iframe Container */
 .iframe-container {
-  background-color: #000;
   padding: 0;
-  position: relative;
-  min-width: 100%;
-  min-height: 100%;
 }
+
+.display-image, .display-video {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  display: block;
+}
+
 
 .display-iframe {
   width: 100%;
@@ -265,7 +265,6 @@
   left: 0;
 }
 
-/* No Content */
 .no-content {
   background-color: #1a1a1a;
   color: #666;

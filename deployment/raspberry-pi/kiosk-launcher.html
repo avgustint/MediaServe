@@ -21,7 +21,11 @@
         }
     </style>
     <script>
-        const CLIENT_URL = 'http://localhost:5001';
+        // Use mediaserver.local if available, fallback to localhost
+        const CLIENT_URL = (window.location.hostname === 'mediaserver.local' || 
+                           window.location.hostname.includes('mediaserver.local')) 
+                           ? 'http://mediaserver.local:5001' 
+                           : 'http://localhost:5001';
         
         // Simple redirect to client - client app will open admin tab itself
         // This ensures client tab is always the active one

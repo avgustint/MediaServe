@@ -36,21 +36,38 @@
   <div class="connection-status" [class.connected]="connectionStatus === 'connected'"></div>
 
   <!-- Text Content -->
-  <div *ngIf="currentContent?.type === 'text'" 
+  <div *ngIf="currentTextContent || nextTextContent" 
        class="content-container text-container" 
        [ngStyle]="textContainerStyle"
        [class.chords-hidden]="!showChords"
        #textContainer>
-    <div class="text-content" 
-         [ngStyle]="textContentStyle" 
-         [class.text-ready]="isTextReady"
-         [innerHTML]="text | formatText" 
-         [style.--chord-color]="chordFontColor"></div>
+    <div class="text-pages"
+         [class.show-page-0]="activeTextPageIndex === 0"
+         [class.show-page-1]="activeTextPageIndex === 1">
+      <!-- Page 0 (one of the two slide pages) -->
+      <div class="text-page page-0">
+        <div class="text-content"
+             [ngStyle]="textContentStyleForPage(0)"
+             [class.text-ready]="isTextReady && activeTextPageIndex === 0"
+             [innerHTML]="getTextForPage(0) | formatText"
+             [style.--chord-color]="getChordFontColorForPage(0)"></div>
+      </div>
+
+      <!-- Page 1 (the other slide page) -->
+      <div class="text-page page-1">
+        <div class="text-content"
+             [ngStyle]="textContentStyleForPage(1)"
+             [class.text-ready]="isTextReady && activeTextPageIndex === 1"
+             [innerHTML]="getTextForPage(1) | formatText"
+             [style.--chord-color]="getChordFontColorForPage(1)"></div>
+      </div>
+    </div>
   </div>
 
   <!-- Image Content -->
   <div *ngIf="currentContent?.type === 'image'" 
        class="content-container image-container" 
+       [class.media-slide]="mediaSlideToggle"
        [ngStyle]="imageContainerStyle"
        #imageContainer>
     <img [src]="imageSrc" alt="Received image" class="display-image" [ngStyle]="imageStyle" />
@@ -58,7 +75,8 @@
 
   <!-- URL Content (iframe) -->
   <div *ngIf="currentContent?.type === 'url'" 
-       class="content-container iframe-container">
+       class="content-container iframe-container"
+       [class.media-slide]="mediaSlideToggle">
     <iframe #urlIframe
             [src]="safeUrl" 
             class="display-iframe" 
@@ -70,6 +88,7 @@
   <!-- Video Content -->
   <div *ngIf="currentContent?.type === 'video'" 
        class="content-container video-container" 
+       [class.media-slide]="mediaSlideToggle"
        [ngStyle]="videoContainerStyle"
        #videoContainer>
     <video #videoElement

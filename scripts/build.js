@@ -9,6 +9,7 @@ const DIST_DIR = path.join(ROOT_DIR, 'dist');
 const CONFIG_FILE = path.join(ROOT_DIR, 'build.config.js');
 
 // Parse command line arguments
+// Note: cleanFlag is kept for backward compatibility but cleaning is now always done
 const cleanFlag = process.argv.includes('--clean') || process.argv.includes('-c');
 const profileIndex = process.argv.findIndex(arg => arg === '--profile');
 const profileName = profileIndex !== -1 && process.argv[profileIndex + 1] 
@@ -60,8 +61,8 @@ const config = {
 
 console.log('🚀 Starting build process...\n');
 
-// Clean dist directory if requested
-if (cleanFlag && fs.existsSync(DIST_DIR)) {
+// Clean dist directory (always clean for fresh builds)
+if (fs.existsSync(DIST_DIR)) {
   console.log('🧹 Cleaning dist directory...');
   fs.rmSync(DIST_DIR, { recursive: true, force: true });
 }

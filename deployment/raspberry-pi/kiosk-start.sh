@@ -2,25 +2,40 @@
 # Chromium Kiosk Mode Launcher for MediaServer Client
 # This script launches Chromium in kiosk mode with all necessary flags for auto-play and no popups
 
+# Log script start
+echo "Kiosk start script: Starting at $(date)"
+echo "Kiosk start script: User=$(whoami), HOME=$HOME"
+
 # Set display (use first available)
 export DISPLAY=:0
 export HOME=/home/avgustin
 
-# Wait for X server to be ready
-MAX_X_ATTEMPTS=30
+# Verify XAUTHORITY is set
+if [ -z "$XAUTHORITY" ]; then
+    export XAUTHORITY=/home/avgustin/.Xauthority
+    echo "Kiosk start script: Set XAUTHORITY to $XAUTHORITY"
+fi
+
+# Wait for X server to be ready (use xset which is more commonly available than xdpyinfo)
+echo "Kiosk start script: Waiting for X server..."
+MAX_X_ATTEMPTS=60
 X_ATTEMPT=0
 while [ $X_ATTEMPT -lt $MAX_X_ATTEMPTS ]; do
-    if xset q &>/dev/null; then
-        echo "X server is ready"
+    # Try xset first (more commonly available), then xdpyinfo if available
+    if xset q >/dev/null 2>&1 || (command -v xdpyinfo >/dev/null 2>&1 && xdpyinfo -display :0 >/dev/null 2>&1); then
+        echo "Kiosk start script: X server is ready"
         break
     fi
-    echo "Waiting for X server... ($X_ATTEMPT/$MAX_X_ATTEMPTS)"
+    if [ $((X_ATTEMPT % 10)) -eq 0 ]; then
+        echo "Kiosk start script: Waiting for X server... ($X_ATTEMPT/$MAX_X_ATTEMPTS)"
+    fi
     sleep 1
     X_ATTEMPT=$((X_ATTEMPT + 1))
 done
 
 if [ $X_ATTEMPT -eq $MAX_X_ATTEMPTS ]; then
-    echo "Warning: X server may not be ready"
+    echo "Kiosk start script: ERROR - X server may not be ready after $MAX_X_ATTEMPTS seconds"
+    echo "Kiosk start script: Attempting to continue anyway..."
 fi
 
 # Wait a bit more to ensure X server is fully initialized
@@ -99,8 +114,9 @@ else
 fi
 
 # Wait for both servers to be ready
-CLIENT_URL="http://localhost:5001"
-ADMIN_URL="http://localhost:5000"
+# Use fixed IP for Raspberry Pi deployment
+CLIENT_URL="http://192.168.0.100:5001"
+ADMIN_URL="http://192.168.0.100:5000"
 LAUNCHER_FILE="$HOME/Desktop/MediaServer/deployment/raspberry-pi/kiosk-launcher.html"
 LAUNCHER_URL="file://$LAUNCHER_FILE"
 
@@ -322,7 +338,52 @@ ADMIN_PROFILE_DIR="$HOME/.config/chromium-admin"
 mkdir -p "$CLIENT_PROFILE_DIR"
 mkdir -p "$ADMIN_PROFILE_DIR"
 
+# Clear session data to prevent "Restore pages" popup
+echo "Clearing session data to prevent restore popup..."
+# Remove session files that cause restore prompts
+for profile_dir in "$CLIENT_PROFILE_DIR" "$ADMIN_PROFILE_DIR"; do
+    if [ -d "$profile_dir" ]; then
+        # Remove session files
+        rm -f "$profile_dir/Default/Session" 2>/dev/null || true
+        rm -f "$profile_dir/Default/Current Session" 2>/dev/null || true
+        rm -f "$profile_dir/Default/Current Tabs" 2>/dev/null || true
+        rm -f "$profile_dir/Default/Last Session" 2>/dev/null || true
+        rm -f "$profile_dir/Default/Last Tabs" 2>/dev/null || true
+        rm -rf "$profile_dir/Default/Session Storage" 2>/dev/null || true
+        rm -rf "$profile_dir/Default/GPUCache" 2>/dev/null || true
+        
+        # Modify preferences to disable session restore
+        if [ -f "$profile_dir/Default/Preferences" ]; then
+            # Use Python or sed to modify JSON preferences if available
+            if command -v python3 &> /dev/null; then
+                python3 << EOF
+import json
+import os
+prefs_file = "$profile_dir/Default/Preferences"
+if os.path.exists(prefs_file):
+    try:
+        with open(prefs_file, 'r') as f:
+            prefs = json.load(f)
+        # Disable session restore
+        if 'session' not in prefs:
+            prefs['session'] = {}
+        prefs['session']['restore_on_startup'] = 5  # 5 = restore_on_startup = kRestoreOnStartupNever
+        if 'profile' not in prefs:
+            prefs['profile'] = {}
+        prefs['profile']['exit_type'] = 'Normal'
+        with open(prefs_file, 'w') as f:
+            json.dump(prefs, f)
+    except:
+        pass
+EOF
+            fi
+        fi
+    fi
+done
+
 # Common Chromium flags
+# --autoplay-policy=no-user-gesture-required: Allow autoplay for both video and audio without user interaction
+# --autoplay-policy=no-user-gesture-required: Enables autoplay with sound
 CHROMIUM_FLAGS=(
     --autoplay-policy=no-user-gesture-required
     --disable-popup-blocking
@@ -332,7 +393,9 @@ CHROMIUM_FLAGS=(
     --disable-session-crashed-bubble
     --disable-restore-session-state
     --disable-translate
-    --disable-features=TranslateUI
+    --disable-features=TranslateUI,SessionRestore
+    --force-device-scale-factor=1
+    --disable-features=AutofillServerCommunication
     --noerrdialogs
     --disable-component-update
     --check-for-update-interval=31536000
@@ -353,6 +416,7 @@ CHROMIUM_FLAGS=(
     --no-pings
     --password-store=basic
     --use-mock-keychain
+    --disable-background-downloads
 )
 
 echo "Starting Chromium windows..."
@@ -413,10 +477,142 @@ echo "Launching client window (fullscreen)..."
   (for tty in /dev/tty1 /dev/tty2 /dev/tty3 /dev/console; do [ -e "$tty" ] && setleds +num < "$tty" 2>/dev/null && break; done || true) && \
   (DISPLAY=:0 numlockx on 2>/dev/null || DISPLAY=:0 xdotool key Num_Lock 2>/dev/null || true)) &
 
-exec "$CHROMIUM_CMD" \
+# Launch client window in background so we can manage it
+"$CHROMIUM_CMD" \
     --user-data-dir="$CLIENT_PROFILE_DIR" \
     --start-fullscreen \
     "${CHROMIUM_FLAGS[@]}" \
     --new-window \
-    "$CLIENT_URL"
+    "$CLIENT_URL" &
+
+CLIENT_PID=$!
+
+# Wait for client window to appear and ensure it's in foreground
+echo "Waiting for client window to appear and ensuring it's in foreground..."
+sleep 3
+
+# Function to bring client window to foreground
+bring_client_to_foreground() {
+    local client_winid=""
+    
+    if command -v wmctrl &> /dev/null; then
+        # Method 1: Find by URL pattern (updated to use fixed IP)
+        client_winid=$(wmctrl -l | grep -iE "192\.168\.0\.100:5001|localhost:5001|5001" | awk '{print $1}' | head -1)
+        
+        # Method 2: If not found, find by process ID (most reliable)
+        if [ -z "$client_winid" ] && [ -n "$CLIENT_PID" ]; then
+            # Get window IDs for the client process
+            client_winid=$(wmctrl -lp | grep " $CLIENT_PID " | awk '{print $1}' | head -1)
+        fi
+        
+        # Method 3: Find largest/fullscreen chromium window (fallback)
+        if [ -z "$client_winid" ]; then
+            # Get all chromium windows and find the one that's fullscreen or largest
+            for winid in $(wmctrl -lx | grep -i chromium | awk '{print $1}'); do
+                # Check if window is fullscreen or try to make it fullscreen
+                if wmctrl -i -r "$winid" -b add,fullscreen 2>/dev/null; then
+                    client_winid="$winid"
+                    break
+                fi
+            done
+        fi
+        
+        if [ -n "$client_winid" ]; then
+            echo "Bringing client window $client_winid to foreground..."
+            # Remove any hidden/minimized state
+            wmctrl -i -r "$client_winid" -b remove,hidden 2>/dev/null || true
+            wmctrl -i -r "$client_winid" -b remove,shaded 2>/dev/null || true
+            # Activate and make fullscreen
+            wmctrl -i -a "$client_winid" 2>/dev/null || true
+            wmctrl -i -r "$client_winid" -b add,fullscreen 2>/dev/null || true
+            # Raise to top
+            wmctrl -i -r "$client_winid" -b add,above 2>/dev/null || true
+        else
+            echo "Warning: Could not find client window"
+        fi
+        
+    elif command -v xdotool &> /dev/null; then
+        # Method 1: Find by process ID (most reliable)
+        if [ -n "$CLIENT_PID" ]; then
+            # Get all windows for the client process
+            client_winid=$(xdotool search --pid "$CLIENT_PID" --class "chromium" 2>/dev/null | head -1)
+        fi
+        
+        # Method 2: Find by URL in window name
+        if [ -z "$client_winid" ]; then
+            client_winid=$(xdotool search --name ".*192\.168\.0\.100:5001.*" --class "chromium" 2>/dev/null | head -1)
+        fi
+        
+        # Method 3: Find largest chromium window (fallback)
+        if [ -z "$client_winid" ]; then
+            # Get all chromium windows and find the largest one
+            largest_size=0
+            largest_winid=""
+            for winid in $(xdotool search --class "chromium" 2>/dev/null); do
+                geometry=$(xdotool getwindowgeometry "$winid" 2>/dev/null | grep -oP 'Geometry: \K[0-9]+x[0-9]+' || echo "")
+                if [ -n "$geometry" ]; then
+                    width=$(echo "$geometry" | cut -d'x' -f1)
+                    height=$(echo "$geometry" | cut -d'x' -f2)
+                    size=$((width * height))
+                    if [ "$size" -gt "$largest_size" ]; then
+                        largest_size=$size
+                        largest_winid="$winid"
+                    fi
+                fi
+            done
+            client_winid="$largest_winid"
+        fi
+        
+        if [ -n "$client_winid" ]; then
+            echo "Bringing client window $client_winid to foreground..."
+            # Activate, focus, and make fullscreen
+            xdotool windowactivate "$client_winid" 2>/dev/null || true
+            xdotool windowfocus "$client_winid" 2>/dev/null || true
+            # Get screen dimensions and set window to fullscreen
+            screen_size=$(xdotool getdisplaygeometry | awk '{print $1"x"$2}')
+            xdotool windowsize "$client_winid" "$screen_size" 2>/dev/null || true
+            xdotool windowmove "$client_winid" 0 0 2>/dev/null || true
+        else
+            echo "Warning: Could not find client window"
+        fi
+    else
+        echo "Warning: Neither wmctrl nor xdotool found. Cannot bring window to foreground."
+    fi
+}
+
+# Try multiple times to ensure client window is in foreground
+# Wait a bit longer for window to fully initialize before trying to focus
+sleep 2
+for i in 1 2 3 4 5 6 7 8 9 10; do
+    echo "Ensuring client window is in foreground (attempt $i/10)..."
+    bring_client_to_foreground
+    sleep 0.5
+done
+
+# Start a background process to periodically check and bring client to foreground
+# This ensures the client window stays in foreground even if something tries to steal focus
+(
+    # Wait a bit before starting the monitor to let window fully initialize
+    sleep 5
+    while true; do
+        # Check if client process is still running
+        if ! kill -0 "$CLIENT_PID" 2>/dev/null; then
+            echo "Client process ended, exiting foreground monitor"
+            break
+        fi
+        # Bring client window to foreground periodically (every 5 seconds)
+        bring_client_to_foreground
+        sleep 5
+    done
+) &
+FOREGROUND_MONITOR_PID=$!
+
+# Wait for client process
+wait "$CLIENT_PID"
+CLIENT_EXIT_CODE=$?
+
+# Kill foreground monitor when client exits
+kill "$FOREGROUND_MONITOR_PID" 2>/dev/null || true
+
+exit $CLIENT_EXIT_CODE
 

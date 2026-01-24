@@ -1,7 +1,7 @@
 [Unit]
 Description=MediaServer Node.js Backend
-After=network.target
-Wants=network.target
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=simple
@@ -23,4 +23,6 @@ PrivateTmp=true
 
 [Install]
 WantedBy=multi-user.target
+# Auto-enable on installation
+# Run: sudo systemctl enable mediaserver.service
 

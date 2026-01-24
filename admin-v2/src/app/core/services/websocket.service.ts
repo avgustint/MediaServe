@@ -34,9 +34,52 @@ export class WebSocketService {
   private connectionStatusSubject = new BehaviorSubject<ConnectionStatus>('disconnected');
   public connectionStatus$ = this.connectionStatusSubject.asObservable();
 
-  private wsUrl = environment.wsUrl;
   private reconnectTimeout: any = null;
   private currentLocationId: number | null = null;
+  private fallbackUrl: string | null = null;
+  private reconnectAttempts = 0;
+  private maxReconnectAttempts = 5;
+  private isUsingFallback = false;
+
+  private getWsUrl(): string {
+    // Get WebSocket URL at runtime
+    if (typeof window !== 'undefined' && window.location) {
+      const hostname = window.location.hostname;
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      
+      // Check if there's a configured server URL in localStorage
+      const configuredServerUrl = localStorage.getItem('mediaserver_api_url');
+      if (configuredServerUrl) {
+        const wsUrl = configuredServerUrl.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:');
+        return wsUrl;
+      }
+      
+      // Check URL parameter for server override
+      const urlParams = new URLSearchParams(window.location.search);
+      const serverParam = urlParams.get('server');
+      if (serverParam) {
+        const serverUrl = serverParam.startsWith('http') ? serverParam : `${protocol}//${serverParam.replace(/^https?:/, '')}`;
+        if (!serverUrl.startsWith('ws') && !serverUrl.startsWith('wss')) {
+          return serverUrl.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:');
+        }
+        return serverUrl;
+      }
+      
+      // If accessing from localhost, use fixed Raspberry Pi IP (192.168.0.100)
+      if (hostname === 'localhost' || hostname === '127.0.0.1') {
+        return `${protocol}//192.168.0.100:5000`;
+      }
+      
+      // If accessing from Raspberry Pi fixed IP, use that IP with port 5000
+      if (hostname === '192.168.0.100') {
+        return `${protocol}//192.168.0.100:5000`;
+      }
+      
+      // For any other hostname, use same hostname with port 5000
+      return `${protocol}//${hostname}:5000`;
+    }
+    return environment.wsUrl;
+  }
 
   connect(locationId?: number | null): void {
     // Disconnect existing connection before creating a new one
@@ -55,16 +98,34 @@ export class WebSocketService {
     }
 
     // Build WebSocket URL with locationId if provided
-    let url = environment.wsUrl;
+    let url = this.getWsUrl();
+    
+    // Generate fallback URL: if url contains fixed IP, fallback to localhost
+    if (url.includes('192.168.0.100')) {
+      this.fallbackUrl = url.replace('192.168.0.100', 'localhost');
+    } else {
+      this.fallbackUrl = null;
+    }
+    
     if (locationId) {
       const separator = url.includes('?') ? '&' : '?';
       url = `${url}${separator}locationId=${locationId}`;
+      if (this.fallbackUrl) {
+        this.fallbackUrl = `${this.fallbackUrl}${separator}locationId=${locationId}`;
+      }
       this.currentLocationId = locationId;
     } else {
       this.currentLocationId = null;
     }
-    this.wsUrl = url;
 
+    // Reset reconnect attempts when explicitly connecting
+    this.reconnectAttempts = 0;
+    this.isUsingFallback = false;
+
+    this.attemptConnection(url, false, locationId);
+  }
+
+  private attemptConnection(url: string, isFallback: boolean, locationId?: number | null): void {
     // Clear any existing reconnect timeout
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
@@ -75,11 +136,13 @@ export class WebSocketService {
     this.connectionStatusSubject.next('connecting');
 
     try {
-      this.socket = new WebSocket(this.wsUrl);
+      this.socket = new WebSocket(url);
+      this.isUsingFallback = isFallback;
 
       this.socket.onopen = () => {
-        console.log('WebSocket connection established');
+        console.log(`WebSocket connection established to ${url}`);
         this.connectionStatusSubject.next('connected');
+        this.reconnectAttempts = 0; // Reset on successful connection
         
         // Send AdminClient initialization message to register as admin client
         // This ensures the server knows this is an admin app that should receive keyboard commands
@@ -100,21 +163,62 @@ export class WebSocketService {
       };
 
       this.socket.onerror = (error) => {
-        console.error('WebSocket error:', error);
+        console.error(`WebSocket error connecting to ${url}:`, error);
+        // If primary URL fails and we have a fallback, try it
+        if (!isFallback && this.fallbackUrl && this.reconnectAttempts === 0) {
+          console.log(`Trying fallback URL: ${this.fallbackUrl}`);
+          this.reconnectAttempts++;
+          setTimeout(() => {
+            if (this.socket) {
+              this.socket.close();
+            }
+            this.attemptConnection(this.fallbackUrl!, true, locationId);
+          }, 1000);
+        } else {
         this.connectionStatusSubject.next('disconnected');
+        }
       };
 
-      this.socket.onclose = () => {
-        console.log('WebSocket connection closed');
+      this.socket.onclose = (event) => {
+        console.log(`WebSocket connection closed to ${url}`);
         this.connectionStatusSubject.next('disconnected');
-        // Attempt to reconnect every 5 seconds with same locationId
-        this.reconnectTimeout = setTimeout(() => this.connect(this.currentLocationId || undefined), 5000);
+        
+        // Only attempt reconnect if it wasn't a manual disconnect
+        if (event.code !== 1000) {
+          // Try fallback if primary failed and we haven't tried it yet
+          if (!isFallback && this.fallbackUrl && this.reconnectAttempts < this.maxReconnectAttempts) {
+            console.log(`Connection failed, trying fallback URL: ${this.fallbackUrl}`);
+            this.reconnectAttempts++;
+            this.reconnectTimeout = setTimeout(() => {
+              this.attemptConnection(this.fallbackUrl!, true, this.currentLocationId || undefined);
+            }, 3000);
+          } else if (this.reconnectAttempts < this.maxReconnectAttempts) {
+            // Retry with same URL
+            this.reconnectAttempts++;
+            this.reconnectTimeout = setTimeout(() => {
+              this.attemptConnection(url, isFallback, this.currentLocationId || undefined);
+            }, 5000);
+          } else {
+            console.error('Max reconnection attempts reached');
+          }
+        }
       };
     } catch (error) {
       console.error('Failed to create WebSocket connection:', error);
       this.connectionStatusSubject.next('disconnected');
-      // Attempt to reconnect every 5 seconds with same locationId
-      this.reconnectTimeout = setTimeout(() => this.connect(this.currentLocationId || undefined), 5000);
+      
+      // Try fallback if available
+      if (!isFallback && this.fallbackUrl && this.reconnectAttempts < this.maxReconnectAttempts) {
+        this.reconnectAttempts++;
+        this.reconnectTimeout = setTimeout(() => {
+          this.attemptConnection(this.fallbackUrl!, true, locationId);
+        }, 1000);
+      } else if (this.reconnectAttempts < this.maxReconnectAttempts) {
+        this.reconnectAttempts++;
+        this.reconnectTimeout = setTimeout(() => {
+          this.attemptConnection(url, isFallback, locationId);
+        }, 5000);
+      }
     }
   }
 
@@ -126,11 +230,13 @@ export class WebSocketService {
     }
 
     if (this.socket) {
-      this.socket.close();
+      this.socket.close(1000); // Normal closure
       this.socket = null;
     }
 
     this.connectionStatusSubject.next('disconnected');
+    this.reconnectAttempts = 0;
+    this.isUsingFallback = false;
   }
 
   send(message: string): void {
