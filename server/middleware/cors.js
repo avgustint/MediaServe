@@ -17,16 +17,21 @@ function isAllowedOrigin(origin) {
     'http://localhost:4201',
     'http://localhost:5000',
     'http://localhost:5001',
+    'http://localhost:5002',
     'http://127.0.0.1',
     'http://127.0.0.1:4200',
     'http://127.0.0.1:4201',
     'http://127.0.0.1:5000',
     'http://127.0.0.1:5001',
+    'http://127.0.0.1:5002',
     'http://192.168.0.100',
     'http://192.168.0.100:4200',
     'http://192.168.0.100:4201',
     'http://192.168.0.100:5000',
     'http://192.168.0.100:5001',
+    'http://192.168.68.119',
+    'http://192.168.68.119:5001',
+    'http://192.168.68.119:5002',
   ];
   
   // Check exact match
@@ -37,7 +42,7 @@ function isAllowedOrigin(origin) {
   // Check if origin matches any allowed pattern (with any port)
   // This allows cross-hostname requests (e.g., localhost to fixed IP)
   const originHost = normalizedOrigin.replace(/^https?:\/\//, '').split(':')[0];
-  const allowedHosts = ['localhost', '127.0.0.1', '192.168.0.100'];
+  const allowedHosts = ['localhost', '127.0.0.1', '192.168.0.100', '192.168.68.119'];
   
   if (allowedHosts.includes(originHost)) {
     return true;
@@ -77,7 +82,7 @@ function corsMiddleware(req, res, next) {
   // This enables cross-hostname access (e.g., localhost:4200 to 192.168.0.100:5000)
   if (origin) {
     const originHost = origin.toLowerCase().replace(/^https?:\/\//, '').split(':')[0];
-    const allowedHosts = ['localhost', '127.0.0.1', '192.168.0.100'];
+    const allowedHosts = ['localhost', '127.0.0.1', '192.168.0.100', '192.168.68.119'];
     
     if (allowedHosts.includes(originHost)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
@@ -99,7 +104,7 @@ function corsMiddleware(req, res, next) {
   }
   
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Accept-Language, Content-Language');
   res.setHeader('Access-Control-Expose-Headers', 'Content-Length, Content-Type');
   
   // Handle preflight requests

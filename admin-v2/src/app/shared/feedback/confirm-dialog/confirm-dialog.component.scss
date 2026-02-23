@@ -51,8 +51,8 @@
   }
 }
 
-/* Mobile Responsive Styles */
-@include mobile-small {
+/* Mobile Responsive Styles - apply to all phones (768px and below) */
+@include mobile {
   .confirm-dialog-content {
     width: 95%;
     max-width: 95%;

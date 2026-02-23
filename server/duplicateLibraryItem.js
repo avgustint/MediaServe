@@ -16,7 +16,9 @@ function duplicateLibraryItem(sourceGuid) {
     return null;
   }
   
-  console.log(`Source item: "${sourceItem.name}" (Type: ${sourceItem.type})`);
+  const sourcePages = dbOps.getLibraryItemPages(sourceGuid);
+  const displayType = sourcePages?.length ? (sourcePages[0].type || sourceItem.type) : (sourceItem.type || 'text');
+  console.log(`Source item: "${sourceItem.name}" (Type: ${displayType})`);
   
   // Start transaction
   const transaction = db.transaction(() => {
@@ -27,12 +29,20 @@ function duplicateLibraryItem(sourceGuid) {
       WHERE library_item_guid = ?
     `).all(sourceGuid);
     // Get the next available GUID
-    const maxGuid = db.prepare('SELECT MAX(guid) as maxGuid FROM library_items').get()?.maxGuid || 0;
-    const newGuid = maxGuid + 1;
+    const existingGuids = new Set(
+      db.prepare('SELECT guid FROM library_items').all().map(row => row.guid)
+    );
+    let newGuid = 1;
+    while (existingGuids.has(newGuid)) {
+      newGuid++;
+    }
     
     console.log(`New GUID will be: ${newGuid}`);
     
-    // Create new library item (copy of source)
+    // All items use pages; create new pages for each source page and link to new item
+    const sourcePages = dbOps.getLibraryItemPages(sourceGuid);
+    const itemType = sourcePages && sourcePages.length > 0 ? (sourcePages[0].type || 'text') : (sourceItem.type || 'text');
+
     const now = new Date().toISOString();
     db.prepare(`
       INSERT INTO library_items (guid, name, type, content, description, modified, background_color, font_color, author)
@@ -40,30 +50,32 @@ function duplicateLibraryItem(sourceGuid) {
     `).run(
       newGuid,
       sourceItem.name || '',
-      sourceItem.type || 'text',
-      sourceItem.content || '',
+      itemType,
+      '',
       sourceItem.description || null,
       now,
       sourceItem.background_color || null,
       sourceItem.font_color || null,
       sourceItem.author || null
     );
-    
+
     console.log(`✓ Created new library item with ID=${newGuid}`);
-    
-    // Copy library_item_pages (for text items with pages)
-    if (sourceItem.type === 'text') {
-      const sourcePages = dbOps.getLibraryItemPages(sourceGuid);
-      if (sourcePages && sourcePages.length > 0) {
-        const insertPage = db.prepare(`
-          INSERT INTO library_item_pages (library_item_guid, page_guid, order_number)
-          VALUES (?, ?, ?)
-        `);
-        sourcePages.forEach(page => {
-          insertPage.run(newGuid, page.guid, page.order_number);
-        });
-        console.log(`✓ Copied ${sourcePages.length} pages to new item`);
-      }
+
+    if (sourcePages && sourcePages.length > 0) {
+      const insertPage = db.prepare(`
+        INSERT INTO pages (guid, content, type) VALUES (?, ?, ?)
+      `);
+      const linkPage = db.prepare(`
+        INSERT INTO library_item_pages (library_item_guid, page_guid, order_number)
+        VALUES (?, ?, ?)
+      `);
+      let nextPageGuid = (db.prepare('SELECT MAX(guid) as maxGuid FROM pages').get()?.maxGuid || 0) + 1;
+      sourcePages.forEach((page, index) => {
+        insertPage.run(nextPageGuid, page.content || '', page.type || 'text');
+        linkPage.run(newGuid, nextPageGuid, page.order_number || index + 1);
+        nextPageGuid++;
+      });
+      console.log(`✓ Created ${sourcePages.length} new page(s) for duplicated item`);
     }
     
     // Copy library_item_tags
@@ -130,7 +142,7 @@ function duplicateLibraryItem(sourceGuid) {
     console.log(`Source item ID: ${sourceGuid}`);
     console.log(`New item ID: ${newGuid}`);
     console.log(`Name: "${sourceItem.name}"`);
-    console.log(`Type: ${sourceItem.type}`);
+    console.log(`Type: ${displayType}`);
     console.log(`Collection references updated: ${collectionCount}`);
     console.log('='.repeat(60));
     
@@ -138,7 +150,7 @@ function duplicateLibraryItem(sourceGuid) {
       sourceGuid: sourceGuid,
       newGuid: newGuid,
       name: sourceItem.name,
-      type: sourceItem.type,
+      type: displayType,
       collectionsUpdated: collectionCount
     };
   } catch (error) {

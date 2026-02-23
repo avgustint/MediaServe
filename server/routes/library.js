@@ -110,7 +110,7 @@ router.get('/recent', authMiddleware, requirePermission('ViewLibrary'), asyncHan
   let items = cache.get(cacheKey);
   if (!items || !config.performance.cacheEnabled) {
     const allItems = dbOps.getRecentlyModifiedLibraryItems(limit + offset);
-    items = allItems.slice(offset, offset + limit).map(item => dbOps.formatLibraryItem(item));
+    items = allItems.slice(offset, offset + limit).map(item => dbOps.formatLibraryItemSummary(item, { skipPages: true }));
     if (config.performance.cacheEnabled) {
       cache.set(cacheKey, items, 60000); // 1 minute cache for recent items
     }
@@ -134,7 +134,7 @@ router.get('/search', authMiddleware, requirePermission('ViewLibrary'), asyncHan
   let items = cache.get(cacheKey);
   
   if (!items || !config.performance.cacheEnabled) {
-    items = dbOps.searchLibraryItems(searchTerm).map(item => dbOps.formatLibraryItem(item));
+    items = dbOps.searchLibraryItems(searchTerm).map(item => dbOps.formatLibraryItemSummary(item));
     if (config.performance.cacheEnabled) {
       cache.set(cacheKey, items, 60000); // 1 minute cache for search results
     }

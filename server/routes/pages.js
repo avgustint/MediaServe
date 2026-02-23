@@ -33,11 +33,22 @@ router.get('/library-item/:libraryItemGuid', (req, res, next) => {
 }, authMiddleware, requirePermission('ViewPages'), asyncHandler(async (req, res) => {
   const { libraryItemGuid } = req.params;
   const pages = dbOps.getLibraryItemPages(libraryItemGuid);
-  // Format pages to match Page interface (guid, content)
-  const formattedPages = pages.map((page, index) => ({
-    guid: page.guid,
-    content: page.content || ''
-  }));
+  const formattedPages = pages.map((page) => {
+    let css = undefined;
+    if (page.css) {
+      try {
+        css = typeof page.css === 'string' ? JSON.parse(page.css) : page.css;
+      } catch (e) {
+        css = undefined;
+      }
+    }
+    return {
+      guid: page.guid,
+      content: page.content || '',
+      type: page.type || 'text',
+      css
+    };
+  });
   res.json(formattedPages);
 }));
 
@@ -59,10 +70,10 @@ router.get('/:guid', validateGuid, authMiddleware, requirePermission('ViewPages'
  * Create new page
  */
 router.post('/', authMiddleware, requirePermission('ManagePages'), asyncHandler(async (req, res) => {
-  const pageData = {
-    content: req.body.content || ''
-  };
-  const newPage = dbOps.createPage(pageData.content);
+  const content = req.body.content || '';
+  const type = req.body.type || 'text';
+  const css = req.body.css !== undefined ? req.body.css : null;
+  const newPage = dbOps.createPage(content, type, css);
   res.json(newPage);
 }));
 
@@ -80,7 +91,13 @@ router.put('/:guid', validateGuid, authMiddleware, requirePermission('ManagePage
     });
   }
   
-  const updatedPage = dbOps.updatePage(guid, req.body.content || '');
+  const content = req.body.content !== undefined ? req.body.content : (existingPage.content || '');
+  const rawType = req.body.type;
+  const type = (rawType !== undefined && rawType !== null && String(rawType).trim() !== '') 
+    ? String(rawType).trim() 
+    : (existingPage.type || 'text');
+  const css = req.body.css !== undefined ? req.body.css : existingPage.css;
+  const updatedPage = dbOps.updatePage(guid, content, type, css);
   res.json(updatedPage);
 }));
 

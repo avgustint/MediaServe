@@ -15,6 +15,7 @@ export interface TranslationKeys {
   // App Navigation
   mediaPlayerAdmin: string;
   playlist: string;
+  projection: string;
   editor: string;
   settings: string;
   display: string;
@@ -24,10 +25,14 @@ export interface TranslationKeys {
   connected: string;
   connecting: string;
   disconnected: string;
+  reload: string;
   
   // Playlist
   manual: string;
   clear: string;
+  showContent: string;
+  hideContent: string;
+  contentHiddenFromDisplay: string;
   previous: string;
   next: string;
   play: string;
@@ -47,6 +52,7 @@ export interface TranslationKeys {
   delete: string;
   edit: string;
   name: string;
+  id: string;
   description: string;
   type: string;
   content: string;
@@ -54,6 +60,10 @@ export interface TranslationKeys {
   image: string;
   url: string;
   video: string;
+  iframe: string;
+  iframeCode: string;
+  pasteIframeCode: string;
+  iframeHint: string;
   page: string;
   pages: string;
   addPage: string;
@@ -257,6 +267,10 @@ export interface TranslationKeys {
     cssProperties: string;
     cssPropertiesPlaceholder: string;
     cssPropertiesHelp: string;
+    imageSize: string;
+    height100: string;
+    width100: string;
+    pageCssOverridesItem: string;
     noPermissionToViewSettings: string;
     loading: string;
     saving: string;
@@ -375,19 +389,24 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     // App Navigation
     mediaPlayerAdmin: 'Media Player Admin',
     playlist: 'Playlist',
+    projection: 'Projection',
     editor: 'Editor',
     settings: 'Settings',
-    display: 'Display',
+    display: 'TV Remote',
     logout: 'Logout',
     confirmLogout: 'Confirm Logout',
     logoutConfirmMessage: 'Are you sure you want to logout?',
     connected: 'Connected',
     connecting: 'Connecting...',
     disconnected: 'Disconnected',
+    reload: 'Reload',
     
     // Playlist
     manual: 'Manual',
     clear: 'Clear',
+    showContent: 'Show content',
+    hideContent: 'Hide content',
+    contentHiddenFromDisplay: 'Hidden from display',
     previous: 'Previous',
     next: 'Next',
     play: 'Play',
@@ -407,6 +426,7 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     delete: 'Delete',
     edit: 'Edit',
     name: 'Name',
+    id: 'ID',
     description: 'Description',
     type: 'Type',
     content: 'Content',
@@ -414,6 +434,10 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     image: 'image',
     url: 'url',
     video: 'video',
+    iframe: 'iFrame',
+    iframeCode: 'iFrame Code',
+    pasteIframeCode: 'Paste the full iframe embed code here (e.g. from YouTube, Spotify, etc.)',
+    iframeHint: 'Paste the complete &lt;iframe&gt;...&lt;/iframe&gt; tag. The content will be displayed in full on the display.',
     page: 'Page',
     pages: 'Pages',
     addPage: 'Add Page',
@@ -617,6 +641,10 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     cssProperties: 'CSS Properties',
     cssPropertiesPlaceholder: '{"padding": "20px", "border-radius": "10px"}',
     cssPropertiesHelp: 'Custom CSS properties as JSON object. Example: {"padding": "20px", "border-radius": "10px"}. Leave empty for no custom CSS.',
+    imageSize: 'Image Size',
+    height100: 'Height 100%',
+    width100: 'Width 100%',
+    pageCssOverridesItem: 'Page CSS overrides library item CSS for this page.',
     noPermissionToViewSettings: 'You do not have permission to view settings.',
     loading: 'Loading',
     saving: 'Saving',
@@ -733,38 +761,44 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     // App Navigation
     mediaPlayerAdmin: 'Upravljalec medijskega predvajalnika',
     playlist: 'Seznam predvajanja',
+    projection: 'Projekcija',
     editor: 'Urejevalnik',
     settings: 'Nastavitve',
-    display: 'Zaslon',
+    display: 'TV Daljinec',
     logout: 'Odjava',
     confirmLogout: 'Potrditev odjave',
     logoutConfirmMessage: 'Ali ste prepričani, da se želite odjaviti?',
     connected: 'Povezano',
     connecting: 'Povezovanje...',
     disconnected: 'Ni povezano',
+    reload: 'Osveži',
     
     // Playlist
     manual: 'Ročno',
     clear: 'Počisti',
+    showContent: 'Pokaži vsebino',
+    hideContent: 'Skrij vsebino',
+    contentHiddenFromDisplay: 'Skrito na zaslonu',
     previous: 'Nazaj',
     next: 'Naprej',
     play: 'Predvajaj',
     pause: 'Pavza',
-    currentLibraryItemDetails: 'Podrobnosti trenutne knjižnične postavke:',
-    noItemSelected: 'Nobena postavka ni izbrana',
+    currentLibraryItemDetails: 'Podrobnosti trenutne pesmi:',
+    noItemSelected: 'Nobena pesem ni izbrana',
     
     // Editor
     library: 'Knjižnica',
     playlistEditor: 'Seznam predvajanja',
-    searchLibraryItems: 'Iskanje knjižničnih postavk...',
+    searchLibraryItems: 'Iskanje pesmi...',
     searchPlaylists: 'Iskanje seznamov predvajanja...',
-    addNewLibraryItem: 'Dodaj novo knjižnično postavko',
+    addNewLibraryItem: 'Dodaj novo postavko',
     addNewPlaylist: 'Dodaj nov seznam predvajanja',
     save: 'Shrani',
     cancel: 'Prekliči',
     delete: 'Izbriši',
     edit: 'Uredi',
     name: 'Ime',
+    id: 'ID',
     description: 'Opis',
     type: 'Vrsta',
     content: 'Vsebina',
@@ -772,18 +806,22 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     image: 'slika',
     url: 'url',
     video: 'video',
+    iframe: 'iFrame',
+    iframeCode: 'iFrame koda',
+    pasteIframeCode: 'Prilepite celotno kodo vdelave iframe (npr. YouTube, Spotify)',
+    iframeHint: 'Prilepite celoten tag &lt;iframe&gt;...&lt;/iframe&gt;. Vsebina bo prikazana v celoti na zaslonu.',
     page: 'Stran',
     pages: 'Strani',
     addPage: 'Dodaj stran',
     removePage: 'Odstrani stran',
-    confirmRemovePage: 'Ali ste prepričani, da želite odstraniti to stran iz pesmi? Morate shraniti postavko, da bo sprememba trajna.',
+    confirmRemovePage: 'Ali ste prepričani, da želite odstraniti to stran iz pesmi? Morate shraniti pesem, da bo sprememba trajna.',
     uploadImage: 'Naloži sliko',
     bold: 'Krepko',
     italic: 'Ležeče',
     chord: 'Akord',
     chi: 'Chi',
     noResults: 'Ni rezultatov',
-    noLibraryItemsFound: 'Ni najdenih knjižničnih postavk',
+    noLibraryItemsFound: 'Ni najdenih pesmi',
     confirmDelete: 'Potrditev brisanja',
     confirmDeleteMessage: 'Ali ste prepričani, da želite izbrisati to postavko? To dejanje ni mogoče razveljaviti.',
     libraryItemDeleted: 'Knjižnična postavka je bila uspešno izbrisana',
@@ -851,8 +889,8 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     increaseChordTransposition: 'Premešči akorde navzgor (pol tona)',
     decreaseChordTransposition: 'Premešči akorde navzdol (pol tona)',
     resetChordTransposition: 'Ponastavi premeščanje akordov',
-    noLibraryItemFoundWithId: 'Ni najdene knjižnične postavke z ID:',
-    pleaseEnterItemNumber: 'Prosimo vnesite številko postavke',
+    noLibraryItemFoundWithId: 'Ni najdene pesmi z ID:',
+    pleaseEnterItemNumber: 'Prosimo vnesite številko pesmi',
     clearId: 'Počisti ID',
     deleteLastDigit: 'Izbriši zadnjo številko',
     enter: 'Vnesi',
@@ -867,7 +905,7 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     selectRoleToEdit: 'Izberite vlogo za urejanje dovoljenj',
     permissionsFor: 'Dovoljenja za:',
     noRoleSelected: 'Izberite vlogo za urejanje dovoljenj',
-    enterItemName: 'Vnesite ime postavke',
+    enterItemName: 'Vnesite ime pesmi',
     enterItemDescription: 'Vnesite opis postavke (neobvezno)',
     author: 'Avtor',
     enterAuthor: 'Vnesite avtorja (neobvezno)',
@@ -975,6 +1013,10 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     cssProperties: 'CSS Lastnosti',
     cssPropertiesPlaceholder: '{"padding": "20px", "border-radius": "10px"}',
     cssPropertiesHelp: 'Prilagojene CSS lastnosti kot JSON objekt. Primer: {"padding": "20px", "border-radius": "10px"}. Pustite prazno za brez prilagojenih CSS.',
+    imageSize: 'Velikost slike',
+    height100: 'Višina 100%',
+    width100: 'Širina 100%',
+    pageCssOverridesItem: 'CSS strani preglasi CSS knjižničnega elementa za to stran.',
     noPermissionToViewSettings: 'Nimate dovoljenja za ogled nastavitev.',
     loading: 'Nalaganje',
     saving: 'Shranjevanje',
@@ -1091,19 +1133,24 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     // App Navigation
     mediaPlayerAdmin: 'Amministrazione media player',
     playlist: 'Playlist',
+    projection: 'Proiezione',
     editor: 'Editor',
     settings: 'Impostazioni',
-    display: 'Visualizzazione',
+    display: 'Telecomando TV',
     logout: 'Esci',
     confirmLogout: 'Conferma uscita',
     logoutConfirmMessage: 'Sei sicuro di voler uscire?',
     connected: 'Connesso',
     connecting: 'Connessione...',
     disconnected: 'Disconnesso',
+    reload: 'Ricarica',
     
     // Playlist
     manual: 'Manuale',
     clear: 'Cancella',
+    showContent: 'Mostra contenuto',
+    hideContent: 'Nascondi contenuto',
+    contentHiddenFromDisplay: 'Nascosto dal display',
     previous: 'Precedente',
     next: 'Successivo',
     play: 'Riproduci',
@@ -1123,6 +1170,7 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     delete: 'Elimina',
     edit: 'Modifica',
     name: 'Nome',
+    id: 'ID',
     description: 'Descrizione',
     type: 'Tipo',
     content: 'Contenuto',
@@ -1130,6 +1178,10 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     image: 'immagine',
     url: 'url',
     video: 'video',
+    iframe: 'iFrame',
+    iframeCode: 'Codice iFrame',
+    pasteIframeCode: 'Incollare qui il codice embed iframe completo (es. YouTube, Spotify)',
+    iframeHint: 'Incollare il tag completo &lt;iframe&gt;...&lt;/iframe&gt;. Il contenuto verrà visualizzato a schermo intero.',
     page: 'Pagina',
     pages: 'Pagine',
     addPage: 'Aggiungi pagina',
@@ -1333,6 +1385,10 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     cssProperties: 'Proprietà CSS',
     cssPropertiesPlaceholder: '{"padding": "20px", "border-radius": "10px"}',
     cssPropertiesHelp: 'Proprietà CSS personalizzate come oggetto JSON. Esempio: {"padding": "20px", "border-radius": "10px"}. Lascia vuoto per nessuna CSS personalizzata.',
+    imageSize: 'Dimensioni immagine',
+    height100: 'Altezza 100%',
+    width100: 'Larghezza 100%',
+    pageCssOverridesItem: 'Il CSS della pagina sovrascrive il CSS dell\'elemento della biblioteca per questa pagina.',
     noPermissionToViewSettings: 'Non hai il permesso di visualizzare le impostazioni.',
     loading: 'Caricamento',
     saving: 'Salvataggio',

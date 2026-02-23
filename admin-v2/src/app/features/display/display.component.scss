@@ -3,7 +3,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: calc(100vh - 100px);
+  min-height: calc(var(--available-height, 100vh) - 80px);
+  padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
 }
 
 .buttons-grid {
@@ -138,6 +139,10 @@
 }
 
 @media (max-width: 768px) {
+  .display-container {
+    padding: 20px;
+  }
+
   .buttons-grid {
     grid-template-columns: 1fr;
     gap: 20px;
@@ -153,6 +158,46 @@
 
     span {
       font-size: 18px;
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .display-container {
+    padding: 12px;
+  }
+
+  .buttons-grid {
+    gap: 12px;
+  }
+
+  .control-btn {
+    min-height: 100px;
+    padding: 16px 12px;
+    gap: 8px;
+    font-size: 16px;
+    border-width: 2px;
+
+    i {
+      font-size: 32px;
+    }
+
+    span {
+      font-size: 14px;
+    }
+  }
+
+  .status-indicator {
+    margin-top: 6px;
+    padding: 6px 8px;
+    font-size: 12px;
+
+    i {
+      font-size: 12px;
+    }
+
+    .status-message {
+      font-size: 11px;
     }
   }
 }

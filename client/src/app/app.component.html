@@ -73,7 +73,7 @@
     <img [src]="imageSrc" alt="Received image" class="display-image" [ngStyle]="imageStyle" />
   </div>
 
-  <!-- URL Content (iframe) -->
+  <!-- URL Content (iframe with URL) -->
   <div *ngIf="currentContent?.type === 'url'" 
        class="content-container iframe-container"
        [class.media-slide]="mediaSlideToggle">
@@ -83,6 +83,13 @@
             frameborder="0"
             allowfullscreen
             allow="autoplay; encrypted-media; picture-in-picture"></iframe>
+  </div>
+
+  <!-- iFrame Content (pasted embed code) -->
+  <div *ngIf="currentContent?.type === 'iframe'" 
+       class="content-container iframe-embed-container"
+       [class.media-slide]="mediaSlideToggle">
+    <div class="iframe-embed-wrapper" [innerHTML]="safeIframeHtml"></div>
   </div>
 
   <!-- Video Content -->
@@ -96,7 +103,6 @@
             class="display-video" 
             controls
             autoplay
-            (keydown)="onVideoKeyDown($event)"
             [ngStyle]="imageStyle"></video>
   </div>
 

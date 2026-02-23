@@ -95,6 +95,94 @@ function setupWebSocket(server, library) {
           if (!isNaN(locationIdFromUrl)) {
             clientLocations.set(ws, locationIdFromUrl);
             console.log('Client registered locationId from URL:', locationIdFromUrl);
+            // Send content to new connection - respect contentVisible from DB on cold start
+            let contentToSend = locationContent.get(locationIdFromUrl);
+            if (!contentToSend) {
+              const contentVisible = dbOps.getLocationContentVisible(locationIdFromUrl);
+              if (!contentVisible) {
+                const settings = dbOps.getAllSettings();
+                const defaultBlankPageGuid = settings.defaultBlankPage;
+                if (defaultBlankPageGuid && defaultBlankPageGuid.trim() !== '') {
+                  const defaultBlankPageGuidNum = parseInt(defaultBlankPageGuid, 10);
+                  const rawBlankPageItem = dbOps.getLibraryItem(defaultBlankPageGuidNum);
+                  const formattedItem = rawBlankPageItem ? dbOps.formatLibraryItem(rawBlankPageItem) : null;
+                  if (formattedItem) {
+                    let blankPageContent = '';
+                    const blankPageArray = formattedItem.content;
+                    const blankPageType = formattedItem.type || 'text';
+                    if (Array.isArray(blankPageArray) && blankPageArray.length > 0) {
+                      blankPageContent = blankPageArray[0].content || '';
+                    } else if (typeof blankPageArray === 'string') {
+                      blankPageContent = blankPageArray;
+                    }
+                    const settings2 = dbOps.getAllSettings();
+                    contentToSend = {
+                      type: blankPageType,
+                      content: blankPageContent,
+                      guid: defaultBlankPageGuidNum,
+                      page: 1,
+                      background_color: formattedItem.background_color || settings2.defaultBackgroundColor || '#000000',
+                      font_color: formattedItem.font_color || settings2.defaultFontColor || '#FFFFFF',
+                      chord_font_color: settings2.defaultChordFontColor || '#FFD700'
+                    };
+                    locationContent.set(locationIdFromUrl, contentToSend);
+                  }
+                }
+              } else {
+                const lastItem = dbOps.getLocationLastItem(locationIdFromUrl);
+                if (lastItem) {
+                  const rawItem = dbOps.getLibraryItem(lastItem.guid);
+                  const matchingItem = rawItem ? dbOps.formatLibraryItem(rawItem) : null;
+                  if (matchingItem) {
+                    let matchingItemContent = matchingItem.content;
+                    let pageType = matchingItem.type;
+                    const requestedPageNum = lastItem.page ?? 1;
+                    if (Array.isArray(matchingItemContent) && matchingItemContent.length > 0) {
+                      const pageItem = matchingItemContent.find(item => {
+                        const itemPage = typeof item.page === 'string' ? parseInt(item.page, 10) : item.page;
+                        return itemPage === requestedPageNum;
+                      });
+                      if (pageItem) {
+                        pageType = pageItem.type || 'text';
+                        matchingItemContent = pageItem.content !== undefined && pageItem.content !== null ? pageItem.content : '';
+                      } else {
+                        pageType = matchingItemContent[0]?.type || 'text';
+                        matchingItemContent = matchingItemContent[0]?.content || '';
+                      }
+                    } else if (typeof matchingItemContent === 'string') {
+                      matchingItemContent = matchingItemContent || '';
+                    } else {
+                      matchingItemContent = '';
+                    }
+                    const settings2 = dbOps.getAllSettings();
+                    contentToSend = {
+                      type: pageType,
+                      content: matchingItemContent,
+                      guid: lastItem.guid,
+                      page: requestedPageNum,
+                      background_color: matchingItem.background_color || settings2.defaultBackgroundColor || '#000000',
+                      font_color: matchingItem.font_color || settings2.defaultFontColor || '#FFFFFF',
+                      chord_font_color: settings2.defaultChordFontColor || '#FFD700'
+                    };
+                    locationContent.set(locationIdFromUrl, contentToSend);
+                    const locState = locationStates.get(locationIdFromUrl) || {};
+                    locState.currentLibraryItemGuid = lastItem.guid;
+                    locState.currentLibraryItemPage = requestedPageNum;
+                    locationStates.set(locationIdFromUrl, locState);
+                  }
+                }
+              }
+            }
+            if (contentToSend && ws.readyState === WebSocket.OPEN) {
+              const contentVisible = dbOps.getLocationContentVisible(locationIdFromUrl);
+              const contentMessage = { ...contentToSend, locationId: locationIdFromUrl, contentVisible };
+              try {
+                ws.send(JSON.stringify(contentMessage));
+                console.log(`Sent content to new client for location ${locationIdFromUrl}`);
+              } catch (err) {
+                console.error('Error sending initial content to new client:', err);
+              }
+            }
           }
         }
       }
@@ -150,39 +238,31 @@ function setupWebSocket(server, library) {
           const matchingItem = rawItem ? dbOps.formatLibraryItem(rawItem) : null;
           
           if (matchingItem) {
-            console.log('Found matching item:', JSON.stringify(matchingItem, null, 2).substring(0, 500));
             let matchingItemContent = matchingItem.content;
-            console.log('Initial content type:', typeof matchingItemContent, 'isArray:', Array.isArray(matchingItemContent));
-          
-            // Handle text items with pages
-            if (matchingItem.type === 'text' && Array.isArray(matchingItemContent) && matchingItemContent.length > 0) {
-              console.log('Content array length:', matchingItemContent.length, 'Requested page:', message.page);
-              if (message.page !== undefined && message.page !== null) {
-                // Find specific page - ensure both are numbers for comparison
-                const requestedPage = typeof message.page === 'string' ? parseInt(message.page, 10) : message.page;
-                const pageItem = matchingItemContent.find(item => {
-                  const itemPage = typeof item.page === 'string' ? parseInt(item.page, 10) : item.page;
-                  return itemPage === requestedPage;
-                });
-                console.log('Page item found:', pageItem ? 'yes' : 'no', pageItem);
-                if (pageItem && pageItem.content !== undefined && pageItem.content !== null) {
-                  matchingItemContent = pageItem.content;
-                  console.log('Found matching page content for page:', requestedPage, 'Content length:', matchingItemContent.length);
-                } else {
-                  console.warn(`No page found in library with guid: ${message.guid} and page: ${requestedPage}. Available pages:`, matchingItemContent.map(p => p.page));
-                  matchingItemContent = '';
-                }
+            let pageType = matchingItem.type;
+            const requestedPageNum = message.page !== undefined && message.page !== null
+              ? (typeof message.page === 'string' ? parseInt(message.page, 10) : message.page)
+              : 1;
+
+            // Content is always array of { page, type, content, css }; get type, content, css from selected page
+            let pageCss = undefined;
+            if (Array.isArray(matchingItemContent) && matchingItemContent.length > 0) {
+              const pageItem = matchingItemContent.find(item => {
+                const itemPage = typeof item.page === 'string' ? parseInt(item.page, 10) : item.page;
+                return itemPage === requestedPageNum;
+              });
+              if (pageItem) {
+                pageType = pageItem.type || 'text';
+                matchingItemContent = pageItem.content !== undefined && pageItem.content !== null ? pageItem.content : '';
+                pageCss = pageItem.css;
               } else {
-                // No page specified, use first page's content
-                matchingItemContent = matchingItemContent[0].content || '';
-                console.log('No page specified, using first page content. Content length:', matchingItemContent.length);
+                pageType = matchingItemContent[0]?.type || 'text';
+                matchingItemContent = matchingItemContent[0]?.content || '';
               }
-            } else if (matchingItem.type === 'text' && !Array.isArray(matchingItemContent)) {
-              // Legacy format: content is a string, not an array
+            } else if (typeof matchingItemContent === 'string') {
               matchingItemContent = matchingItemContent || '';
-              console.log('Legacy format, using content as string. Content length:', matchingItemContent.length);
             } else {
-              console.warn('Content extraction issue - type:', matchingItem.type, 'content type:', typeof matchingItemContent, 'isArray:', Array.isArray(matchingItemContent), 'length:', Array.isArray(matchingItemContent) ? matchingItemContent.length : 'N/A');
+              matchingItemContent = '';
             }
 
             // Get colors from item or general settings
@@ -210,7 +290,7 @@ function setupWebSocket(server, library) {
             // Remove chords from content if chordsVisible is false
             // Default to false if not specified (chords hidden by default)
             let finalContent = matchingItemContent;
-            if (matchingItem.type === 'text' && typeof matchingItemContent === 'string') {
+            if (pageType === 'text' && typeof matchingItemContent === 'string') {
               const chordsVisible = message.chordsVisible !== undefined ? message.chordsVisible : false;
               if (!chordsVisible) {
                 // Remove all <chord> tags and their content
@@ -218,30 +298,45 @@ function setupWebSocket(server, library) {
               }
             }
             
+            // Merge css: page css overrides library item css
+            let mergedCss = matchingItem.css || undefined;
+            if (pageCss && typeof pageCss === 'object' && Object.keys(pageCss).length > 0) {
+              mergedCss = { ...(mergedCss || {}), ...pageCss };
+            }
+
             // Store current content for this location
-            // Only include chordsVisible if explicitly set, otherwise default to false
+            const contentVisible = dbOps.getLocationContentVisible(locationId);
             const locationContentData = {
-              type: matchingItem.type,
+              type: pageType,
               content: finalContent,
+              guid: message.guid,
+              page: requestedPageNum,
               background_color: backgroundColor,
               font_color: fontColor,
               chord_font_color: chordFontColor,
-              css: matchingItem.css || undefined,
+              css: mergedCss,
               chordsVisible: message.chordsVisible !== undefined ? message.chordsVisible : false,
-              chordTransposition: message.chordTransposition !== undefined ? message.chordTransposition : 0
+              chordTransposition: message.chordTransposition !== undefined ? message.chordTransposition : 0,
+              contentVisible: contentVisible
             };
-            console.log('Final content data:', {
-              type: locationContentData.type,
-              contentLength: typeof locationContentData.content === 'string' ? locationContentData.content.length : 'not a string',
-              contentPreview: typeof locationContentData.content === 'string' ? locationContentData.content.substring(0, 100) : locationContentData.content
-            });
             locationContent.set(locationId, locationContentData);
             
-            // Broadcast the matching item only to clients with matching locationId
+            // Store last selected library item and page for new connections
+            const locationState = locationStates.get(locationId) || {};
+            locationState.currentLibraryItemGuid = message.guid;
+            locationState.currentLibraryItemPage = message.page ?? requestedPageNum ?? null;
+            locationStates.set(locationId, locationState);
+            dbOps.setLocationLastItem(locationId, message.guid, requestedPageNum);
+            
             const messageJson = JSON.stringify(locationContentData);
             let sentCount = 0;
             
-            // Always send to the sender first (admin app that requested the change)
+            // Only update and broadcast to display clients if content is visible
+            if (contentVisible) {
+              locationContent.set(locationId, locationContentData);
+            }
+            
+            // Always send to the sender (admin app) so admin sees the selection
             if (ws.readyState === WebSocket.OPEN) {
               try {
                 ws.send(messageJson);
@@ -253,25 +348,23 @@ function setupWebSocket(server, library) {
               }
             }
             
-            // Then broadcast to all other clients with matching locationId
-            clients.forEach((client) => {
-              // Skip the sender (already sent above)
-              if (client === ws) {
-                return;
-              }
-              
-              const clientLocationId = clientLocations.get(client);
-              if (client.readyState === WebSocket.OPEN && clientLocationId === locationId) {
-                try {
-                  client.send(messageJson);
-                  sentCount++;
-                } catch (error) {
-                  console.error('Error sending message to client:', error);
-                  clients.delete(client);
-                  clientLocations.delete(client);
+            // Broadcast to other clients (display + admin) only if contentVisible
+            if (contentVisible) {
+              clients.forEach((client) => {
+                if (client === ws) return;
+                const clientLocationId = clientLocations.get(client);
+                if (client.readyState === WebSocket.OPEN && clientLocationId === locationId) {
+                  try {
+                    client.send(messageJson);
+                    sentCount++;
+                  } catch (error) {
+                    console.error('Error sending message to client:', error);
+                    clients.delete(client);
+                    clientLocations.delete(client);
+                  }
                 }
-              }
-            });
+              });
+            }
             
             if (sentCount > 0) {
               console.log(`Broadcasted item with guid ${message.guid} to ${sentCount} client(s) for location ${locationId}`);
@@ -281,145 +374,189 @@ function setupWebSocket(server, library) {
           }
         }
         
-        // Check if it's a "Clear" message
-        if (message.type === 'Clear') {
+        // Check if it's "SetDisplayVisible" or legacy "Clear" message (Clear = hide)
+        if (message.type === 'SetDisplayVisible' || message.type === 'Clear') {
           const locationId = message.locationId ? parseInt(message.locationId, 10) : null;
           
           if (!locationId) {
-            console.warn('Received Clear message without locationId, ignoring');
+            console.warn('Received SetDisplayVisible/Clear message without locationId, ignoring');
             return;
           }
           
           // Store location for this client
           clientLocations.set(ws, locationId);
           
-          console.log('Received Clear message for location:', locationId);
+          // visible: true = show content, false = show blank page. Clear means visible=false
+          const visible = message.type === 'Clear' ? false : (message.visible !== false);
           
-          // Clear current selection for this location
+          console.log(`Received SetDisplayVisible for location ${locationId}, visible=${visible}`);
+          
+          // Persist to DB
+          dbOps.setLocationContentVisible(locationId, visible);
+          
           const locationState = locationStates.get(locationId) || {};
-          locationState.libraryItemGuid = null;
-          locationState.libraryItemPage = null;
-          locationStates.set(locationId, locationState);
+          // Do NOT clear currentLibraryItemGuid/Page - we need them to restore when toggling back
           
-          // Check if default blank page is set
-          const settings = dbOps.getAllSettings();
-          const defaultBlankPageGuid = settings.defaultBlankPage;
-          
-          if (defaultBlankPageGuid && defaultBlankPageGuid.trim() !== '') {
-            // Get the default blank page item using dbOps to ensure pages are loaded correctly
-            const defaultBlankPageGuidNum = parseInt(defaultBlankPageGuid, 10);
-            const rawBlankPageItem = dbOps.getLibraryItem(defaultBlankPageGuidNum);
-            const formattedItem = rawBlankPageItem ? dbOps.formatLibraryItem(rawBlankPageItem) : null;
+          if (visible) {
+            // Restore: send last selected item to display clients
+            const guid = locationState.currentLibraryItemGuid ?? dbOps.getLocationLastItem(locationId)?.guid;
+            const page = locationState.currentLibraryItemPage ?? dbOps.getLocationLastItem(locationId)?.page ?? 1;
             
-            if (formattedItem) {
-              console.log('Found default blank page item:', formattedItem);
-              let blankPageContent = formattedItem.content;
-              
-              // For text items, get the first page if it's an array
-              if (formattedItem.type === 'text' && Array.isArray(blankPageContent) && blankPageContent.length > 0) {
-                blankPageContent = blankPageContent[0].content || '';
-              }
-              
-              // Get colors from item or general settings
-              let backgroundColor = formattedItem.background_color;
-              let fontColor = formattedItem.font_color;
-              let chordFontColor = settings.defaultChordFontColor || '#FFD700';
-              
-              // If colors not set on item, get from general settings
-              if (!backgroundColor) {
-                backgroundColor = settings.defaultBackgroundColor || '#000000';
-              }
-              if (!fontColor) {
-                fontColor = settings.defaultFontColor || '#FFFFFF';
-              }
-              
-              // Store current content for this location
-              const locationContentData = {
-                type: formattedItem.type,
-                content: blankPageContent,
-                background_color: backgroundColor,
-                font_color: fontColor,
-                chord_font_color: chordFontColor,
-                css: formattedItem.css || undefined
-              };
-              locationContent.set(locationId, locationContentData);
-              
-              // Broadcast the default blank page only to clients with matching locationId
-              const messageJson = JSON.stringify(locationContentData);
-              let sentCount = 0;
-              
-              clients.forEach((client) => {
-                const clientLocationId = clientLocations.get(client);
-                if (client.readyState === WebSocket.OPEN && clientLocationId === locationId) {
-                  try {
-                    client.send(messageJson);
-                    sentCount++;
-                  } catch (error) {
-                    console.error('Error sending message to client:', error);
-                    clients.delete(client);
-                    clientLocations.delete(client);
+            if (guid) {
+              const rawItem = dbOps.getLibraryItem(guid);
+              const matchingItem = rawItem ? dbOps.formatLibraryItem(rawItem) : null;
+              if (matchingItem) {
+                let matchingItemContent = matchingItem.content;
+                let pageType = matchingItem.type;
+                const requestedPageNum = page ?? 1;
+                let pageCssRestore = undefined;
+                if (Array.isArray(matchingItemContent) && matchingItemContent.length > 0) {
+                  const pageItem = matchingItemContent.find(item => {
+                    const itemPage = typeof item.page === 'string' ? parseInt(item.page, 10) : item.page;
+                    return itemPage === requestedPageNum;
+                  });
+                  if (pageItem) {
+                    pageType = pageItem.type || 'text';
+                    matchingItemContent = pageItem.content !== undefined && pageItem.content !== null ? pageItem.content : '';
+                    pageCssRestore = pageItem.css;
+                  } else {
+                    pageType = matchingItemContent[0]?.type || 'text';
+                    matchingItemContent = matchingItemContent[0]?.content || '';
                   }
+                } else if (typeof matchingItemContent === 'string') {
+                  matchingItemContent = matchingItemContent || '';
+                } else {
+                  matchingItemContent = '';
                 }
-              });
-              
-              if (sentCount > 0) {
-                console.log(`Broadcasted default blank page (guid: ${defaultBlankPageGuid}) to ${sentCount} client(s) for location ${locationId}`);
+                let mergedCssRestore = matchingItem.css || undefined;
+                if (pageCssRestore && typeof pageCssRestore === 'object' && Object.keys(pageCssRestore).length > 0) {
+                  mergedCssRestore = { ...(mergedCssRestore || {}), ...pageCssRestore };
+                }
+                const settings = dbOps.getAllSettings();
+                let backgroundColor = matchingItem.background_color;
+                let fontColor = matchingItem.font_color;
+                let chordFontColor = settings.defaultChordFontColor || '#FFD700';
+                if (!backgroundColor) backgroundColor = settings.defaultBackgroundColor || '#000000';
+                if (!fontColor) fontColor = settings.defaultFontColor || '#FFFFFF';
+                
+                const locationContentData = {
+                  type: pageType,
+                  content: matchingItemContent,
+                  guid: guid,
+                  page: requestedPageNum,
+                  background_color: backgroundColor,
+                  font_color: fontColor,
+                  chord_font_color: chordFontColor,
+                  css: mergedCssRestore,
+                  chordsVisible: true,
+                  chordTransposition: 0,
+                  contentVisible: true
+                };
+                locationState.currentLibraryItemGuid = guid;
+                locationState.currentLibraryItemPage = requestedPageNum;
+                locationStates.set(locationId, locationState);
+                locationContent.set(locationId, locationContentData);
+                dbOps.setLocationLastItem(locationId, guid, requestedPageNum);
+                
+                const messageJson = JSON.stringify(locationContentData);
+                clients.forEach((client) => {
+                  const clientLocationId = clientLocations.get(client);
+                  if (client.readyState === WebSocket.OPEN && clientLocationId === locationId) {
+                    try {
+                      client.send(messageJson);
+                    } catch (error) {
+                      console.error('Error sending message to client:', error);
+                      clients.delete(client);
+                      clientLocations.delete(client);
+                    }
+                  }
+                });
+                console.log(`Broadcasted restored item (guid ${guid}) to clients for location ${locationId}`);
               }
             } else {
-              console.warn(`Default blank page item with guid ${defaultBlankPageGuid} not found in library`);
-              // Fall through to send empty content
+              // No item to restore - send empty
               locationContent.delete(locationId);
-              
-              // Broadcast a message with no content only to clients with matching locationId
               const clearMessage = {};
-              const messageJson = JSON.stringify(clearMessage);
-              let sentCount = 0;
-              
               clients.forEach((client) => {
                 const clientLocationId = clientLocations.get(client);
                 if (client.readyState === WebSocket.OPEN && clientLocationId === locationId) {
-                  try {
-                    client.send(messageJson);
-                    sentCount++;
-                  } catch (error) {
-                    console.error('Error sending message to client:', error);
-                    clients.delete(client);
-                    clientLocations.delete(client);
-                  }
+                  try { client.send(JSON.stringify(clearMessage)); } catch (e) { clients.delete(client); clientLocations.delete(client); }
                 }
               });
-              
-              if (sentCount > 0) {
-                console.log(`Broadcasted Clear message (empty content) to ${sentCount} client(s) for location ${locationId}`);
-              }
+              console.log(`No item to restore for location ${locationId}, sent empty`);
             }
           } else {
-            // No default blank page set, send empty content
-            locationContent.delete(locationId);
+            // Hide: send blank/clear page (do NOT clear locationState - keep for restore)
+            const settings = dbOps.getAllSettings();
+            const defaultBlankPageGuid = settings.defaultBlankPage;
             
-            // Broadcast a message with no content only to clients with matching locationId
-            const clearMessage = {};
-            const messageJson = JSON.stringify(clearMessage);
-            let sentCount = 0;
-            
-            clients.forEach((client) => {
-              const clientLocationId = clientLocations.get(client);
-              if (client.readyState === WebSocket.OPEN && clientLocationId === locationId) {
-                try {
-                  client.send(messageJson);
-                  sentCount++;
-                } catch (error) {
-                  console.error('Error sending message to client:', error);
-                  clients.delete(client);
-                  clientLocations.delete(client);
+            if (defaultBlankPageGuid && defaultBlankPageGuid.trim() !== '') {
+              const defaultBlankPageGuidNum = parseInt(defaultBlankPageGuid, 10);
+              const rawBlankPageItem = dbOps.getLibraryItem(defaultBlankPageGuidNum);
+              const formattedItem = rawBlankPageItem ? dbOps.formatLibraryItem(rawBlankPageItem) : null;
+              
+              if (formattedItem) {
+                let blankPageContent = '';
+                const blankPageArray = formattedItem.content;
+                const blankPageType = formattedItem.type || 'text';
+                if (Array.isArray(blankPageArray) && blankPageArray.length > 0) {
+                  blankPageContent = blankPageArray[0].content || '';
+                } else if (typeof blankPageArray === 'string') {
+                  blankPageContent = blankPageArray;
                 }
+                let backgroundColor = formattedItem.background_color;
+                let fontColor = formattedItem.font_color;
+                let chordFontColor = settings.defaultChordFontColor || '#FFD700';
+                if (!backgroundColor) backgroundColor = settings.defaultBackgroundColor || '#000000';
+                if (!fontColor) fontColor = settings.defaultFontColor || '#FFFFFF';
+                
+                const locationContentData = {
+                  type: blankPageType,
+                  content: blankPageContent,
+                  guid: defaultBlankPageGuidNum,
+                  page: 1,
+                  background_color: backgroundColor,
+                  font_color: fontColor,
+                  chord_font_color: chordFontColor,
+                  css: formattedItem.css || undefined,
+                  contentVisible: false
+                };
+                locationContent.set(locationId, locationContentData);
+                const messageJson = JSON.stringify(locationContentData);
+                clients.forEach((client) => {
+                  const clientLocationId = clientLocations.get(client);
+                  if (client.readyState === WebSocket.OPEN && clientLocationId === locationId) {
+                    try {
+                      client.send(messageJson);
+                    } catch (error) {
+                      console.error('Error sending message to client:', error);
+                      clients.delete(client);
+                      clientLocations.delete(client);
+                    }
+                  }
+                });
+                console.log(`Broadcasted default blank page to clients for location ${locationId}`);
+              } else {
+                locationContent.delete(locationId);
+                clients.forEach((client) => {
+                  const clientLocationId = clientLocations.get(client);
+                  if (client.readyState === WebSocket.OPEN && clientLocationId === locationId) {
+                    try { client.send(JSON.stringify({})); } catch (e) { clients.delete(client); clientLocations.delete(client); }
+                  }
+                });
               }
-            });
-            
-            if (sentCount > 0) {
-              console.log(`Broadcasted Clear message (empty content) to ${sentCount} client(s) for location ${locationId}`);
+            } else {
+              locationContent.delete(locationId);
+              clients.forEach((client) => {
+                const clientLocationId = clientLocations.get(client);
+                if (client.readyState === WebSocket.OPEN && clientLocationId === locationId) {
+                  try { client.send(JSON.stringify({})); } catch (e) { clients.delete(client); clientLocations.delete(client); }
+                }
+              });
+              console.log(`Broadcasted empty content to clients for location ${locationId}`);
             }
           }
+          return; // Done processing SetDisplayVisible - prevent fall-through to other handlers
         }
         
         // Check if it's an "AdminClient" initialization message
@@ -431,11 +568,53 @@ function setupWebSocket(server, library) {
           }
           
           // Store locationId if provided
+          let adminLocationId = null;
           if (message.locationId) {
             const locationId = parseInt(message.locationId, 10);
             if (!isNaN(locationId)) {
               clientLocations.set(ws, locationId);
+              adminLocationId = locationId;
             }
+          }
+          // Send last selected state and current content to new admin
+          if (adminLocationId && ws.readyState === WebSocket.OPEN) {
+            const locationState = locationStates.get(adminLocationId) || {};
+            if (locationState.currentPlaylistGuid != null) {
+              try {
+                ws.send(JSON.stringify({
+                  type: 'SelectPlaylist',
+                  guid: locationState.currentPlaylistGuid,
+                  locationId: adminLocationId
+                }));
+              } catch (err) {
+                console.error('Error sending SelectPlaylist to new admin:', err);
+              }
+            }
+            if (locationState.currentLibraryItemGuid != null) {
+              try {
+                ws.send(JSON.stringify({
+                  type: 'SelectLibraryItem',
+                  guid: locationState.currentLibraryItemGuid,
+                  page: locationState.currentLibraryItemPage ?? undefined,
+                  locationId: adminLocationId
+                }));
+              } catch (err) {
+                console.error('Error sending SelectLibraryItem to new admin:', err);
+              }
+            }
+            // Send content visible state for the visibility toggle button
+            const contentVisible = dbOps.getLocationContentVisible(adminLocationId);
+            try {
+              ws.send(JSON.stringify({
+                type: 'DisplayVisibleState',
+                contentVisible: contentVisible,
+                locationId: adminLocationId
+              }));
+            } catch (err) {
+              console.error('Error sending DisplayVisibleState to admin:', err);
+            }
+            // Don't send content here - admin already received it from connection handler
+            // (admin connects with locationId in URL, so content was sent on connect)
           }
           return; // No further processing needed for AdminClient message
         }
@@ -670,7 +849,7 @@ function setupWebSocket(server, library) {
         
         // Check if it's a direct content update message (with chordsVisible or chordTransposition properties)
         // This allows clients to send modified content with chord adjustments
-        if ((message.type === 'text' || message.type === 'image' || message.type === 'url' || message.type === 'video') && 
+        if ((message.type === 'text' || message.type === 'image' || message.type === 'url' || message.type === 'video' || message.type === 'iframe') && 
             (message.chordsVisible !== undefined || message.chordTransposition !== undefined) && 
             message.content !== undefined) {
           const locationId = message.locationId ? parseInt(message.locationId, 10) : null;

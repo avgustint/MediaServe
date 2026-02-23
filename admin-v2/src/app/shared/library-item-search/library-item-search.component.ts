@@ -260,7 +260,15 @@ export class LibraryItemSearchComponent implements OnInit, OnDestroy, AfterViewI
     this.showSearchResults = false;
     this.searchResults = [];
     this.removeDropdown();
-    this.itemSelected.emit(item);
+    // Search results exclude content for performance - fetch full item when needed
+    this.playlistService.getLibraryItemByGuid(item.guid).subscribe({
+      next: (fullItem) => {
+        this.itemSelected.emit(fullItem ?? item);
+      },
+      error: () => {
+        this.itemSelected.emit(item);
+      }
+    });
   }
 
   clearSearch(): void {

@@ -465,7 +465,7 @@ function setupHttpEndpoints(data) {
           }
         }
 
-        const filteredItems = dbOps.searchLibraryItems(searchTerm).map(item => dbOps.formatLibraryItem(item));
+        const filteredItems = dbOps.searchLibraryItems(searchTerm).map(item => dbOps.formatLibraryItemSummary(item));
         res.writeHead(200, {
           'Content-Type': 'application/json'
         });
@@ -702,7 +702,7 @@ function setupHttpEndpoints(data) {
     // Handle recently modified library items endpoint (GET /library/recent)
     else if (req.url === '/library/recent' && req.method === 'GET') {
       try {
-        const recentItems = dbOps.getRecentlyModifiedLibraryItems(50).map(item => dbOps.formatLibraryItem(item));
+        const recentItems = dbOps.getRecentlyModifiedLibraryItems(50).map(item => dbOps.formatLibraryItemSummary(item, { skipPages: true }));
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(recentItems, null, 2));
       } catch (error) {

@@ -21,11 +21,12 @@ import { MultiSelectModule } from "primeng/multiselect";
 import { ButtonModule } from "primeng/button";
 import { DialogModule } from "primeng/dialog";
 import { TabsModule } from "primeng/tabs";
+import { ToggleSwitchModule } from "primeng/toggleswitch";
 
 @Component({
   selector: "app-library-editor",
   standalone: true,
-  imports: [CommonModule, FormsModule, ErrorPopupComponent, ConfirmDialogComponent, TranslatePipe, LocalizedDatePipe, InputTextModule, TextareaModule, SelectModule, MultiSelectModule, ButtonModule, DialogModule, TabsModule],
+  imports: [CommonModule, FormsModule, ErrorPopupComponent, ConfirmDialogComponent, TranslatePipe, LocalizedDatePipe, InputTextModule, TextareaModule, SelectModule, MultiSelectModule, ButtonModule, DialogModule, TabsModule, ToggleSwitchModule],
   templateUrl: "./library-editor.component.html",
   styleUrls: ["./library-editor.component.scss"]
 })
@@ -47,12 +48,30 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
 
   // Form fields
   itemName: string = "";
-  itemType: "text" | "image" | "url" | "video" = "text";
   itemDescription: string = "";
   itemAuthor: string = "";
+
+  // Page Manage Dialog - type and type-specific fields
+  pageDialogType: "text" | "image" | "url" | "video" | "iframe" = "text";
+  pageDialogImagePreview: string | null = null;
+
+  get pageDialogVideoPreviewUrl(): string | null {
+    if (!this.pageDialogVideoUrl) return null;
+    const url = this.pageDialogVideoUrl;
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    return `${environment.apiUrl}${url.startsWith('/') ? url : '/' + url}`;
+  }
+  pageDialogImageBase64: string | null = null;
+  pageDialogUrl: string = "";
+  pageDialogVideoUrl: string = "";
+  pageDialogVideoUploading: boolean = false;
+  pageDialogIframeContent: string = "";
+  pageDialogCssProperties: string = "";
+  pageDialogImageHeight100: boolean = true; // Default height 100% for image pages
+  pageDialogImageWidth100: boolean = false;
   
-  // Dropdown options
-  typeOptions: Array<{ label: string; value: "text" | "image" | "url" | "video" }> = [];
+  // Dropdown options for page type
+  typeOptions: Array<{ label: string; value: "text" | "image" | "url" | "video" | "iframe" }> = [];
   
   // Text type fields - new page management system
   pageReferences: Array<{ pageGuid: number | string; orderNumber: number; page?: Page }> = [];
@@ -78,26 +97,7 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
   selectedReusablePageGuid: number | string | null = null; // GUID of selected page in reuse tab
   nextTemporalId: number = -1; // Start from -1 for temporal page IDs
   
-  // Image type field
-  imageFile: File | null = null;
-  imagePreview: string | null = null;
-  imageBase64: string | null = null;
-  
-  // URL type field
-  urlContent: string = "";
-  
-  // Video type fields
-  videoFile: File | null = null;
-  videoPreview: string | null = null;
-  videoUrl: string = "";
-  videoUploading: boolean = false;
 
-  get safeVideoPreview(): SafeResourceUrl | null {
-    if (this.videoPreview) {
-      return this.sanitizer.bypassSecurityTrustResourceUrl(this.videoPreview);
-    }
-    return null;
-  }
 
   // Color fields
   backgroundColor: string = "";
@@ -146,7 +146,8 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
       { label: this.translationService.translate('text'), value: 'text' },
       { label: this.translationService.translate('image'), value: 'image' },
       { label: this.translationService.translate('url'), value: 'url' },
-      { label: this.translationService.translate('video') || 'Video', value: 'video' }
+      { label: this.translationService.translate('video') || 'Video', value: 'video' },
+      { label: this.translationService.translate('iframe') || 'iFrame', value: 'iframe' }
     ];
     
     // Load recently modified items
@@ -262,12 +263,6 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
   }
 
   ngAfterViewInit(): void {
-    // After view init, set HTML content in contenteditable divs if editing existing item
-    if (this.editingItem && this.itemType === 'text') {
-      setTimeout(() => {
-        this.updateContentEditableDivs();
-      }, 0);
-    }
   }
 
   updateContentEditableDivs(): void {
@@ -443,6 +438,23 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
     this.searchSubject.next(this.searchTerm);
   }
 
+  onRecentItemSelect(item: LibraryItem): void {
+    // Recent items are returned without content for speed - fetch full item when selected
+    this.playlistService.getLibraryItemByGuid(item.guid).subscribe({
+      next: (fullItem) => {
+        if (fullItem) {
+          this.editItem(fullItem);
+        } else {
+          this.editItem(item);
+        }
+      },
+      error: (error) => {
+        console.error("Error loading full library item:", error);
+        this.editItem(item);
+      }
+    });
+  }
+
   onSearchResultSelect(item: LibraryItem): void {
     this.searchTerm = "";
     this.showSearchResults = false;
@@ -501,74 +513,27 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
     this.isNewItem = false;
     this.editingItem = { ...item };
     this.itemName = item.name;
-    this.itemType = item.type;
     this.itemDescription = item.description || "";
     this.itemAuthor = item.author || "";
-    
-    // Load tags for this item
+
     if (item.tags && Array.isArray(item.tags)) {
       this.selectedTagGuids = item.tags.map((t: { guid: number; name: string; description?: string }) => t.guid);
-      // Sync selectedTags for PrimeNG MultiSelect
-      this.selectedTags = item.tags.filter((t: { guid: number; name: string; description?: string }) => 
+      this.selectedTags = item.tags.filter((t: { guid: number; name: string; description?: string }) =>
         this.allAvailableTags.some(tag => tag.guid === t.guid)
       );
     } else {
       this.selectedTagGuids = [];
       this.selectedTags = [];
     }
-    
-    // For text items, load pages from the item
-    if (item.type === "text") {
-      if (Array.isArray(item.content) && item.content.length > 0) {
-        // Content is already formatted as pages array - load pages from database
-        // This will populate pageReferences and update textPages when pages are loaded
-        this.loadPagesForItem(item.guid, item.content);
-        // Set initial textPages from item.content as fallback (will be updated when pages load)
-        this.textPages = [...item.content];
-      } else {
-        // Single page or empty content
-        this.textPages = [{ page: 1, content: item.content as string || "" }];
-        this.pageReferences = [];
-        this.allAvailablePages = [];
-      }
+
+    // All items use pages - load from content array
+    if (Array.isArray(item.content) && item.content.length > 0) {
+      this.loadPagesForItem(item.guid, item.content);
+      this.textPages = item.content.map((p: LibraryContent) => ({ page: p.page || 1, content: p.content || "" }));
     } else {
       this.textPages = [];
       this.pageReferences = [];
       this.allAvailablePages = [];
-    }
-
-    if (item.type === "image") {
-      this.imageBase64 = item.content as string;
-      this.imagePreview = item.content as string;
-      if (!this.imagePreview.startsWith("data:image")) {
-        this.imagePreview = `data:image/png;base64,${this.imagePreview}`;
-      }
-    } else {
-      this.imageFile = null;
-      this.imagePreview = null;
-      this.imageBase64 = null;
-    }
-
-    if (item.type === "url") {
-      this.urlContent = item.content as string;
-    } else {
-      this.urlContent = "";
-    }
-
-    if (item.type === "video") {
-      this.videoUrl = item.content as string;
-      // Convert relative URL to full URL for preview
-      if (this.videoUrl && this.videoUrl.startsWith('/')) {
-        this.videoPreview = `${environment.apiUrl}${this.videoUrl}`;
-      } else if (this.videoUrl) {
-        this.videoPreview = this.videoUrl;
-      } else {
-        this.videoPreview = null;
-      }
-    } else {
-      this.videoUrl = "";
-      this.videoPreview = null;
-      this.videoFile = null;
     }
 
     // Set color fields
@@ -587,21 +552,13 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
     this.isNewItem = true;
     this.editingItem = null;
     this.itemName = "";
-    this.itemType = "text";
     this.itemDescription = "";
     this.itemAuthor = "";
     this.textPages = [];
     this.pageReferences = [];
-    this.allAvailablePages = []; // Clear pages for new item
+    this.allAvailablePages = [];
     this.selectedTagGuids = [];
     this.selectedTags = [];
-    this.imageFile = null;
-    this.imagePreview = null;
-    this.imageBase64 = null;
-    this.urlContent = "";
-    this.videoFile = null;
-    this.videoPreview = null;
-    this.videoUrl = "";
     this.backgroundColor = "";
     this.fontColor = "";
     this.cssProperties = "";
@@ -611,64 +568,28 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
     this.editingItem = null;
     this.isNewItem = false;
     this.itemName = "";
-    this.itemType = "text";
     this.itemDescription = "";
     this.itemAuthor = "";
     this.textPages = [];
     this.pageReferences = [];
     this.selectedTagGuids = [];
     this.selectedTags = [];
-    this.imageFile = null;
-    this.imagePreview = null;
-    this.imageBase64 = null;
-    this.urlContent = "";
-    this.videoFile = null;
-    this.videoPreview = null;
-    this.videoUrl = "";
     this.backgroundColor = "";
     this.fontColor = "";
     this.cssProperties = "";
     this.loadRecentItems();
   }
 
-  onTypeChange(): void {
-    // Reset content when type changes
-    if (this.itemType === "text") {
-      this.textPages = [{ page: 1, content: "" }];
-      this.imageFile = null;
-      this.imagePreview = null;
-      this.imageBase64 = null;
-      this.urlContent = "";
-      this.videoFile = null;
-      this.videoPreview = null;
-      this.videoUrl = "";
-    } else if (this.itemType === "image") {
-      this.textPages = [{ page: 1, content: "" }];
-      this.urlContent = "";
-      this.videoFile = null;
-      this.videoPreview = null;
-      this.videoUrl = "";
-      this.imageFile = null;
-      this.imagePreview = null;
-      this.imageBase64 = null;
-    } else if (this.itemType === "url") {
-      this.textPages = [{ page: 1, content: "" }];
-      this.imageFile = null;
-      this.imagePreview = null;
-      this.imageBase64 = null;
-      this.videoFile = null;
-      this.videoPreview = null;
-      this.videoUrl = "";
-      this.urlContent = "";
-    } else if (this.itemType === "video") {
-      this.textPages = [{ page: 1, content: "" }];
-      this.imageFile = null;
-      this.imagePreview = null;
-      this.imageBase64 = null;
-      this.urlContent = "";
-      this.videoFile = null;
-      this.videoPreview = null;
-      this.videoUrl = "";
+  onPageDialogTypeChange(): void {
+    this.pageDialogContent = '';
+    this.pageDialogImagePreview = null;
+    this.pageDialogImageBase64 = null;
+    this.pageDialogUrl = '';
+    this.pageDialogVideoUrl = '';
+    this.pageDialogIframeContent = '';
+    if (this.pageDialogType === 'image') {
+      this.pageDialogImageHeight100 = true;
+      this.pageDialogImageWidth100 = false;
     }
   }
 
@@ -693,26 +614,54 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
     this.newPageContent = '';
   }
   
-  // New page manage dialog with tabs
   openPageManageDialog(pageIndex: number): void {
     this.editingPageIndex = pageIndex;
-    this.selectedReusablePageGuid = null; // Reset selection when opening dialog
+    this.selectedReusablePageGuid = null;
+    this.pageDialogType = 'text';
+    this.pageDialogImagePreview = null;
+    this.pageDialogImageBase64 = null;
+    this.pageDialogUrl = '';
+    this.pageDialogVideoUrl = '';
+    this.pageDialogIframeContent = '';
+    this.pageDialogCssProperties = '';
+    this.pageDialogImageHeight100 = true;
+    this.pageDialogImageWidth100 = false;
     if (pageIndex >= 0 && pageIndex < this.pageReferences.length) {
-      // Editing existing page - load its content
       const ref = this.pageReferences[pageIndex];
-      this.pageDialogContent = this.getPageContent(ref.pageGuid);
-      this.activeTabIndex = 0; // Show Create tab when editing
+      const page = ref.page || this.allAvailablePages.find(p => p.guid === ref.pageGuid);
+      this.pageDialogType = (page?.type as any) || 'text';
+      if (this.pageDialogType === 'text') {
+        this.pageDialogContent = this.getPageContent(ref.pageGuid);
+      } else if (this.pageDialogType === 'image' && page?.content) {
+        this.pageDialogImageBase64 = page.content;
+        this.pageDialogImagePreview = page.content.startsWith('data:image') ? page.content : `data:image/png;base64,${page.content}`;
+      } else if (this.pageDialogType === 'url') {
+        this.pageDialogUrl = this.getPageContent(ref.pageGuid);
+      } else if (this.pageDialogType === 'video') {
+        this.pageDialogVideoUrl = this.getPageContent(ref.pageGuid);
+      } else if (this.pageDialogType === 'iframe') {
+        this.pageDialogIframeContent = this.getPageContent(ref.pageGuid);
+      }
+      if (page?.css) {
+        this.pageDialogCssProperties = typeof page.css === 'string' ? page.css : JSON.stringify(page.css, null, 2);
+        if (this.pageDialogType === 'image') {
+          const cssObj = typeof page.css === 'object' ? page.css : (() => { try { return JSON.parse(page.css as string); } catch { return {}; } })();
+          this.pageDialogImageHeight100 = String(cssObj?.['height'] || '').trim() === '100%';
+          this.pageDialogImageWidth100 = String(cssObj?.['width'] || '').trim() === '100%';
+        }
+      } else if (this.pageDialogType === 'image') {
+        this.pageDialogImageHeight100 = true;
+        this.pageDialogImageWidth100 = false;
+      }
+      this.activeTabIndex = 0;
     } else {
-      // Adding new page
       this.pageDialogContent = '';
-      this.activeTabIndex = 0; // Start with Create tab
+      this.activeTabIndex = 0;
     }
     this.showPageManageDialog = true;
-    // Update contenteditable div after view updates - only set once, don't bind
     setTimeout(() => {
-      if (this.pageContentEditable) {
+      if (this.pageContentEditable && this.pageDialogType === 'text') {
         this.pageContentEditable.nativeElement.innerHTML = this.pageDialogContent || '';
-        // Set cursor at the end of content
         this.setCaretToEnd(this.pageContentEditable.nativeElement);
       }
     }, 100);
@@ -749,8 +698,40 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
     this.showPageManageDialog = false;
     this.editingPageIndex = -1;
     this.pageDialogContent = '';
+    this.pageDialogType = 'text';
+    this.pageDialogImagePreview = null;
+    this.pageDialogImageBase64 = null;
+    this.pageDialogUrl = '';
+    this.pageDialogVideoUrl = '';
+    this.pageDialogIframeContent = '';
+    this.pageDialogCssProperties = '';
+    this.pageDialogImageHeight100 = true;
+    this.pageDialogImageWidth100 = false;
     this.activeTabIndex = 0;
     this.selectedReusablePageGuid = null;
+  }
+
+  /** Build page CSS object from properties text + image toggles (for image type) */
+  private getPageDialogCssForSave(): { [key: string]: string } | null {
+    let obj: { [key: string]: string } = {};
+    if (this.pageDialogCssProperties?.trim()) {
+      try {
+        const parsed = JSON.parse(this.pageDialogCssProperties.trim());
+        if (parsed && typeof parsed === 'object') obj = { ...parsed };
+      } catch { /* ignore */ }
+    }
+    if (this.pageDialogType === 'image') {
+      if (this.pageDialogImageHeight100) obj['height'] = '100%';
+      else delete obj['height'];
+      if (this.pageDialogImageWidth100) obj['width'] = '100%';
+      else delete obj['width'];
+    }
+    return Object.keys(obj).length > 0 ? obj : null;
+  }
+
+  onPageDialogImageToggleChange(): void {
+    const obj = this.getPageDialogCssForSave();
+    this.pageDialogCssProperties = obj ? JSON.stringify(obj, null, 2) : '';
   }
   
   getPageDialogHeader(): string {
@@ -905,13 +886,23 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
   }
   
   canSavePageFromDialog(): boolean {
-    if (this.activeTabIndex === 0) {
-      // Create new page tab - can save if there's content
-      const content = this.getContentFromPageDialog();
-      return content.trim().length > 0;
-    } else if (this.activeTabIndex === 1) {
-      // Reuse existing page tab - can save if a page is selected
+    if (this.activeTabIndex === 1) {
       return this.selectedReusablePageGuid !== null;
+    }
+    if (this.pageDialogType === 'text') {
+      return this.getContentFromPageDialog().trim().length > 0;
+    }
+    if (this.pageDialogType === 'image') {
+      return !!(this.pageDialogImageBase64 || this.pageDialogImagePreview);
+    }
+    if (this.pageDialogType === 'url') {
+      return this.pageDialogUrl.trim().length > 0;
+    }
+    if (this.pageDialogType === 'video') {
+      return this.pageDialogVideoUrl.length > 0;
+    }
+    if (this.pageDialogType === 'iframe') {
+      return this.pageDialogIframeContent.trim().length > 0;
     }
     return false;
   }
@@ -948,29 +939,36 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
       return;
     }
     
-    // Otherwise, handle creating/editing a new page
-    // Get current content from the contenteditable div directly
-    const content = this.getContentFromPageDialog().trim();
-    
-    if (!content) {
-      // Don't create empty pages
+    // Create/edit page - get content based on type
+    let content = '';
+    if (this.pageDialogType === 'text') {
+      content = this.getContentFromPageDialog().trim();
+    } else if (this.pageDialogType === 'image') {
+      content = this.pageDialogImageBase64 || (this.pageDialogImagePreview ? this.pageDialogImagePreview.split(',')[1] || this.pageDialogImagePreview : '') || '';
+    } else if (this.pageDialogType === 'url') {
+      content = this.pageDialogUrl.trim();
+    } else if (this.pageDialogType === 'video') {
+      content = this.pageDialogVideoUrl;
+    } else if (this.pageDialogType === 'iframe') {
+      content = this.pageDialogIframeContent.trim();
+    }
+    if (!content && this.pageDialogType !== 'text') {
       return;
     }
-    
+    if (this.pageDialogType === 'text' && !content) {
+      return;
+    }
+
     if (this.editingPageIndex >= 0 && this.editingPageIndex < this.pageReferences.length) {
-      // Update existing page
       const ref = this.pageReferences[this.editingPageIndex];
-      
       if (typeof ref.pageGuid === 'number' && ref.pageGuid > 0) {
-        // Update existing page in database
-        this.pagesService.updatePage(ref.pageGuid, content).subscribe({
+        const pageCss = this.getPageDialogCssForSave();
+        this.pagesService.updatePage(ref.pageGuid, content, this.pageDialogType, pageCss).subscribe({
           next: (updatedPage) => {
-            // Update in page references
-            ref.page = updatedPage;
-            // Update in all available pages
-            const index = this.allAvailablePages.findIndex(p => p.guid === ref.pageGuid);
-            if (index >= 0) {
-              this.allAvailablePages[index] = updatedPage;
+            ref.page = { ...updatedPage, type: this.pageDialogType, css: pageCss ?? undefined };
+            const idx = this.allAvailablePages.findIndex(p => p.guid === ref.pageGuid);
+            if (idx >= 0) {
+              this.allAvailablePages[idx] = { ...updatedPage, type: this.pageDialogType, css: pageCss ?? undefined };
             }
             this.closePageManageDialog();
           },
@@ -980,23 +978,26 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
           }
         });
       } else {
-        // Temporal page - update content directly
+        const pageCss = this.getPageDialogCssForSave();
         if (ref.page) {
           ref.page.content = content;
+          ref.page.type = this.pageDialogType;
+          ref.page.css = pageCss ?? undefined;
         }
-        // Update in all available pages
         const pageIndex = this.allAvailablePages.findIndex(p => p.guid === ref.pageGuid);
         if (pageIndex >= 0) {
-          this.allAvailablePages[pageIndex].content = content;
+          this.allAvailablePages[pageIndex] = { ...this.allAvailablePages[pageIndex], content, type: this.pageDialogType, css: pageCss ?? undefined };
         }
         this.closePageManageDialog();
       }
     } else {
-      // Create new temporal page
+      const pageCss = this.getPageDialogCssForSave();
       const temporalPageGuid = this.nextTemporalId--;
       const temporalPage: Page = {
         guid: temporalPageGuid,
         content: content,
+        type: this.pageDialogType,
+        css: pageCss ?? undefined,
         isTemporal: true
       };
       
@@ -1215,12 +1216,29 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
   
   getPageContent(pageGuid: number | string): string {
     const page = this.allAvailablePages.find(p => p.guid === pageGuid);
-    return page ? page.content : '';
+    return page ? (page.content || '') : '';
+  }
+
+  getPageType(pageGuid: number | string): string {
+    const page = this.allAvailablePages.find(p => p.guid === pageGuid);
+    return page?.type || 'text';
+  }
+
+  getPageImagePreview(pageGuid: number | string): string | null {
+    const page = this.allAvailablePages.find(p => p.guid === pageGuid);
+    if (!page || page.type !== 'image' || !page.content) return null;
+    const c = page.content;
+    return c.startsWith('data:image') ? c : `data:image/png;base64,${c}`;
   }
   
-  getPagePreviewText(content: string | undefined): string {
-    if (!content) return '(empty)';
-    // Strip HTML tags and get first 200 characters
+  getPagePreviewText(page: Page | { content?: string; type?: string }): string {
+    const content = page?.content;
+    const type = page?.type || 'text';
+    if (!content) return type === 'text' ? '(empty)' : `(${type})`;
+    if (type === 'image') return '(image)';
+    if (type === 'video') return '(video)';
+    if (type === 'iframe') return '(iframe)';
+    if (type === 'url') return content.length > 60 ? content.substring(0, 60) + '...' : content;
     const text = content.replace(/<[^>]*>/g, '').trim();
     return text.length > 200 ? text.substring(0, 200) + '...' : text || '(empty)';
   }
@@ -1264,39 +1282,30 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
     }
   }
 
-  onImageFileSelected(event: Event): void {
+  onPageDialogImageSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
     if (input.files && input.files[0]) {
-      this.imageFile = input.files[0];
-      
-      // Create preview
       const reader = new FileReader();
       reader.onload = (e: any) => {
-        this.imagePreview = e.target.result;
-        // Extract base64 without data URI prefix
+        this.pageDialogImagePreview = e.target.result;
         const base64String = e.target.result.split(',')[1] || e.target.result;
-        this.imageBase64 = base64String;
+        this.pageDialogImageBase64 = base64String;
       };
-      reader.readAsDataURL(this.imageFile);
+      reader.readAsDataURL(input.files[0]);
     }
   }
 
-  onVideoFileSelected(event: Event): void {
+  onPageDialogVideoSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
     if (input.files && input.files[0]) {
-      this.videoFile = input.files[0];
-      this.uploadVideo();
+      this.uploadPageDialogVideo(input.files[0]);
     }
   }
 
-  uploadVideo(): void {
-    if (!this.videoFile) {
-      return;
-    }
-
-    this.videoUploading = true;
+  uploadPageDialogVideo(file: File): void {
+    this.pageDialogVideoUploading = true;
     const formData = new FormData();
-    formData.append('video', this.videoFile);
+    formData.append('video', file);
 
     // Get authentication headers
     const username = localStorage.getItem('admin_username');
@@ -1309,25 +1318,19 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
     this.http.post<{ success: boolean; filename: string; url: string }>(`${environment.apiUrl}/library/upload-video`, formData, {
       headers: headers
     }).subscribe({
-        next: (response) => {
-          if (response.success) {
-            this.videoUrl = response.url;
-            // Convert relative URL to full URL for preview
-            if (response.url && response.url.startsWith('/')) {
-              this.videoPreview = `${environment.apiUrl}${response.url}`;
-            } else {
-              this.videoPreview = response.url;
-            }
-            this.videoUploading = false;
+      next: (response) => {
+        if (response.success) {
+          this.pageDialogVideoUrl = response.url.startsWith('/') ? response.url : response.url;
+          this.pageDialogVideoUploading = false;
         } else {
           this.showErrorPopup('Failed to upload video');
-          this.videoUploading = false;
+          this.pageDialogVideoUploading = false;
         }
       },
       error: (error) => {
         console.error('Video upload error:', error);
         this.showErrorPopup(error.error?.message || 'Failed to upload video');
-        this.videoUploading = false;
+        this.pageDialogVideoUploading = false;
       }
     });
   }
@@ -1347,58 +1350,9 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
       this.showErrorPopup(this.translationService.translate('nameRequired'));
       return;
     }
-
-    let content: string | LibraryContent[] | undefined;
-
-    if (this.itemType === "text") {
-      // For text items, use page management system
-      if (this.pageReferences.length > 0) {
-        // New page-based system - content will be empty, pageGuids will be sent
-        content = ""; // Empty for text items using pages
-      } else {
-        // Legacy system - get HTML content from contenteditable divs
-        this.textPages.forEach((page, index) => {
-          const htmlContent = this.getContentFromEditable(index);
-          page.content = htmlContent;
-        });
-        
-        // Validate that all pages have content (check for text, not just HTML tags)
-        const validPages = this.textPages.filter(p => {
-          const textContent = p.content.replace(/<[^>]*>/g, '').trim();
-          return textContent.length > 0;
-        });
-        if (validPages.length === 0) {
-          this.showErrorPopup("Please enter content for at least one page");
-          return;
-        }
-        content = validPages;
-      }
-    } else if (this.itemType === "image") {
-      if (!this.imageBase64 && !this.imagePreview) {
-        this.showErrorPopup("Please upload an image");
-        return;
-      }
-      content = this.imageBase64 || this.imagePreview || "";
-    } else if (this.itemType === "url") {
-      if (!this.urlContent.trim()) {
-        this.showErrorPopup("Please enter a URL");
-        return;
-      }
-      content = this.urlContent.trim();
-    } else if (this.itemType === "video") {
-      if (!this.videoUrl && !this.videoFile) {
-        this.showErrorPopup("Please upload a video file");
-        return;
-      }
-      // If videoUrl is set (from upload), use it; otherwise upload first
-      if (!this.videoUrl && this.videoFile) {
-        // Video needs to be uploaded first - this should be handled by onVideoFileSelected
-        this.showErrorPopup("Please wait for video upload to complete");
-        return;
-      }
-      content = this.videoUrl || "";
-    } else {
-      content = "";
+    if (this.pageReferences.length === 0) {
+      this.showErrorPopup("Please add at least one page");
+      return;
     }
 
     // Always set author (use empty string for empty author, server will convert to null)
@@ -1425,93 +1379,67 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
     
     const itemData: Partial<LibraryItem & { pageGuids?: number[]; tagGuids?: number[] }> = {
       name: this.itemName.trim(),
-      type: this.itemType,
-      content: content,
       description: this.itemDescription.trim() || undefined,
       background_color: this.backgroundColor.trim() || undefined,
       font_color: this.fontColor.trim() || undefined,
       css: cssObj,
-      author: authorForPayload // Always set (null if empty, otherwise trimmed value)
+      author: authorForPayload
     };
-    
-    // Debug: log author value being set in itemData
-    console.log("Setting itemData.author:", authorForPayload, "from itemAuthor:", this.itemAuthor);
 
-    // Add pageGuids for text items using new page system
-    if (this.itemType === "text") {
-      if (this.pageReferences.length > 0) {
-        // Sort pageReferences by orderNumber to ensure correct order when saving
-        const sortedPageReferences = [...this.pageReferences].sort((a, b) => a.orderNumber - b.orderNumber);
-        
-        // Handle temporal pages - create them in database first
-        const pageGuids: Array<{ guid: number; orderNumber: number }> = [];
-        const temporalPagesWithOrder: Array<{ page: Page; orderNumber: number }> = [];
-        
-        // Separate temporal and saved pages, preserving order numbers
-        sortedPageReferences.forEach(ref => {
-          if (typeof ref.pageGuid === 'number' && ref.pageGuid < 0) {
-            // Temporal page - needs to be created, preserve order number
-            if (ref.page) {
-              temporalPagesWithOrder.push({ page: ref.page, orderNumber: ref.orderNumber });
-            }
-          } else if (typeof ref.pageGuid === 'number') {
-            // Already saved page, preserve order number
-            pageGuids.push({ guid: ref.pageGuid, orderNumber: ref.orderNumber });
-          }
-        });
-        
-        // Create temporal pages in parallel
-        if (temporalPagesWithOrder.length > 0) {
-          const createObservables = temporalPagesWithOrder.map(({ page }) => 
-            this.pagesService.createPage(page.content)
-          );
-          
-          forkJoin(createObservables).subscribe({
-            next: (newPages) => {
-              // Add new page GUIDs with their order numbers
-              newPages.forEach((newPage, index) => {
-                if (typeof newPage.guid === 'number') {
-                  pageGuids.push({ 
-                    guid: newPage.guid, 
-                    orderNumber: temporalPagesWithOrder[index].orderNumber 
-                  });
-                }
+    const sortedPageReferences = [...this.pageReferences].sort((a, b) => a.orderNumber - b.orderNumber);
+    const pageGuids: Array<{ guid: number; orderNumber: number }> = [];
+    const temporalPagesWithOrder: Array<{ page: Page; orderNumber: number }> = [];
+
+    sortedPageReferences.forEach(ref => {
+      const pg = ref.pageGuid;
+      if ((typeof pg === 'number' && pg < 0) || (typeof pg === 'string' && parseInt(pg, 10) < 0)) {
+        if (ref.page) {
+          temporalPagesWithOrder.push({ page: ref.page, orderNumber: ref.orderNumber });
+        }
+      } else if (typeof pg === 'number' && pg > 0) {
+        pageGuids.push({ guid: pg, orderNumber: ref.orderNumber });
+      }
+    });
+
+    if (temporalPagesWithOrder.length > 0) {
+      const createObservables = temporalPagesWithOrder.map(({ page }) =>
+        this.pagesService.createPage(page.content || '', page.type || 'text', page.css)
+      );
+      forkJoin(createObservables).subscribe({
+        next: (newPages) => {
+          newPages.forEach((newPage, index) => {
+            if (typeof newPage.guid === 'number') {
+              pageGuids.push({
+                guid: newPage.guid,
+                orderNumber: temporalPagesWithOrder[index].orderNumber
               });
-              
-              // Sort all pageGuids by orderNumber to ensure correct final order
-              pageGuids.sort((a, b) => a.orderNumber - b.orderNumber);
-              
-              // Extract just the GUIDs in the correct order
-              itemData.pageGuids = pageGuids.map(p => p.guid);
-              this.proceedWithSave(itemData);
-            },
-            error: (error) => {
-              console.error("Error creating temporal pages:", error);
-              this.showErrorPopup("Error creating pages. Please try again.");
             }
           });
-          return; // Exit early, will continue in callback
-        } else {
-          // No temporal pages, just extract GUIDs in correct order
-          itemData.pageGuids = pageGuids.sort((a, b) => a.orderNumber - b.orderNumber).map(p => p.guid);
+          pageGuids.sort((a, b) => a.orderNumber - b.orderNumber);
+          itemData.pageGuids = pageGuids.map(p => p.guid);
+          if (this.selectedTags?.length > 0) {
+            itemData.tagGuids = this.selectedTags.map(tag => tag.guid);
+          } else {
+            itemData.tagGuids = [];
+          }
+          this.proceedWithSave(itemData);
+        },
+        error: (error) => {
+          console.error("Error creating temporal pages:", error);
+          this.showErrorPopup("Error creating pages. Please try again.");
         }
-      } else {
-        // No page references - set empty array to remove all pages
-        itemData.pageGuids = [];
-      }
+      });
+      return;
     }
-    
-    // Sync selectedTagGuids from selectedTags (PrimeNG MultiSelect)
-    // Always set tagGuids to ensure tags are removed when all are deselected
+
+    itemData.pageGuids = pageGuids.sort((a, b) => a.orderNumber - b.orderNumber).map(p => p.guid);
     if (this.selectedTags && this.selectedTags.length > 0) {
       this.selectedTagGuids = this.selectedTags.map(tag => tag.guid);
       itemData.tagGuids = this.selectedTagGuids;
     } else {
-      // Set empty array to remove all tags
       this.selectedTagGuids = [];
       itemData.tagGuids = [];
     }
-
     this.proceedWithSave(itemData);
   }
   
@@ -1540,8 +1468,8 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
       const updatedItem: LibraryItem & { pageGuids?: number[]; tagGuids?: number[] } = {
         guid: this.editingItem.guid,
         name: itemData.name !== undefined ? itemData.name : this.editingItem.name,
-        type: itemData.type !== undefined ? itemData.type : this.editingItem.type,
-        content: itemData.content !== undefined ? itemData.content : this.editingItem.content,
+        type: this.editingItem.type,
+        content: this.editingItem.content,
         description: itemData.description !== undefined ? itemData.description : this.editingItem.description,
         background_color: itemData.background_color !== undefined ? itemData.background_color : this.editingItem.background_color,
         font_color: itemData.font_color !== undefined ? itemData.font_color : this.editingItem.font_color,

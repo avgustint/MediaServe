@@ -5,6 +5,8 @@ import { ApiService } from "../../../core/services/api.service";
 export interface Page {
   guid: number | string;
   content: string;
+  type?: 'text' | 'image' | 'url' | 'video' | 'iframe';
+  css?: string | { [key: string]: string };
   isTemporal?: boolean;
 }
 
@@ -26,12 +28,19 @@ export class PagesService {
     return this.apiService.get<Page | null>(`/pages/${guid}`);
   }
 
-  createPage(content: string = ''): Observable<Page> {
-    return this.apiService.post<Page>('/pages', { content });
+  createPage(content: string = '', type: 'text' | 'image' | 'url' | 'video' | 'iframe' = 'text', css?: string | object | null): Observable<Page> {
+    return this.apiService.post<Page>('/pages', { content, type, css: css ?? undefined });
   }
 
-  updatePage(guid: number, content: string): Observable<Page> {
-    return this.apiService.put<Page>(`/pages/${guid}`, { content });
+  updatePage(guid: number, content: string, type?: 'text' | 'image' | 'url' | 'video' | 'iframe', css?: string | object | null): Observable<Page> {
+    const body: { content: string; type?: string; css?: string | object } = { content };
+    if (type != null) {
+      body.type = type;
+    }
+    if (css !== undefined) {
+      body.css = css ?? undefined;
+    }
+    return this.apiService.put<Page>(`/pages/${guid}`, body);
   }
 
   deletePage(guid: number): Observable<void> {

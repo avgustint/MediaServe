@@ -21,40 +21,25 @@ export interface ApiResponse<T = any> {
 })
 export class ApiService {
   private get API_URL() {
-    // Get server URL at runtime
+    // Check if there's a configured server URL in localStorage (user override)
+    const configuredServerUrl = localStorage.getItem('mediaserver_api_url');
+    if (configuredServerUrl) {
+      return configuredServerUrl;
+    }
+    
+    // Check URL parameter for server override
     if (typeof window !== 'undefined' && window.location) {
-      const hostname = window.location.hostname;
-      const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
-      
-      // Check if there's a configured server URL in localStorage
-      const configuredServerUrl = localStorage.getItem('mediaserver_api_url');
-      if (configuredServerUrl) {
-        return configuredServerUrl;
-      }
-      
-      // Check URL parameter for server override
       const urlParams = new URLSearchParams(window.location.search);
       const serverParam = urlParams.get('server');
       if (serverParam) {
+        const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
         const serverUrl = serverParam.startsWith('http') ? serverParam : `${protocol}//${serverParam}`;
         localStorage.setItem('mediaserver_api_url', serverUrl);
         return serverUrl;
       }
-      
-      // If accessing from localhost, use fixed Raspberry Pi IP (192.168.0.100)
-      // User can override with ?server=localhost:8080 for local development
-      if (hostname === 'localhost' || hostname === '127.0.0.1') {
-        return `${protocol}//192.168.0.100:5000`;
-      }
-      
-      // If accessing from Raspberry Pi fixed IP, use that IP with port 5000
-      if (hostname === '192.168.0.100') {
-        return `${protocol}//192.168.0.100:5000`;
-      }
-      
-      // For any other hostname, use same hostname with port 5000
-      return `${protocol}//${hostname}:5000`;
     }
+    
+    // Use shared configuration (evaluated at runtime)
     return environment.apiUrl;
   }
   private readonly USERNAME_KEY = 'admin_username';

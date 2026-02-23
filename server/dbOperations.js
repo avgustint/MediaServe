@@ -7,24 +7,24 @@ const dbOps = {
   // Library operations
   createLibraryItem(item) {
     const db = getDatabase();
-    const maxGuid = db.prepare('SELECT MAX(guid) as maxGuid FROM library_items').get()?.maxGuid || 0;
-    const newGuid = maxGuid + 1;
-
-    // For text items, content will be handled via pages
-    // For other types, store content as string
-    let contentStr = '';
-    if (item.type === 'text') {
-      // Text items will use pages, so content can be empty or legacy format
-      contentStr = typeof item.content === 'string' ? item.content : '';
-    } else {
-      contentStr = typeof item.content === 'string'
-        ? item.content
-        : JSON.stringify(item.content || '');
+    const existingGuids = new Set(
+      db.prepare('SELECT guid FROM library_items').all().map(row => row.guid)
+    );
+    let newGuid = 1;
+    while (existingGuids.has(newGuid)) {
+      newGuid++;
     }
 
-    const modified = new Date().toISOString();
+    // All items use pages; type and content are on pages
+    const pageGuids = item.pageGuids && Array.isArray(item.pageGuids) ? item.pageGuids : [];
+    const itemType = pageGuids.length > 0
+      ? (() => {
+          const firstPage = db.prepare('SELECT type FROM pages WHERE guid = ?').get(pageGuids[0]);
+          return firstPage?.type || 'text';
+        })()
+      : 'text';
 
-    // Serialize CSS object to JSON string if provided
+    const modified = new Date().toISOString();
     const cssStr = item.css ? (typeof item.css === 'string' ? item.css : JSON.stringify(item.css)) : null;
 
     db.transaction(() => {
@@ -34,8 +34,8 @@ const dbOps = {
       `).run(
         newGuid,
         item.name || '',
-        item.type || 'text',
-        contentStr,
+        itemType,
+        '',
         item.description || null,
         modified,
         item.background_color || null,
@@ -44,12 +44,10 @@ const dbOps = {
         cssStr
       );
 
-      // Handle pages for text items
-      if (item.type === 'text' && item.pageGuids && Array.isArray(item.pageGuids) && item.pageGuids.length > 0) {
-        this.setLibraryItemPages(newGuid, item.pageGuids);
+      if (pageGuids.length > 0) {
+        this.setLibraryItemPages(newGuid, pageGuids);
       }
 
-      // Handle tags
       if (item.tagGuids && Array.isArray(item.tagGuids) && item.tagGuids.length > 0) {
         this.setLibraryItemTags(newGuid, item.tagGuids);
       }
@@ -63,15 +61,6 @@ const dbOps = {
     const existingItem = this.getLibraryItem(guid);
     if (!existingItem) {
       return null;
-    }
-
-    // For text items, content will be handled via pages
-    // For other types, store content as string
-    let contentStr = existingItem.content;
-    if (item.type !== 'text' && item.content !== undefined) {
-      contentStr = typeof item.content === 'string'
-        ? item.content
-        : JSON.stringify(item.content || '');
     }
 
     const modified = new Date().toISOString();
@@ -89,6 +78,13 @@ const dbOps = {
       cssValue = item.css ? (typeof item.css === 'string' ? item.css : JSON.stringify(item.css)) : null;
     }
 
+    // Derive type from first page when updating pageGuids
+    let itemType = existingItem.type;
+    if (item.pageGuids !== undefined && Array.isArray(item.pageGuids) && item.pageGuids.length > 0) {
+      const firstPage = db.prepare('SELECT type FROM pages WHERE guid = ?').get(item.pageGuids[0]);
+      itemType = firstPage?.type || 'text';
+    }
+
     db.transaction(() => {
       db.prepare(`
         UPDATE library_items
@@ -96,8 +92,8 @@ const dbOps = {
         WHERE guid = ?
       `).run(
         item.name !== undefined ? item.name : existingItem.name,
-        item.type !== undefined ? item.type : existingItem.type,
-        contentStr,
+        itemType,
+        '',
         item.description !== undefined ? item.description : existingItem.description,
         modified,
         item.background_color !== undefined ? item.background_color : existingItem.background_color,
@@ -107,8 +103,7 @@ const dbOps = {
         guid
       );
 
-      // Handle pages for text items
-      if (item.type === 'text' && item.pageGuids !== undefined) {
+      if (item.pageGuids !== undefined) {
         this.setLibraryItemPages(guid, item.pageGuids || []);
       }
 
@@ -124,32 +119,32 @@ const dbOps = {
   deleteLibraryItem(guid) {
     const db = getDatabase();
     const item = this.getLibraryItem(guid);
-    
-    // If it's a video item, delete the associated video file
-    if (item && item.type === 'video' && item.content) {
-      try {
-        const fs = require('fs');
-        const path = require('path');
-        const videosDir = path.join(__dirname, 'data', 'videos');
-        
-        // Extract filename from content URL (e.g., /videos/filename.mp4 -> filename.mp4)
-        const urlMatch = item.content.match(/\/videos\/(.+)$/);
-        if (urlMatch) {
-          const filename = urlMatch[1];
-          const filePath = path.join(videosDir, filename);
-          
-          // Delete file if it exists
-          if (fs.existsSync(filePath)) {
-            fs.unlinkSync(filePath);
-            console.log(`Deleted video file: ${filePath}`);
+
+    // Delete video files from any video-type pages
+    const pages = this.getLibraryItemPages(guid);
+    if (pages && pages.length > 0) {
+      for (const page of pages) {
+        if (page.type === 'video' && page.content) {
+          try {
+            const fs = require('fs');
+            const path = require('path');
+            const videosDir = path.join(__dirname, 'data', 'videos');
+            const urlMatch = page.content.match(/\/videos\/(.+)$/);
+            if (urlMatch) {
+              const filename = urlMatch[1];
+              const filePath = path.join(videosDir, filename);
+              if (fs.existsSync(filePath)) {
+                fs.unlinkSync(filePath);
+                console.log(`Deleted video file: ${filePath}`);
+              }
+            }
+          } catch (error) {
+            console.warn(`Failed to delete video file for library item ${guid}:`, error.message);
           }
         }
-      } catch (error) {
-        console.warn(`Failed to delete video file for library item ${guid}:`, error.message);
-        // Continue with deletion even if file deletion fails
       }
     }
-    
+
     const result = db.prepare('DELETE FROM library_items WHERE guid = ?').run(guid);
     return result.changes > 0;
   },
@@ -614,78 +609,33 @@ const dbOps = {
       let pages = undefined;
       let availablePages = [];
       
-      console.log(`[getPlaylistItems] Item ${item.guid} (${item.name}): type=${item.type}, hasContent=${!!item.content}, playlist_pages=${item.playlist_pages}`);
+      // All items use pages; load content from library_item_pages
+      const itemPages = this.getLibraryItemPages(item.guid);
+      const firstPageType = itemPages && itemPages.length > 0 ? (itemPages[0].type || 'text') : (item.type || 'text');
 
-      // For text items, load content from library_item_pages if it exists
-      let content = item.content;
-      if (item.type === 'text') {
-        const itemPages = this.getLibraryItemPages(item.guid);
-        if (itemPages && itemPages.length > 0) {
-          // Use pages from new structure
-          content = itemPages.map((page, index) => ({
-            page: page.order_number || (index + 1), // Use order_number from database
-            content: page.content || ''
-          }));
-          console.log(`[getPlaylistItems] Item ${item.guid}: loaded ${itemPages.length} pages from library_item_pages`);
-        } else if (typeof content === 'string' && content) {
-          // Fallback to old content format (backward compatibility)
-          try {
-            const parsed = JSON.parse(content);
-            if (Array.isArray(parsed)) {
-              content = parsed;
-            }
-          } catch (e) {
-            // If parsing fails, content might be a string (single page)
-            content = null;
-          }
-        }
+      if (itemPages && itemPages.length > 0) {
+        availablePages = itemPages.map((p, i) => p.order_number || (i + 1));
       }
 
-      // For text items, parse content to get page numbers
-      if (item.type === 'text' && content) {
-        console.log(`[getPlaylistItems] Item ${item.guid}: parsing content, type=${item.type}, content exists=${!!content}, content type=${typeof content}, isArray=${Array.isArray(content)}`);
-        if (Array.isArray(content)) {
-          availablePages = content.map(page => page.page || page.order_number || 1);
-          console.log(`[getPlaylistItems] Item ${item.guid}: extracted availablePages=`, availablePages);
-        } else {
-          console.log(`[getPlaylistItems] Item ${item.guid}: content is not an array`);
-        }
-
-        // Check if playlist has specific pages selected
-        if (item.playlist_pages) {
-          try {
-            const selectedPages = JSON.parse(item.playlist_pages);
-            console.log(`[getPlaylistItems] Item ${item.guid}: playlist_pages=${item.playlist_pages}, selectedPages=`, selectedPages, 'availablePages=', availablePages);
-            if (Array.isArray(selectedPages) && selectedPages.length > 0) {
-              // Filter available pages to only include selected ones
-              pages = availablePages.filter(page => selectedPages.includes(page));
-              console.log(`[getPlaylistItems] Item ${item.guid}: filtered pages=`, pages);
-            }
-          } catch (e) {
-            console.error(`[getPlaylistItems] Item ${item.guid}: Error parsing playlist_pages:`, e);
-            // If parsing fails, use all available pages
+      // Check if playlist has specific pages selected
+      if (item.playlist_pages && availablePages.length > 0) {
+        try {
+          const selectedPages = JSON.parse(item.playlist_pages);
+          if (Array.isArray(selectedPages) && selectedPages.length > 0) {
+            pages = availablePages.filter(p => selectedPages.includes(p));
           }
-        } else {
-          console.log(`[getPlaylistItems] Item ${item.guid}: playlist_pages is null/undefined, will use all available pages`);
+        } catch (e) {
+          // If parsing fails, use all available pages
         }
-
-        // If pages is still undefined, use all available pages
-        if (pages === undefined) {
-          pages = availablePages;
-          console.log(`[getPlaylistItems] Item ${item.guid}: pages was undefined, using all available pages:`, pages);
-        } else {
-          console.log(`[getPlaylistItems] Item ${item.guid}: final pages=`, pages);
-        }
-      } else {
-        // For non-text items, pages should be undefined
-        console.log(`[getPlaylistItems] Item ${item.guid}: not a text item or no content, type=${item.type}, hasContent=${!!item.content}`);
-        pages = undefined;
+      }
+      if (pages === undefined && availablePages.length > 0) {
+        pages = availablePages;
       }
 
       const result = {
         guid: item.guid,
         name: item.name,
-        type: item.type,
+        type: firstPageType,
         description: item.playlist_description || item.library_description || undefined,
         pages: pages // Only for text items, array of page numbers (or undefined for non-text items)
       };
@@ -976,42 +926,52 @@ const dbOps = {
   },
 
   // Helper to format library item with parsed content and pages
+  // Type is now on each page; item-level type derived from first page for backward compat
   formatLibraryItem(item) {
     if (!item) return null;
 
-    let content = item.content;
-    
-    // For text items, load pages from library_item_pages if they exist
-    if (item.type === 'text') {
-      const pages = this.getLibraryItemPages(item.guid);
-      if (pages && pages.length > 0) {
-        // Use pages from new structure
-        content = pages.map((page, index) => ({
-          page: index + 1, // Order number
-          content: page.content || ''
-        }));
-      } else if (typeof content === 'string' && !content.startsWith('http')) {
-        // Fallback to old content format (backward compatibility)
-        try {
-          const parsed = JSON.parse(content);
-          if (Array.isArray(parsed)) {
-            content = parsed;
+    const pages = this.getLibraryItemPages(item.guid);
+    let content;
+
+    if (pages && pages.length > 0) {
+      content = pages.map((page, index) => {
+        let pageCss = undefined;
+        if (page.css) {
+          try {
+            pageCss = typeof page.css === 'string' ? JSON.parse(page.css) : page.css;
+          } catch (e) {
+            pageCss = undefined;
           }
-        } catch (e) {
-          // If parsing fails, use content as-is or create default page
-          content = [{ page: 1, content: content || '' }];
         }
-      } else if (Array.isArray(content)) {
-        // Content is already parsed (array), use as-is
-        content = content;
+        return {
+          page: index + 1,
+          type: page.type || 'text',
+          content: page.content || '',
+          css: pageCss
+        };
+      });
+    } else {
+      // Fallback for legacy items without pages
+      const rawContent = item.content;
+      if (typeof rawContent === 'string' && rawContent) {
+        try {
+          const parsed = JSON.parse(rawContent);
+          content = Array.isArray(parsed)
+            ? parsed.map((p, i) => ({
+                page: (p.page || i + 1),
+                type: p.type || 'text',
+                content: p.content || ''
+              }))
+            : [{ page: 1, type: 'text', content: rawContent }];
+        } catch (e) {
+          content = [{ page: 1, type: item.type || 'text', content: rawContent }];
+        }
       } else {
-        // Default empty page
-        content = [{ page: 1, content: '' }];
+        content = [{ page: 1, type: 'text', content: '' }];
       }
-    } else if (Array.isArray(content)) {
-      // For non-text items, content should be a string
-      content = item.content;
     }
+
+    const firstPageType = content[0]?.type || item.type || 'text';
 
     // Get tags
     const tags = this.getLibraryItemTags(item.guid);
@@ -1022,7 +982,6 @@ const dbOps = {
       try {
         css = typeof item.css === 'string' ? JSON.parse(item.css) : item.css;
       } catch (e) {
-        // If parsing fails, use as-is or undefined
         css = undefined;
       }
     }
@@ -1030,8 +989,50 @@ const dbOps = {
     return {
       guid: item.guid,
       name: item.name,
-      type: item.type,
+      type: firstPageType,
       content: content,
+      description: item.description || undefined,
+      modified: item.modified || undefined,
+      background_color: item.background_color || undefined,
+      font_color: item.font_color || undefined,
+      author: item.author || undefined,
+      css: css,
+      tags: tags.map(t => ({ guid: t.guid, name: t.name, description: t.description }))
+    };
+  },
+
+  /**
+   * Format library item as summary (no content) for search results and recent lists.
+   * Excludes content to keep responses fast - fetch full item via getLibraryItem when needed.
+   * Type derived from first page (or item.type when skipPages is true).
+   * @param {Object} item - Raw library item from DB
+   * @param {Object} [opts] - Options
+   * @param {boolean} [opts.skipPages=false] - When true, use item.type and skip loading pages (faster for recent list)
+   */
+  formatLibraryItemSummary(item, opts = {}) {
+    if (!item) return null;
+
+    const skipPages = opts.skipPages === true;
+    const firstPageType = skipPages ? (item.type || 'text') : (() => {
+      const pages = this.getLibraryItemPages(item.guid);
+      return pages && pages.length > 0 ? (pages[0].type || 'text') : (item.type || 'text');
+    })();
+
+    const tags = this.getLibraryItemTags(item.guid);
+
+    let css = undefined;
+    if (item.css) {
+      try {
+        css = typeof item.css === 'string' ? JSON.parse(item.css) : item.css;
+      } catch (e) {
+        css = undefined;
+      }
+    }
+
+    return {
+      guid: item.guid,
+      name: item.name,
+      type: firstPageType,
       description: item.description || undefined,
       modified: item.modified || undefined,
       background_color: item.background_color || undefined,
@@ -1068,12 +1069,44 @@ const dbOps = {
     return settings;
   },
 
+  // Per-location display visibility (for Clear/Show toggle)
+  getLocationContentVisible(locationId) {
+    const value = this.getSetting(`location_${locationId}_contentVisible`);
+    return value === null || value === undefined || value === 'true' || value === '1' || value === '';
+  },
+
+  setLocationContentVisible(locationId, visible) {
+    return this.setSetting(`location_${locationId}_contentVisible`, visible ? 'true' : 'false');
+  },
+
+  // Persist last shown item per location (for restore after server restart)
+  getLocationLastItem(locationId) {
+    const guid = this.getSetting(`location_${locationId}_lastLibraryItemGuid`);
+    const page = this.getSetting(`location_${locationId}_lastLibraryItemPage`);
+    if (guid && guid.trim() !== '') {
+      return {
+        guid: parseInt(guid, 10),
+        page: page && page.trim() !== '' ? parseInt(page, 10) : 1
+      };
+    }
+    return null;
+  },
+
+  setLocationLastItem(locationId, guid, page) {
+    if (guid != null) {
+      this.setSetting(`location_${locationId}_lastLibraryItemGuid`, String(guid));
+      this.setSetting(`location_${locationId}_lastLibraryItemPage`, String(page ?? 1));
+    }
+  },
+
   // Page operations
-  createPage(content = '') {
+  createPage(content = '', type = 'text', css = null) {
     const db = getDatabase();
     const maxGuid = db.prepare('SELECT MAX(guid) as maxGuid FROM pages').get()?.maxGuid || 0;
     const newGuid = maxGuid + 1;
-    db.prepare('INSERT INTO pages (guid, content) VALUES (?, ?)').run(newGuid, content || '');
+    const pageType = ['text', 'image', 'url', 'video', 'iframe'].includes(type) ? type : 'text';
+    const cssStr = css ? (typeof css === 'string' ? css : JSON.stringify(css)) : null;
+    db.prepare('INSERT INTO pages (guid, content, type, css) VALUES (?, ?, ?, ?)').run(newGuid, content || '', pageType, cssStr);
     return this.getPage(newGuid);
   },
 
@@ -1087,9 +1120,15 @@ const dbOps = {
     return db.prepare('SELECT * FROM pages ORDER BY guid').all();
   },
 
-  updatePage(guid, content) {
+  updatePage(guid, content, type, css) {
     const db = getDatabase();
     db.prepare('UPDATE pages SET content = ? WHERE guid = ?').run(content || '', guid);
+    const validType = type && ['text', 'image', 'url', 'video', 'iframe'].includes(type) ? type : 'text';
+    db.prepare('UPDATE pages SET type = ? WHERE guid = ?').run(validType, guid);
+    if (css !== undefined) {
+      const cssStr = css ? (typeof css === 'string' ? css : JSON.stringify(css)) : null;
+      db.prepare('UPDATE pages SET css = ? WHERE guid = ?').run(cssStr, guid);
+    }
     return this.getPage(guid);
   },
 
@@ -1120,7 +1159,7 @@ const dbOps = {
   getLibraryItemPages(libraryItemGuid) {
     const db = getDatabase();
     return db.prepare(`
-      SELECT p.guid, p.content, lip.order_number
+      SELECT p.guid, p.content, p.type, p.css, lip.order_number
       FROM library_item_pages lip
       JOIN pages p ON lip.page_guid = p.guid
       WHERE lip.library_item_guid = ?

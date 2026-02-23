@@ -113,12 +113,10 @@ else
     echo "Num Lock successfully enabled"
 fi
 
-# Wait for both servers to be ready
-# Use fixed IP for Raspberry Pi deployment
-CLIENT_URL="http://192.168.0.100:5001"
-ADMIN_URL="http://192.168.0.100:5000"
-LAUNCHER_FILE="$HOME/Desktop/MediaServer/deployment/raspberry-pi/kiosk-launcher.html"
-LAUNCHER_URL="file://$LAUNCHER_FILE"
+# Wait for servers to be ready
+# Use localhost when running on the Pi (change to Pi's IP if needed for network access)
+CLIENT_URL="http://localhost:5001"
+SERVER_URL="http://localhost:5000"  # Mediaserver API/WebSocket (client connects here)
 
 MAX_ATTEMPTS=60  # Increased timeout to 60 seconds
 ATTEMPT=0
@@ -179,30 +177,28 @@ while [ $ATTEMPT -lt 30 ]; do
     ATTEMPT=$((ATTEMPT + 1))
 done
 
-# Wait for admin server (mediaserver) - must be ready first
-echo "Waiting for admin server (mediaserver) to be ready..."
+# Wait for mediaserver (API/WebSocket) - client connects here
+echo "Waiting for mediaserver (API/WebSocket) to be ready..."
 ATTEMPT=0
-ADMIN_READY=false
+SERVER_READY=false
 while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
-    if check_server_ready "$ADMIN_URL" "health"; then
-        # HTML check already verifies JS references are in HTML
-        # If HTML is served with JS refs, assets should be available
-        echo "Admin server is ready (health check and HTML with JavaScript references verified)"
-        ADMIN_READY=true
+    if curl -s -f "$SERVER_URL/health" > /dev/null 2>&1; then
+        echo "Mediaserver is ready (API/WebSocket)"
+        SERVER_READY=true
         break
     else
-        echo "Waiting for admin server... ($ATTEMPT/$MAX_ATTEMPTS)"
+        echo "Waiting for mediaserver... ($ATTEMPT/$MAX_ATTEMPTS)"
     fi
     sleep 1
     ATTEMPT=$((ATTEMPT + 1))
 done
 
-if [ "$ADMIN_READY" = false ]; then
-    echo "Warning: Admin server did not become ready within $MAX_ATTEMPTS seconds"
-    echo "Continuing anyway, but pages may not load correctly..."
+if [ "$SERVER_READY" = false ]; then
+    echo "Warning: Mediaserver did not become ready within $MAX_ATTEMPTS seconds"
+    echo "Continuing anyway, but client may not connect to WebSocket..."
 fi
 
-# Wait for client server - depends on admin server
+# Wait for client server
 echo "Waiting for client server to be ready..."
 ATTEMPT=0
 CLIENT_READY=false
@@ -225,62 +221,43 @@ if [ "$CLIENT_READY" = false ]; then
     echo "Continuing anyway, but pages may not load correctly..."
 fi
 
-# Additional wait to ensure services are fully initialized and Angular apps are loaded
-# Angular apps need time to bootstrap and initialize after HTML is served
-if [ "$ADMIN_READY" = true ] && [ "$CLIENT_READY" = true ]; then
-    echo "Both servers are ready. Waiting additional 5 seconds for Angular apps to bootstrap..."
-    echo "  (This gives Angular time to load JavaScript bundles, initialize, and connect to WebSocket)"
+# Additional wait to ensure services are fully initialized
+if [ "$SERVER_READY" = true ] && [ "$CLIENT_READY" = true ]; then
+    echo "Both servers are ready. Waiting additional 5 seconds for client app to bootstrap..."
     sleep 5
 else
     echo "Waiting additional 10 seconds (some services may not be fully ready)..."
     sleep 10
 fi
 
-# Final verification - try to access both URLs and verify they return proper content
+# Final verification - client app only
 echo "Performing final verification..."
-FINAL_CHECK_PASSED=true
+FINAL_CHECK_PASSED=false
 FINAL_ATTEMPTS=0
 MAX_FINAL_ATTEMPTS=10
 
 while [ $FINAL_ATTEMPTS -lt $MAX_FINAL_ATTEMPTS ]; do
-    ADMIN_OK=false
     CLIENT_OK=false
-    
-    # Check admin URL returns HTML
-    local admin_response=$(curl -s -f "$ADMIN_URL" 2>/dev/null)
-    if [ $? -eq 0 ] && [ -n "$admin_response" ] && echo "$admin_response" | grep -qiE "<!DOCTYPE html|<html|<app-root" 2>/dev/null; then
-        ADMIN_OK=true
-    fi
-    
-    # Check client URL returns HTML
     local client_response=$(curl -s -f "$CLIENT_URL" 2>/dev/null)
     if [ $? -eq 0 ] && [ -n "$client_response" ] && echo "$client_response" | grep -qiE "<!DOCTYPE html|<html|<app-root" 2>/dev/null; then
         CLIENT_OK=true
     fi
     
-    if [ "$ADMIN_OK" = true ] && [ "$CLIENT_OK" = true ]; then
-        echo "Final verification passed: Both apps are serving complete HTML with JavaScript"
+    if [ "$CLIENT_OK" = true ]; then
+        echo "Final verification passed: Client app is serving complete HTML"
         FINAL_CHECK_PASSED=true
         break
     else
-        echo "Final verification attempt $((FINAL_ATTEMPTS + 1))/$MAX_FINAL_ATTEMPTS: Admin=$ADMIN_OK, Client=$CLIENT_OK"
+        echo "Final verification attempt $((FINAL_ATTEMPTS + 1))/$MAX_FINAL_ATTEMPTS: Client=$CLIENT_OK"
         sleep 2
         FINAL_ATTEMPTS=$((FINAL_ATTEMPTS + 1))
     fi
 done
 
 if [ "$FINAL_CHECK_PASSED" = true ]; then
-    echo "All checks passed. Launching Chromium..."
+    echo "All checks passed. Launching Chromium (client only, fullscreen)..."
 else
     echo "Warning: Final verification incomplete, but launching Chromium anyway..."
-    echo "Pages may take longer to load or may show blank screens initially"
-fi
-
-# Check if launcher file exists
-if [ ! -f "$LAUNCHER_FILE" ]; then
-    echo "Warning: Launcher file not found at $LAUNCHER_FILE"
-    echo "Falling back to client URL only"
-    LAUNCHER_URL="$CLIENT_URL"
 fi
 
 # Chromium flags for kiosk mode
@@ -332,16 +309,13 @@ echo "Checking for existing Chromium processes..."
 pkill -f "$CHROMIUM_CMD" || true
 sleep 2
 
-# Use separate profile directories for client and admin windows
+# Client-only profile (no admin window)
 CLIENT_PROFILE_DIR="$HOME/.config/chromium-client"
-ADMIN_PROFILE_DIR="$HOME/.config/chromium-admin"
 mkdir -p "$CLIENT_PROFILE_DIR"
-mkdir -p "$ADMIN_PROFILE_DIR"
 
 # Clear session data to prevent "Restore pages" popup
 echo "Clearing session data to prevent restore popup..."
-# Remove session files that cause restore prompts
-for profile_dir in "$CLIENT_PROFILE_DIR" "$ADMIN_PROFILE_DIR"; do
+for profile_dir in "$CLIENT_PROFILE_DIR"; do
     if [ -d "$profile_dir" ]; then
         # Remove session files
         rm -f "$profile_dir/Default/Session" 2>/dev/null || true
@@ -419,57 +393,8 @@ CHROMIUM_FLAGS=(
     --disable-background-downloads
 )
 
-echo "Starting Chromium windows..."
-echo "Client URL: $CLIENT_URL (fullscreen)"
-echo "Admin URL: $ADMIN_URL (minimized)"
-
-# Launch admin window first (normal window, will be minimized)
-echo "Launching admin window..."
-"$CHROMIUM_CMD" \
-    --user-data-dir="$ADMIN_PROFILE_DIR" \
-    "${CHROMIUM_FLAGS[@]}" \
-    --new-window \
-    "$ADMIN_URL" &
-
-ADMIN_PID=$!
-
-# Wait a moment for admin window to start
-sleep 2
-
-# Minimize admin window using xdotool or wmctrl
-# Wait a bit longer for window to fully appear
-sleep 2
-
-if command -v wmctrl &> /dev/null; then
-    echo "Minimizing admin window using wmctrl..."
-    # Try multiple methods to find and minimize admin window
-    # Method 1: Search by window title containing "MediaServer" or "admin"
-    wmctrl -l | grep -iE "mediaserver|admin|localhost:5000" | awk '{print $1}' | while read winid; do
-        wmctrl -i -r "$winid" -b add,hidden 2>/dev/null || true
-    done
-    # Method 2: Try to minimize by class name
-    wmctrl -x -l | grep -i chromium | grep -v "fullscreen\|kiosk" | awk '{print $1}' | head -1 | while read winid; do
-        wmctrl -i -r "$winid" -b add,hidden 2>/dev/null || true
-    done
-elif command -v xdotool &> /dev/null; then
-    echo "Minimizing admin window using xdotool..."
-    # Find admin window by searching for Chromium windows
-    # Get all Chromium windows and minimize the one that's not fullscreen
-    xdotool search --class "chromium" 2>/dev/null | while read winid; do
-        # Check if window is not in fullscreen state
-        STATE=$(xdotool getwindowgeometry "$winid" 2>/dev/null | grep -i geometry || echo "")
-        if [ -n "$STATE" ]; then
-            xdotool windowminimize "$winid" 2>/dev/null || true
-            break
-        fi
-    done
-else
-    echo "Warning: Neither wmctrl nor xdotool found. Admin window will not be minimized automatically."
-    echo "Install with: sudo apt install wmctrl xdotool"
-fi
-
-# Launch client window (fullscreen, focused)
-echo "Launching client window (fullscreen)..."
+echo "Starting Chromium (client only, fullscreen)..."
+echo "Client URL: $CLIENT_URL"
 
 # Enable Num Lock one more time after a short delay (in case it didn't work earlier)
 # Try both console/TTY level and X11 level
@@ -477,12 +402,11 @@ echo "Launching client window (fullscreen)..."
   (for tty in /dev/tty1 /dev/tty2 /dev/tty3 /dev/console; do [ -e "$tty" ] && setleds +num < "$tty" 2>/dev/null && break; done || true) && \
   (DISPLAY=:0 numlockx on 2>/dev/null || DISPLAY=:0 xdotool key Num_Lock 2>/dev/null || true)) &
 
-# Launch client window in background so we can manage it
+# Launch client in kiosk mode (fullscreen, no browser UI)
 "$CHROMIUM_CMD" \
     --user-data-dir="$CLIENT_PROFILE_DIR" \
-    --start-fullscreen \
+    --kiosk \
     "${CHROMIUM_FLAGS[@]}" \
-    --new-window \
     "$CLIENT_URL" &
 
 CLIENT_PID=$!
@@ -496,8 +420,8 @@ bring_client_to_foreground() {
     local client_winid=""
     
     if command -v wmctrl &> /dev/null; then
-        # Method 1: Find by URL pattern (updated to use fixed IP)
-        client_winid=$(wmctrl -l | grep -iE "192\.168\.0\.100:5001|localhost:5001|5001" | awk '{print $1}' | head -1)
+        # Method 1: Find by URL pattern
+        client_winid=$(wmctrl -l | grep -iE "localhost:5001|5001" | awk '{print $1}' | head -1)
         
         # Method 2: If not found, find by process ID (most reliable)
         if [ -z "$client_winid" ] && [ -n "$CLIENT_PID" ]; then
@@ -540,7 +464,7 @@ bring_client_to_foreground() {
         
         # Method 2: Find by URL in window name
         if [ -z "$client_winid" ]; then
-            client_winid=$(xdotool search --name ".*192\.168\.0\.100:5001.*" --class "chromium" 2>/dev/null | head -1)
+            client_winid=$(xdotool search --name ".*localhost:5001.*" --class "chromium" 2>/dev/null | head -1)
         fi
         
         # Method 3: Find largest chromium window (fallback)

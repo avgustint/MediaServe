@@ -1,8 +1,9 @@
 import { Injectable } from '@angular/core';
 import { Observable, Subject } from 'rxjs';
+import { getWsUrl } from '../../../shared-config';
 
 export interface WebSocketMessage {
-  type: 'text' | 'image' | 'url' | 'video' | 'UrlPlayPause';
+  type: 'text' | 'image' | 'url' | 'video' | 'iframe' | 'UrlPlayPause';
   content?: string;
   background_color?: string;
   font_color?: string;
@@ -25,36 +26,15 @@ export class WebSocketService {
   private connectionStatusSubject = new Subject<'connecting' | 'connected' | 'disconnected'>();
   public connectionStatus$ = this.connectionStatusSubject.asObservable();
 
-  // Default WebSocket URL - can be configured
-  private wsUrl = 'ws://localhost:8080';
+  // WebSocket URL - will be set when connect() is called
+  private wsUrl: string = '';
   private fallbackUrl: string | null = null;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
 
-  // Get WebSocket URL at runtime (like admin app does)
-  private getWsUrl(): string {
-    // Get WebSocket URL at runtime
-    if (typeof window !== 'undefined' && window.location) {
-      const hostname = window.location.hostname;
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      
-      // If accessing from localhost, use fixed Raspberry Pi IP (192.168.0.100)
-      if (hostname === 'localhost' || hostname === '127.0.0.1') {
-        return `${protocol}//192.168.0.100:5000`;
-      }
-      
-      // If accessing from Raspberry Pi fixed IP, use that IP with port 5000
-      if (hostname === '192.168.0.100') {
-        return `${protocol}//192.168.0.100:5000`;
-      }
-      
-      // For any other hostname (including mediaplayer.local), use fixed IP
-      // This ensures we always use the fixed IP instead of hostname resolution
-      return `${protocol}//192.168.0.100:5000`;
-    }
-    
-    // Fallback
-    return 'ws://192.168.0.100:5000';
+  // Get WebSocket URL from shared configuration (evaluated at runtime)
+  private getWsUrlValue(): string {
+    return getWsUrl();
   }
 
   connect(url?: string, locationId?: number | null): void {
@@ -68,11 +48,12 @@ export class WebSocketService {
         this.fallbackUrl = null;
       }
     } else {
-      // Get URL at runtime (like admin app does)
-      this.wsUrl = this.getWsUrl();
+      // Get URL from shared configuration (evaluated at runtime)
+      const wsUrlValue = this.getWsUrlValue();
+      this.wsUrl = wsUrlValue;
       // Generate fallback URL: if url contains fixed IP, fallback to localhost
-      if (this.wsUrl.includes('192.168.0.100')) {
-        this.fallbackUrl = this.wsUrl.replace('192.168.0.100', 'localhost');
+      if (wsUrlValue.includes('192.168.0.100')) {
+        this.fallbackUrl = wsUrlValue.replace('192.168.0.100', 'localhost');
       } else {
         this.fallbackUrl = null;
       }

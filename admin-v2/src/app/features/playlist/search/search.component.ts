@@ -11,11 +11,12 @@ import { Observable, Subject, Subscription, debounceTime, distinctUntilChanged, 
 import { InputTextModule } from "primeng/inputtext";
 import { SelectModule } from "primeng/select";
 import { MultiSelectModule } from "primeng/multiselect";
+import { AutoFocusModule } from "primeng/autofocus";
 
 @Component({
   selector: "app-search",
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslatePipe, InputTextModule, SelectModule, MultiSelectModule],
+  imports: [CommonModule, FormsModule, TranslatePipe, InputTextModule, SelectModule, MultiSelectModule, AutoFocusModule],
   templateUrl: "./search.component.html",
   styleUrls: ["./search.component.scss"]
 })

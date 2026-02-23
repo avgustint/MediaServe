@@ -585,7 +585,7 @@ p-password {
   }
 }
 
-// Unified Clear Search Button Styling - Use PrimeIcons
+// Unified Clear Search Button Styling - Use PrimeIcons (44px min touch target)
 .clear-search-btn {
   position: absolute;
   right: 0.5rem;
@@ -593,8 +593,10 @@ p-password {
   border: none;
   cursor: pointer;
   padding: 0;
-  width: 2rem;
-  height: 2rem;
+  min-width: var(--touch-target-min);
+  min-height: var(--touch-target-min);
+  width: var(--touch-target-min);
+  height: var(--touch-target-min);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -811,6 +813,16 @@ body .p-multiselect-panel {
   
   .p-multiselect-header {
     flex-shrink: 0;
+  }
+}
+
+@include mobile {
+  body .p-multiselect-panel {
+    max-height: 50vh !important;
+    
+    .p-multiselect-items-wrapper {
+      max-height: calc(50vh - 80px) !important;
+    }
   }
 }
 

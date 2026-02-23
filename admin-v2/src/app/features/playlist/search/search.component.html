@@ -73,6 +73,7 @@
       <input
         type="text"
         pInputText
+        [pAutoFocus]="true"
         class="search-input"
         [(ngModel)]="searchTerm"
         (input)="onSearchChange()"

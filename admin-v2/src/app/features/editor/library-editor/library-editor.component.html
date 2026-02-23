@@ -45,7 +45,7 @@
       <div
         *ngFor="let item of recentItems"
         class="recent-item"
-        (click)="hasManageLibraryPermission() ? editItem(item) : null"
+        (click)="hasManageLibraryPermission() ? onRecentItemSelect(item) : null"
         [class.clickable]="hasManageLibraryPermission()"
       >
         <div class="item-guid-badge">{{ item.guid }}</div>
@@ -84,6 +84,11 @@
     <div class="edit-form">
       <h2>{{ isNewItem ? ('addNewLibraryItem' | translate) : ('editLibraryItem' | translate) }}</h2>
 
+      <div class="form-group item-id-display" *ngIf="!isNewItem && editingItem">
+        <label>{{ 'id' | translate }}</label>
+        <div class="item-guid-badge">{{ editingItem.guid }}</div>
+      </div>
+
       <div class="form-group">
         <label for="itemName">{{ 'name' | translate }} *</label>
         <input
@@ -120,22 +125,8 @@
         />
       </div>
 
+      <!-- Content Pages - All items use pages with per-page type -->
       <div class="form-group">
-        <label for="itemType">{{ 'type' | translate }} *</label>
-        <p-select
-          id="itemType"
-          [(ngModel)]="itemType"
-          [options]="typeOptions"
-          optionLabel="label"
-          optionValue="value"
-          (onChange)="onTypeChange()"
-          [placeholder]="'selectType' | translate"
-          styleClass="w-full"
-        ></p-select>
-      </div>
-
-      <!-- Text Type Content - New Page Management System -->
-      <div class="form-group" *ngIf="itemType === 'text'">
         <label>{{ 'contentPages' | translate }}</label>
         
         <!-- Page Management (New System) -->
@@ -163,8 +154,14 @@
               </div>
               <div class="page-reference-content">
                 <div class="page-info">
-                  <strong>{{ 'page' | translate }} #{{ ref.orderNumber }}</strong>
-                  <div class="page-preview" [innerHTML]="getPageContent(ref.pageGuid) || '(empty)'"></div>
+                  <strong>{{ 'page' | translate }} #{{ ref.orderNumber }} - {{ getPageType(ref.pageGuid) }}</strong>
+                  <div class="page-preview" *ngIf="getPageType(ref.pageGuid) === 'text'" [innerHTML]="getPageContent(ref.pageGuid) || '(empty)'"></div>
+                  <div class="page-preview" *ngIf="getPageType(ref.pageGuid) === 'image'">
+                    <img *ngIf="getPageImagePreview(ref.pageGuid)" [src]="getPageImagePreview(ref.pageGuid)" alt="preview" style="max-width: 120px; max-height: 80px;" />
+                    <span *ngIf="!getPageImagePreview(ref.pageGuid)">(image)</span>
+                  </div>
+                  <div class="page-preview" *ngIf="getPageType(ref.pageGuid) === 'url'">{{ getPageContent(ref.pageGuid) || '(url)' }}</div>
+                  <div class="page-preview" *ngIf="getPageType(ref.pageGuid) === 'video'">(video)</div>
                 </div>
               </div>
             </div>
@@ -174,7 +171,7 @@
       </div>
       
       <!-- Tags Selection -->
-      <div class="form-group" *ngIf="itemType === 'text' || itemType === 'image' || itemType === 'url' || itemType === 'video'">
+      <div class="form-group">
         <label>{{ 'tags' | translate }}</label>
         <p-multiSelect
           [options]="allAvailableTags"
@@ -195,52 +192,6 @@
             </div>
           </ng-template>
         </p-multiSelect>
-      </div>
-
-      <!-- Image Type Content -->
-      <div class="form-group" *ngIf="itemType === 'image'">
-        <label>{{ 'imageFile' | translate }} *</label>
-        <input
-          type="file"
-          class="form-control"
-          accept="image/*"
-          (change)="onImageFileSelected($event)"
-        />
-        <div *ngIf="imagePreview" class="image-preview">
-          <img [src]="imagePreview" [alt]="'preview' | translate" />
-        </div>
-      </div>
-
-      <!-- Video Type Content -->
-      <div class="form-group" *ngIf="itemType === 'video'">
-        <label>{{ 'videoFile' | translate }} *</label>
-        <input
-          type="file"
-          class="form-control"
-          accept="video/*"
-          (change)="onVideoFileSelected($event)"
-          [disabled]="videoUploading"
-        />
-        <div *ngIf="videoUploading" class="upload-status">
-          <span>{{ 'uploading' | translate }}...</span>
-        </div>
-        <div *ngIf="videoPreview && !videoUploading && safeVideoPreview" class="video-preview">
-          <video [src]="safeVideoPreview" controls [autoplay]="false" style="max-width: 100%; max-height: 300px;"></video>
-          <p *ngIf="videoUrl" class="video-url">{{ 'videoUrl' | translate }}: {{ videoUrl }}</p>
-        </div>
-      </div>
-
-      <!-- URL Type Content -->
-      <div class="form-group" *ngIf="itemType === 'url'">
-        <label for="urlContent">URL *</label>
-        <input
-          id="urlContent"
-          type="url"
-          pInputText
-          [(ngModel)]="urlContent"
-          [placeholder]="'enterUrl' | translate"
-          styleClass="w-full"
-        />
       </div>
 
       <!-- Color Settings -->
@@ -360,7 +311,8 @@
             class="page-selector-item"
             (click)="addExistingPage(page.guid)"
           >
-            <div class="page-preview-small" [innerHTML]="page.content || '(empty)'"></div>
+            <div class="page-preview-small" *ngIf="page.type === 'text'" [innerHTML]="page.content || '(empty)'"></div>
+            <div class="page-preview-small" *ngIf="page.type !== 'text'">{{ getPagePreviewText(page) }}</div>
             <div class="page-guid">
               <span *ngIf="page.isTemporal">(New) </span>
               Page #{{ page.guid }}
@@ -382,7 +334,7 @@
     [(visible)]="showPageManageDialog"
     [header]="getPageDialogHeader()"
     [modal]="true"
-    [style]="{ width: '1200px', maxWidth: '90vw' }"
+    [style]="{ width: '1200px', maxWidth: '90vw', maxHeight: '90vh' }"
     [styleClass]="'page-manage-dialog'"
     (onHide)="closePageManageDialog()"
   >
@@ -395,41 +347,24 @@
         <!-- Create New Page Tab -->
         <p-tabpanel [value]="0">
           <div class="page-dialog-content">
-            <div class="form-group">
+            <div class="form-group page-dialog-type-group">
+              <label>{{ 'type' | translate }} *</label>
+              <p-select
+                [(ngModel)]="pageDialogType"
+                [options]="typeOptions"
+                optionLabel="label"
+                optionValue="value"
+                (onChange)="onPageDialogTypeChange()"
+                styleClass="w-full"
+              ></p-select>
+            </div>
+            <div class="form-group" *ngIf="pageDialogType === 'text'">
               <label>{{ 'content' | translate }}</label>
               <div class="formatting-toolbar">
-                <button
-                  type="button"
-                  class="format-btn"
-                  (click)="applyPageDialogFormatting('bold')"
-                  [title]="'bold' | translate"
-                >
-                  <i class="fas fa-bold"></i>
-                </button>
-                <button
-                  type="button"
-                  class="format-btn"
-                  (click)="applyPageDialogFormatting('italic')"
-                  [title]="'italic' | translate"
-                >
-                  <i class="fas fa-italic"></i>
-                </button>
-                <button
-                  type="button"
-                  class="format-btn"
-                  (click)="applyPageDialogFormatting('chord')"
-                  [title]="'chord' | translate"
-                >
-                  <i class="fas fa-music"></i>
-                </button>
-                <button
-                  type="button"
-                  class="format-btn"
-                  (click)="applyPageDialogFormatting('chi')"
-                  [title]="'chi' | translate"
-                >
-                  <i class="fas fa-hashtag"></i>
-                </button>
+                <button type="button" class="format-btn" (click)="applyPageDialogFormatting('bold')" [title]="'bold' | translate"><i class="fas fa-bold"></i></button>
+                <button type="button" class="format-btn" (click)="applyPageDialogFormatting('italic')" [title]="'italic' | translate"><i class="fas fa-italic"></i></button>
+                <button type="button" class="format-btn" (click)="applyPageDialogFormatting('chord')" [title]="'chord' | translate"><i class="fas fa-music"></i></button>
+                <button type="button" class="format-btn" (click)="applyPageDialogFormatting('chi')" [title]="'chi' | translate"><i class="fas fa-hashtag"></i></button>
               </div>
               <div
                 #pageContentEditable
@@ -439,6 +374,63 @@
                 (input)="onPageDialogContentInput($event)"
                 (blur)="onPageDialogBlur($event)"
               ></div>
+            </div>
+            <div class="form-group" *ngIf="pageDialogType === 'image'">
+              <label>{{ 'imageFile' | translate }} *</label>
+              <input type="file" class="form-control" accept="image/*" (change)="onPageDialogImageSelected($event)" />
+              <div *ngIf="pageDialogImagePreview" class="image-preview">
+                <img [src]="pageDialogImagePreview" [alt]="'preview' | translate" />
+              </div>
+            </div>
+            <div class="form-group" *ngIf="pageDialogType === 'url'">
+              <label>URL *</label>
+              <input type="url" pInputText [(ngModel)]="pageDialogUrl" [placeholder]="'enterUrl' | translate" styleClass="w-full" />
+            </div>
+            <div class="form-group" *ngIf="pageDialogType === 'video'">
+              <label>{{ 'videoFile' | translate }} *</label>
+              <input type="file" class="form-control" accept="video/*" (change)="onPageDialogVideoSelected($event)" [disabled]="pageDialogVideoUploading" />
+              <div *ngIf="pageDialogVideoUploading" class="upload-status"><span>{{ 'uploading' | translate }}...</span></div>
+              <div *ngIf="pageDialogVideoUrl && !pageDialogVideoUploading" class="video-preview">
+                <video [src]="pageDialogVideoPreviewUrl" controls [autoplay]="false" style="max-width: 100%; max-height: 300px;"></video>
+                <p class="video-url">{{ 'videoUrl' | translate }}: {{ pageDialogVideoUrl }}</p>
+              </div>
+            </div>
+            <div class="form-group" *ngIf="pageDialogType === 'iframe'">
+              <label>{{ 'iframeCode' | translate }} *</label>
+              <textarea
+                pInputTextarea
+                [(ngModel)]="pageDialogIframeContent"
+                [placeholder]="'pasteIframeCode' | translate"
+                rows="6"
+                styleClass="w-full"
+                class="iframe-code-input"
+              ></textarea>
+              <small class="form-hint">{{ 'iframeHint' | translate }}</small>
+            </div>
+            <div class="form-group form-group-image-size" *ngIf="pageDialogType === 'image'">
+              <label>{{ 'imageSize' | translate }}</label>
+              <div class="page-dialog-image-toggles">
+                <label class="toggle-label">
+                  <p-toggleswitch [(ngModel)]="pageDialogImageHeight100" (ngModelChange)="onPageDialogImageToggleChange()" />
+                  <span>{{ 'height100' | translate }}</span>
+                </label>
+                <label class="toggle-label">
+                  <p-toggleswitch [(ngModel)]="pageDialogImageWidth100" (ngModelChange)="onPageDialogImageToggleChange()" />
+                  <span>{{ 'width100' | translate }}</span>
+                </label>
+              </div>
+            </div>
+            <div class="form-group form-group-css-properties">
+              <label for="pageDialogCss">{{ 'cssProperties' | translate }}</label>
+              <textarea
+                id="pageDialogCss"
+                pInputTextarea
+                [(ngModel)]="pageDialogCssProperties"
+                [placeholder]="'cssPropertiesPlaceholder' | translate"
+                rows="4"
+                styleClass="w-full"
+              ></textarea>
+              <p class="form-help">{{ 'pageCssOverridesItem' | translate }}</p>
             </div>
           </div>
         </p-tabpanel>
@@ -453,10 +445,10 @@
                 [class.selected]="isPageSelected(page.guid)"
                 (click)="selectExistingPage(page.guid)"
               >
-                <div class="page-preview-small">{{ getPagePreviewText(page.content) }}</div>
+                <div class="page-preview-small">{{ getPagePreviewText(page) }}</div>
                 <div class="page-guid">
                   <span *ngIf="page.isTemporal">(New) </span>
-                  Page #{{ page.guid }}
+                  {{ page.type || 'text' }} - Page #{{ page.guid }}
                 </div>
               </div>
               <div *ngIf="getAvailablePagesForSelector().length === 0" class="no-pages-message">
@@ -479,7 +471,7 @@
     [(visible)]="showPageDialog"
     [header]="'createNewPage' | translate"
     [modal]="true"
-    [style]="{ width: '600px' }"
+    [style]="{ width: '600px', maxWidth: '95vw' }"
     (onHide)="closePageDialog()"
   >
     <div class="form-group">

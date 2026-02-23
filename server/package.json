@@ -4,7 +4,8 @@
   "description": "WebSocket server that broadcasts messages to connected clients every 10 seconds",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node --test config.test.js utils/password.test.js"
   },
   "keywords": [
     "websocket",

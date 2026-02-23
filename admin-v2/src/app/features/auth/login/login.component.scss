@@ -64,8 +64,19 @@
   text-align: center;
 }
 
-/* Mobile Responsive Styles */
-@include mobile-small {
+/* Tablet Responsive Styles - add padding for 769-1024px */
+@include tablet {
+  .login-container {
+    padding: var(--spacing-xl);
+  }
+
+  .login-card {
+    max-width: 380px;
+  }
+}
+
+/* Mobile Responsive Styles - apply to all phones (768px and below) */
+@include mobile {
   .login-container {
     padding: var(--spacing-lg);
   }

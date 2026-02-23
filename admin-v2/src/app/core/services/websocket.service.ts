@@ -3,7 +3,7 @@ import { Observable, Subject, BehaviorSubject } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
 export interface WebSocketMessage {
-  type: 'text' | 'image' | 'url' | 'video' | 'SelectPlaylist' | 'SelectLibraryItem' | 'ActionResponse' | 'KeyboardCommand' | 'UrlPlayPause';
+  type: 'text' | 'image' | 'url' | 'video' | 'iframe' | 'SelectPlaylist' | 'SelectLibraryItem' | 'ActionResponse' | 'KeyboardCommand' | 'UrlPlayPause' | 'DisplayVisibleState';
   content?: string;
   guid?: number;
   page?: number;
@@ -19,6 +19,7 @@ export interface WebSocketMessage {
   timestamp?: string;
   key?: string; // For KeyboardCommand messages
   play?: boolean; // For UrlPlayPause messages - true to play, false to pause
+  contentVisible?: boolean; // For DisplayVisibleState - whether display shows content or blank page
 }
 
 export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected';
@@ -34,6 +35,10 @@ export class WebSocketService {
   private connectionStatusSubject = new BehaviorSubject<ConnectionStatus>('disconnected');
   public connectionStatus$ = this.connectionStatusSubject.asObservable();
 
+  /** Last content message received (for replay when playlist-view mounts after reconnect) */
+  private lastContentSubject = new BehaviorSubject<WebSocketMessage | null>(null);
+  public lastContent$ = this.lastContentSubject.asObservable();
+
   private reconnectTimeout: any = null;
   private currentLocationId: number | null = null;
   private fallbackUrl: string | null = null;
@@ -42,42 +47,31 @@ export class WebSocketService {
   private isUsingFallback = false;
 
   private getWsUrl(): string {
-    // Get WebSocket URL at runtime
+    // Check if there's a configured server URL in localStorage (user override)
+    const configuredServerUrl = localStorage.getItem('mediaserver_api_url');
+    if (configuredServerUrl) {
+      const wsUrl = configuredServerUrl.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:');
+      return wsUrl;
+    }
+    
+    // Check URL parameter for server override
     if (typeof window !== 'undefined' && window.location) {
-      const hostname = window.location.hostname;
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      
-      // Check if there's a configured server URL in localStorage
-      const configuredServerUrl = localStorage.getItem('mediaserver_api_url');
-      if (configuredServerUrl) {
-        const wsUrl = configuredServerUrl.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:');
-        return wsUrl;
-      }
-      
-      // Check URL parameter for server override
       const urlParams = new URLSearchParams(window.location.search);
       const serverParam = urlParams.get('server');
       if (serverParam) {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const serverUrl = serverParam.startsWith('http') ? serverParam : `${protocol}//${serverParam.replace(/^https?:/, '')}`;
         if (!serverUrl.startsWith('ws') && !serverUrl.startsWith('wss')) {
-          return serverUrl.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:');
+          const wsUrl = serverUrl.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:');
+          localStorage.setItem('mediaserver_api_url', serverUrl.replace(/^ws/, 'http').replace(/^wss/, 'https'));
+          return wsUrl;
         }
+        localStorage.setItem('mediaserver_api_url', serverUrl.replace(/^ws/, 'http').replace(/^wss/, 'https'));
         return serverUrl;
       }
-      
-      // If accessing from localhost, use fixed Raspberry Pi IP (192.168.0.100)
-      if (hostname === 'localhost' || hostname === '127.0.0.1') {
-        return `${protocol}//192.168.0.100:5000`;
-      }
-      
-      // If accessing from Raspberry Pi fixed IP, use that IP with port 5000
-      if (hostname === '192.168.0.100') {
-        return `${protocol}//192.168.0.100:5000`;
-      }
-      
-      // For any other hostname, use same hostname with port 5000
-      return `${protocol}//${hostname}:5000`;
     }
+    
+    // Use shared configuration (evaluated at runtime)
     return environment.wsUrl;
   }
 
@@ -155,8 +149,12 @@ export class WebSocketService {
 
       this.socket.onmessage = (event) => {
         try {
-          const data = JSON.parse(event.data);
-          this.messageSubject.next(data as WebSocketMessage);
+          const data = JSON.parse(event.data) as WebSocketMessage;
+          this.messageSubject.next(data);
+          // Store content messages for late subscribers (e.g. playlist-view mounting after reconnect)
+          if (data.type === 'text' || data.type === 'image' || data.type === 'url' || data.type === 'video' || data.type === 'iframe') {
+            this.lastContentSubject.next(data);
+          }
         } catch (error) {
           console.error('Error parsing WebSocket message:', error);
         }
@@ -237,6 +235,7 @@ export class WebSocketService {
     this.connectionStatusSubject.next('disconnected');
     this.reconnectAttempts = 0;
     this.isUsingFallback = false;
+    this.lastContentSubject.next(null); // Clear stored content on disconnect
   }
 
   send(message: string): void {

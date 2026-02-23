@@ -6,7 +6,7 @@ const { setupWebSocket } = require('./websocketHandler');
 const config = require('./config');
 
 // Import middleware
-const corsMiddleware = require('./middleware/cors');
+const cors = require('cors');
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 
 // Import routes
@@ -27,10 +27,12 @@ const { router: keyboardRoutes } = require('./routes/keyboard');
 // Create Express app
 const app = express();
 
+// CORS must run first so preflight OPTIONS get proper headers before body parsing
+app.use(cors(config.cors));
+
 // Middleware
 app.use(express.json({ limit: config.bodySizeLimit }));
 app.use(express.urlencoded({ extended: true, limit: config.bodySizeLimit }));
-app.use(corsMiddleware);
 
 // Ensure videos directory exists
 const videosDir = path.join(__dirname, 'data', 'videos');

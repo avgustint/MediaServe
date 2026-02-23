@@ -18,7 +18,7 @@
         <div class="sidebar-header-content">
           <div class="tabs">
             <button
-              class="tab-button icon-button"
+              class="tab-button icon-button tab-playlist"
               [class.active]="activeTab === 'playlist'"
               (click)="switchTab('playlist')"
               [title]="'playlist' | translate"
@@ -82,20 +82,24 @@
       <div class="content-area" [class.fullscreen]="isFullscreen">
         <!-- Fullscreen button (only shown when not in fullscreen) -->
         <button 
+          type="button"
           *ngIf="!isFullscreen && currentContent" 
           class="fullscreen-button" 
           (click)="toggleFullscreen()"
           [title]="'fullscreen' | translate"
+          [attr.aria-label]="'fullscreen' | translate"
         >
           <i class="fas fa-expand"></i>
         </button>
 
         <!-- Exit fullscreen button (only shown when in fullscreen) -->
         <button 
+          type="button"
           *ngIf="isFullscreen" 
           class="exit-fullscreen-button" 
           (click)="exitFullscreen()"
           [title]="'exitFullscreen' | translate"
+          [attr.aria-label]="'exitFullscreen' | translate"
         >
           <i class="fas fa-compress"></i>
         </button>
@@ -155,9 +159,14 @@
           <img [src]="imageSrc" alt="Received image" class="display-image" [ngStyle]="imageStyle" />
         </div>
 
-        <!-- URL Content (iframe) -->
+        <!-- URL Content (iframe with URL) -->
         <div *ngIf="currentContent?.type === 'url'" class="content-container iframe-container">
           <iframe #urlIframe [src]="safeUrl" class="display-iframe" frameborder="0" allowfullscreen allow="autoplay; encrypted-media; picture-in-picture" tabindex="-1"></iframe>
+        </div>
+
+        <!-- iFrame Content (pasted embed code) -->
+        <div *ngIf="currentContent?.type === 'iframe'" class="content-container iframe-embed-container">
+          <div class="iframe-embed-wrapper" [innerHTML]="safeIframeHtml"></div>
         </div>
 
         <!-- Video Content -->
@@ -168,6 +177,11 @@
         <!-- No content message -->
         <div *ngIf="!currentContent" class="content-container no-content">
           <div class="waiting-message">{{ 'waitingForContent' | translate }}</div>
+        </div>
+
+        <!-- Overlay when content is hidden from display (not visible to audience) -->
+        <div *ngIf="!contentVisible" class="content-hidden-overlay" [attr.aria-label]="'contentHiddenFromDisplay' | translate">
+          <span class="content-hidden-label">{{ 'contentHiddenFromDisplay' | translate }}</span>
         </div>
       </div>
       
@@ -202,11 +216,14 @@
         <i class="fas fa-chevron-left"></i>
       </button>
       <button 
-        class="footer-button clear-button" 
-        (click)="onClearClick()"
-        [title]="'clear' | translate"
+        class="footer-button visibility-toggle-button"
+        [class.visible]="contentVisible"
+        [class.hidden]="!contentVisible"
+        [disabled]="visibilityToggleDisabled"
+        (click)="onVisibilityToggleClick()"
+        [attr.title]="contentVisible ? ('hideContent' | translate) : ('showContent' | translate)"
       >
-        {{ 'clear' | translate }}
+        <i class="fas" [class.fa-eye]="contentVisible" [class.fa-eye-slash]="!contentVisible"></i>
       </button>
       <button 
         class="footer-button nav-button next-button" 

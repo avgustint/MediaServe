@@ -1,6 +1,6 @@
 import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewInit } from "@angular/core";
 import { CommonModule } from "@angular/common";
-import { DomSanitizer, SafeResourceUrl } from "@angular/platform-browser";
+import { DomSanitizer, SafeResourceUrl, SafeHtml } from "@angular/platform-browser";
 import { WebSocketService, WebSocketMessage } from "../../../core/services/websocket.service";
 import { LibraryItem, PlaylistService } from "../services/playlist.service";
 import { ChordSettingsService } from "../services/chord-settings.service";
@@ -13,6 +13,7 @@ import { UserService } from "../../../core/services/user.service";
 import { KeyboardCommandService } from "../../../core/services/keyboard-command.service";
 import { environment } from "../../../../environments/environment";
 import { Subscription } from "rxjs";
+import { filter, take } from "rxjs/operators";
 
 @Component({
   selector: "app-playlist-view",
@@ -30,6 +31,7 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
 
   currentContent: WebSocketMessage | null = null;
   private subscription?: Subscription;
+  private lastContentSubscription?: Subscription;
   private selectionSubscription?: Subscription;
   private keyboardCommandSubscription?: Subscription;
   private numberKeyQueueSubscription?: Subscription;
@@ -77,6 +79,10 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
   // Chord transposition offset in semitones (0 = original key, positive = up, negative = down)
   chordTransposition: number = 0;
   private originalContent: string | null = null;
+
+  // Content visibility: true = show last selected item, false = show blank/clear page (per location, from server)
+  contentVisible: boolean = true;
+  visibilityToggleDisabled: boolean = false; // Debounce: prevent double-send
   private originalContentGuid: number | null = null; // Track which item the originalContent belongs to
   private originalContentPage: number | null = null; // Track which page the originalContent belongs to
   
@@ -118,6 +124,28 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
     this.chordTransposition = this.chordSettingsService.getChordTransposition();
     this.chordDisplayState = this.chordSettingsService.getChordDisplayState();
 
+    // Apply last content if we missed it (e.g. mounted after reconnect - Subject doesn't replay)
+    this.lastContentSubscription = this.websocketService.lastContent$.pipe(
+      filter((c): c is WebSocketMessage => c != null),
+      take(1)
+    ).subscribe((storedContent) => {
+      if (!this.currentContent) {
+        this.currentContent = { ...storedContent };
+        if (storedContent.guid !== undefined) this.currentItemGuid = storedContent.guid;
+        if (storedContent.page !== undefined) this.currentPage = storedContent.page;
+        this.chordDisplayState = this.chordSettingsService.getChordDisplayState();
+        if (storedContent.chordTransposition !== undefined) {
+          this.chordTransposition = storedContent.chordTransposition;
+        }
+        if (storedContent.type === 'text') {
+          setTimeout(() => this.adjustTextSize(), 100);
+        }
+        if (storedContent.guid !== undefined) {
+          this.loadManualItemForPages(storedContent.guid);
+        }
+      }
+    });
+
     // Subscribe to WebSocket messages
     this.subscription = this.websocketService.messages$.subscribe((message: WebSocketMessage) => {
       // Handle selection sync messages
@@ -130,6 +158,16 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
         return;
       }
       
+      if (message.type === 'DisplayVisibleState') {
+        const user = this.userService.getUser();
+        if (!message.locationId || message.locationId === user?.locationId) {
+          if (message.contentVisible !== undefined) {
+            this.contentVisible = message.contentVisible;
+          }
+        }
+        return;
+      }
+
       if (message.type === 'SelectLibraryItem' && message.guid !== undefined) {
         // Only process if locationId matches (or if no locationId in message)
         const user = this.userService.getUser();
@@ -163,7 +201,11 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
       }
 
       // Handle content messages
-      if (message.type === 'text' || message.type === 'image' || message.type === 'url' || message.type === 'video') {
+      if (message.type === 'text' || message.type === 'image' || message.type === 'url' || message.type === 'video' || message.type === 'iframe') {
+        // Update contentVisible from message (server includes it so admin has correct toggle state on load)
+        if (message.contentVisible !== undefined) {
+          this.contentVisible = message.contentVisible;
+        }
         // Determine the GUID for this message
         const messageGuid = message.guid !== undefined ? message.guid : this.currentItemGuid;
         
@@ -176,9 +218,26 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
         // Update currentContent with the received message
         this.currentContent = { ...message };
         
+        // When content includes guid/page (e.g. on reconnect), track selection so subsequent
+        // SelectLibraryItem sync won't clear the content we just received.
+        // When contentVisible is false (showing blank page), keep previous selection for footer
+        if (this.contentVisible) {
+          if (message.guid !== undefined) {
+            this.currentItemGuid = message.guid;
+          }
+          if (message.page !== undefined) {
+            this.currentPage = message.page;
+          }
+        }
+        
+        // Load full item for page buttons (needed on refresh - manualItem/manualItemPages for getAvailablePages)
+        if (message.guid !== undefined) {
+          this.loadManualItemForPages(message.guid);
+        }
+        
         // Always use service value for chord display state (preserve user's selection)
         // Only update from message if we don't have a stored preference yet (initial load)
-        if (message.type === 'text' || message.type === 'image' || message.type === 'url' || message.type === 'video') {
+        if (message.type === 'text' || message.type === 'image' || message.type === 'url' || message.type === 'video' || message.type === 'iframe') {
           // Always restore from service to preserve user's chord display preference
           this.chordDisplayState = this.chordSettingsService.getChordDisplayState();
         }
@@ -268,20 +327,15 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
 
         // If received message's chordsVisible doesn't match what clients should see, rebroadcast
         // This ensures clients always get the correct visibility state
-        // BUT: Only rebroadcast if we explicitly requested different visibility (not for initial loads)
-        if ((message.type === 'text' || message.type === 'image' || message.type === 'url' || message.type === 'video')) {
+        // Skip rebroadcast when message has contentVisible - those are authoritative server pushes
+        // (visibility toggle, connection/reconnect). Each admin would rebroadcast otherwise = N duplicates for N admins.
+        if ((message.type === 'text' || message.type === 'image' || message.type === 'url' || message.type === 'video') &&
+            message.contentVisible === undefined) {
           const expectedChordsVisible = this.chordsVisibleForClients;
-          // Only rebroadcast if:
-          // 1. chordsVisible is explicitly set in the message
-          // 2. It doesn't match what we expect
-          // 3. We have current content (not initial load)
-          // This prevents unnecessary rebroadcasts on initial content load
           if (message.chordsVisible !== undefined && 
               message.chordsVisible !== expectedChordsVisible &&
               this.currentContent) {
-            // Small delay to ensure content is set, then broadcast with correct visibility
             setTimeout(() => {
-              // Double-check that we still need to rebroadcast (state might have changed)
               if (this.chordsVisibleForClients !== message.chordsVisible && this.currentContent) {
                 this.broadcastContentUpdate();
               }
@@ -302,12 +356,16 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
 
       }
 
-      // If message is empty object, it's a clear message
+      // If message is empty object, it's a clear/blank display (legacy or no defaultBlankPage)
+      // When contentVisible is false, keep currentItemGuid for footer (shows what will restore on toggle)
       if (!message.type && !message.content) {
-        this.currentItemGuid = undefined;
-        this.currentPage = undefined;
-        this.currentItemName = undefined;
-        this.currentItemIndex = -1;
+        if (this.contentVisible) {
+          this.currentItemGuid = undefined;
+          this.currentPage = undefined;
+          this.currentItemName = undefined;
+          this.currentItemIndex = -1;
+        }
+        // When hidden: treat empty as blank page - keep selection for restore info
       }
     });
 
@@ -350,6 +408,7 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
 
   ngOnDestroy(): void {
     this.subscription?.unsubscribe();
+    this.lastContentSubscription?.unsubscribe();
     this.selectionSubscription?.unsubscribe();
     this.keyboardCommandSubscription?.unsubscribe();
     this.numberKeyQueueSubscription?.unsubscribe();
@@ -515,6 +574,13 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
       }
     }
     return this.sanitizer.bypassSecurityTrustResourceUrl("about:blank");
+  }
+
+  get safeIframeHtml(): SafeHtml {
+    if (this.currentContent?.type === "iframe" && this.currentContent.content) {
+      return this.sanitizer.bypassSecurityTrustHtml(this.currentContent.content as string);
+    }
+    return this.sanitizer.bypassSecurityTrustHtml("");
   }
 
   private addParamsToUrl(url: string): string {
@@ -683,6 +749,23 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
     }
   }
   
+  /** Load full library item for page buttons (manualItem/manualItemPages) - used on refresh and when content received */
+  private loadManualItemForPages(guid: number): void {
+    this.playlistService.getLibraryItemByGuid(guid).subscribe({
+      next: (fullItem) => {
+        if (fullItem && fullItem.guid === this.currentItemGuid) {
+          this.manualItem = fullItem;
+          this.currentItemName = fullItem.name;
+          if (fullItem.type === 'text' && Array.isArray(fullItem.content)) {
+            this.manualItemPages = fullItem.content.map((pageContent: { page?: number }) => pageContent.page || 1);
+          } else {
+            this.manualItemPages = [1];
+          }
+        }
+      }
+    });
+  }
+
   handleLibraryItemSelection(guid: number, page: number | undefined, fromSync: boolean = false, item?: LibraryItem): void {
     if (!guid) {
       return;
@@ -714,6 +797,18 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
   
   updateItemSelection(guid: number, page: number, item: LibraryItem, fromSync: boolean): void {
     this.isReceivingSelection = fromSync;
+    
+    // Set manualItem/manualItemPages for page buttons (needed on refresh when SelectLibraryItem received)
+    this.manualItem = item;
+    this.currentItemName = item.name;
+    if (item.type === 'text') {
+      // Prefer playlist item's pages (filtered selection) when available
+      this.manualItemPages = (item.pages && item.pages.length > 0)
+        ? item.pages
+        : (Array.isArray(item.content) ? item.content.map((p: { page?: number }) => p.page || 1) : [1]);
+    } else {
+      this.manualItemPages = [];
+    }
     
     // If this is a new item OR a different page of the same item, reset originalContent tracking
     const isNewItem = guid !== this.currentItemGuid;
@@ -748,21 +843,21 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
     this.currentItemName = item.name;
     this.currentItemIndex = this.playlistItems.findIndex(i => i.guid === guid);
     
-    // Send Change message for content display
-    // Use chordsVisibleForClients so server broadcasts correct visibility to clients
-    // Server will include chords in content regardless, but visibility flag controls client display
-    const user = this.userService.getUser();
-    const changeMessage: any = {
-      type: "Change",
-      guid: guid,
-      page: page,
-      chordsVisible: this.chordsVisibleForClients, // Send correct visibility for clients
-      chordTransposition: this.chordTransposition // Include current chord transposition
-    };
-    if (user?.locationId) {
-      changeMessage.locationId = user.locationId;
+    // Send Change message for content display (skip when fromSync - we already have content from reconnect)
+    if (!fromSync) {
+      const user = this.userService.getUser();
+      const changeMessage: any = {
+        type: "Change",
+        guid: guid,
+        page: page,
+        chordsVisible: this.chordsVisibleForClients, // Send correct visibility for clients
+        chordTransposition: this.chordTransposition // Include current chord transposition
+      };
+      if (user?.locationId) {
+        changeMessage.locationId = user.locationId;
+      }
+      this.websocketService.send(JSON.stringify(changeMessage));
     }
-    this.websocketService.send(JSON.stringify(changeMessage));
     
     // Send SelectLibraryItem message for sync (if not from sync)
     if (!fromSync) {
@@ -861,22 +956,34 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
     });
   }
 
-  onClearClick(): void {
+  /** Toggle display visibility: green (visible) = show last item, red (hidden) = show blank page */
+  onVisibilityToggleClick(): void {
     const user = this.userService.getUser();
-    const clearMessage: any = {
-      type: "Clear"
+    if (!user?.locationId) return;
+    if (this.visibilityToggleDisabled) return; // Debounce: prevent double-send
+    this.visibilityToggleDisabled = true;
+    const visible = !this.contentVisible;
+    const msg: any = {
+      type: 'SetDisplayVisible',
+      locationId: user.locationId,
+      visible
     };
-    if (user?.locationId) {
-      clearMessage.locationId = user.locationId;
+    this.websocketService.send(JSON.stringify(msg));
+    this.contentVisible = visible;
+    // Re-enable after 400ms to allow server response; prevents duplicate sends from double-click
+    setTimeout(() => {
+      this.visibilityToggleDisabled = false;
+    }, 400);
+    // Server will send content (blank or last item); don't clear currentItemGuid here (preserve for footer)
+    if (!visible) {
+      // UI will update from received blank page content; keep currentItemGuid for "what will restore" info
     }
-    this.websocketService.send(JSON.stringify(clearMessage));
-    console.log("Sent Clear message");
-    
-    // Clear current item tracking
-    this.currentItemGuid = undefined;
-    this.currentPage = undefined;
-    this.currentItemName = undefined;
-    this.currentItemIndex = -1;
+  }
+
+  /** ESC key: hide content (same as legacy Clear) */
+  onClearClick(): void {
+    if (!this.contentVisible) return; // Already hidden
+    this.onVisibilityToggleClick();
   }
 
   canGoNext(): boolean {

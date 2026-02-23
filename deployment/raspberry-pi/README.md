@@ -6,10 +6,9 @@ Complete guide for deploying MediaServer to Raspberry Pi with custom hostname, a
 
 - **Server (port 5000)**: Node.js backend serving API and admin app
 - **Client Server (port 5001)**: Simple HTTP server serving client display app
-- **Chromium Windows**: Opens both apps in separate browser windows
-  - Client window (port 5001): Fullscreen, focused display with auto-play enabled
-  - Admin window (port 5000): Normal window, minimized in background, maintains WebSocket connection for keyboard events
-  - Access admin: Use Alt+Tab or window manager to switch to admin window
+- **Chromium Kiosk**: Opens only the client app in fullscreen
+  - Client window (port 5001): Fullscreen kiosk mode with auto-play enabled
+  - Admin app is NOT started on the Pi display—access it from another device at `http://mediaplayer.local:5000` or `http://<pi-ip>:5000`
 - **Hostname**: `mediaplayer.local` 
   - **From Raspberry Pi**: http://mediaplayer.local:5000 or http://localhost:5000
   - **From other computers**: 
@@ -74,7 +73,7 @@ sudo apt install -y wmctrl xdotool numlockx
 ```
 
 **Note**: 
-- `wmctrl` and `xdotool` are used by the kiosk startup script to minimize the admin window after it opens
+- `wmctrl` and `xdotool` are used by the kiosk startup script to keep the client window in foreground
 - `numlockx` is used to enable Num Lock by default on startup (useful for numeric keypad input)
 
 ## Step 3.6: Configure Num Lock to Enable by Default (System-Wide)
@@ -475,9 +474,8 @@ sudo journalctl -u numlock -f
 
 3. **Check Chromium kiosk mode:**
    - Should automatically open fullscreen on boot
-   - Displays client app from port 5001 in fullscreen
-   - Admin app (port 5000) is available in a separate minimized window
-   - Use Alt+Tab or window manager to switch to admin window
+   - Displays client app from port 5001 in fullscreen kiosk
+   - Admin app is not shown on the Pi—access from another device
 
 ## Step 8: Troubleshooting
 
@@ -500,25 +498,17 @@ sudo netstat -tlnp | grep -E ':(5000|5001)'
 
 ### Accessing Admin App in Kiosk Mode
 
-**The kiosk launcher opens both client and admin apps in separate browser windows:**
+**The kiosk launcher opens only the client app in fullscreen on the Raspberry Pi display.**
 
 1. **Client window:**
-   - Opens in fullscreen mode automatically
+   - Opens in fullscreen kiosk mode automatically
    - Displays the media content
-   - Always focused on startup
+   - Only app visible on the Pi display
 
-2. **Admin window:**
-   - Opens as a normal window (not fullscreen)
-   - Automatically minimized after opening
-   - Use **Alt+Tab** or your window manager to switch to it when needed
-   - Maintains WebSocket connection for keyboard events even when minimized
-
-3. **Access from another device** (alternative):
+2. **Admin app:** Not started on the Pi display. Access it from another device:
    - Connect to the same network
    - **Recommended**: Use mDNS: `http://mediaplayer.local:5000` (requires Avahi - see Step 4.5)
    - **Alternative**: Use IP address: `http://<raspberry-pi-ip>:5000` (find IP with `hostname -I` on Raspberry Pi)
-
-**Note:** Having the admin app open in a separate minimized window ensures it maintains a WebSocket connection and can receive keyboard events from the client app, even when the client window is active and fullscreen. The client window is always focused on startup.
 
 ### White Screen / Empty Pages After Reboot
 

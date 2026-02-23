@@ -87,7 +87,7 @@ function createTables() {
         CREATE INDEX IF NOT EXISTS idx_library_items_type ON library_items(type);
         CREATE INDEX IF NOT EXISTS idx_library_items_modified ON library_items(modified);
       `);
-      console.log('Completed incomplete migration: library_items table now supports video type');
+      console.log('Completed incomplete migration: library_items table now supports iframe type');
     } finally {
       db.pragma('foreign_keys = ON');
     }
@@ -107,9 +107,9 @@ function createTables() {
     // Try to get the table schema to see if it includes 'video' in the CHECK constraint
     const tableSchema = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='library_items'").get();
     
-    if (tableSchema && tableSchema.sql && !tableSchema.sql.includes("'video'")) {
-      // Table exists but doesn't have 'video' in CHECK constraint - need to migrate
-      console.log('Migrating library_items table to support video type...');
+    if (tableSchema && tableSchema.sql && !tableSchema.sql.includes("'iframe'")) {
+      // Table exists but doesn't have 'iframe' in CHECK constraint - need to migrate
+      console.log('Migrating library_items table to support iframe type...');
       
       // Disable foreign key constraints temporarily
       db.pragma('foreign_keys = OFF');
@@ -125,12 +125,12 @@ function createTables() {
           db.exec(`DROP TABLE library_items_new`);
         }
         
-        // Create new table with updated constraint and all existing columns
+        // Create new table with updated constraint (include iframe) and all existing columns
         db.exec(`
           CREATE TABLE library_items_new (
             guid INTEGER PRIMARY KEY,
             name TEXT NOT NULL,
-            type TEXT NOT NULL CHECK(type IN ('text', 'image', 'url', 'video')),
+            type TEXT NOT NULL CHECK(type IN ('text', 'image', 'url', 'video', 'iframe')),
             content TEXT NOT NULL,
             description TEXT,
             modified TEXT,
@@ -166,19 +166,19 @@ function createTables() {
           CREATE INDEX IF NOT EXISTS idx_library_items_modified ON library_items(modified);
         `);
         
-        console.log('Migration completed: library_items table now supports video type');
+        console.log('Migration completed: library_items table now supports iframe type');
       } finally {
         // Re-enable foreign key constraints
         db.pragma('foreign_keys = ON');
       }
     } else {
-      // Table exists and already has 'video' in constraint, or constraint check failed
+      // Table exists and already has 'iframe' in constraint, or constraint check failed
       // Just ensure the table exists with CREATE IF NOT EXISTS (won't recreate if exists)
       db.exec(`
         CREATE TABLE IF NOT EXISTS library_items (
           guid INTEGER PRIMARY KEY,
           name TEXT NOT NULL,
-          type TEXT NOT NULL CHECK(type IN ('text', 'image', 'url', 'video')),
+          type TEXT NOT NULL CHECK(type IN ('text', 'image', 'url', 'video', 'iframe')),
           content TEXT NOT NULL,
           description TEXT,
           modified TEXT
@@ -191,7 +191,7 @@ function createTables() {
       CREATE TABLE library_items (
         guid INTEGER PRIMARY KEY,
         name TEXT NOT NULL,
-        type TEXT NOT NULL CHECK(type IN ('text', 'image', 'url', 'video')),
+        type TEXT NOT NULL CHECK(type IN ('text', 'image', 'url', 'video', 'iframe')),
         content TEXT NOT NULL,
         description TEXT,
         modified TEXT
@@ -287,9 +287,119 @@ function createTables() {
   db.exec(`
     CREATE TABLE IF NOT EXISTS pages (
       guid INTEGER PRIMARY KEY,
-      content TEXT
+      content TEXT,
+      type TEXT NOT NULL DEFAULT 'text' CHECK(type IN ('text', 'image', 'url', 'video', 'iframe'))
     )
   `);
+
+  // Migration: Add 'iframe' to pages type constraint if table was created with old schema
+  const pagesTableSql = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='pages'").get();
+  if (pagesTableSql?.sql && !pagesTableSql.sql.includes("'iframe'")) {
+    const existingPages = db.prepare("SELECT guid, content, type FROM pages").all();
+    const existingLinks = db.prepare("SELECT library_item_guid, page_guid, order_number FROM library_item_pages").all();
+    db.exec(`DROP TABLE IF EXISTS library_item_pages`);
+    db.exec(`DROP TABLE IF EXISTS pages`);
+    db.exec(`
+      CREATE TABLE pages (
+        guid INTEGER PRIMARY KEY,
+        content TEXT,
+        type TEXT NOT NULL DEFAULT 'text' CHECK(type IN ('text', 'image', 'url', 'video', 'iframe'))
+      )
+    `);
+    const insertPage = db.prepare("INSERT INTO pages (guid, content, type) VALUES (?, ?, ?)");
+    for (const p of existingPages) {
+      const t = ['text', 'image', 'url', 'video', 'iframe'].includes(p.type) ? p.type : 'text';
+      insertPage.run(p.guid, p.content || '', t);
+    }
+    db.exec(`
+      CREATE TABLE library_item_pages (
+        library_item_guid INTEGER NOT NULL,
+        page_guid INTEGER NOT NULL,
+        order_number INTEGER NOT NULL,
+        PRIMARY KEY (library_item_guid, page_guid, order_number),
+        FOREIGN KEY (library_item_guid) REFERENCES library_items(guid) ON DELETE CASCADE,
+        FOREIGN KEY (page_guid) REFERENCES pages(guid) ON DELETE CASCADE
+      )
+    `);
+    const insertLink = db.prepare("INSERT INTO library_item_pages (library_item_guid, page_guid, order_number) VALUES (?, ?, ?)");
+    for (const l of existingLinks) {
+      insertLink.run(l.library_item_guid, l.page_guid, l.order_number);
+    }
+    console.log('Migration: Added iframe type to pages table');
+  }
+
+  // Migration: Add type column to existing pages table if it doesn't exist
+  const pagesTableInfo = db.prepare("PRAGMA table_info(pages)").all();
+  const hasPagesTypeColumn = pagesTableInfo.some(col => col.name === 'type');
+  if (!hasPagesTypeColumn) {
+    db.exec(`
+      ALTER TABLE pages 
+      ADD COLUMN type TEXT NOT NULL DEFAULT 'text'
+    `);
+    console.log('Added type column to pages table');
+
+    // Data migration: move type from library_items to pages
+    const libraryItems = db.prepare('SELECT guid, type, content FROM library_items').all();
+    for (const item of libraryItems) {
+      if (item.type === 'image' || item.type === 'url' || item.type === 'video') {
+        // Create a page with the content and type, link to library item
+        const maxGuid = db.prepare('SELECT MAX(guid) as maxGuid FROM pages').get()?.maxGuid || 0;
+        const newPageGuid = maxGuid + 1;
+        const content = item.content || '';
+        db.prepare('INSERT INTO pages (guid, content, type) VALUES (?, ?, ?)').run(newPageGuid, content, item.type);
+        db.prepare(`
+          INSERT INTO library_item_pages (library_item_guid, page_guid, order_number)
+          VALUES (?, ?, ?)
+        `).run(item.guid, newPageGuid, 1);
+        // Clear content on library item (now stored in page)
+        db.prepare('UPDATE library_items SET content = ? WHERE guid = ?').run('', item.guid);
+      } else {
+        // Text items: update all linked pages to have type = 'text'
+        const linkedPages = db.prepare(`
+          SELECT page_guid FROM library_item_pages WHERE library_item_guid = ?
+        `).all(item.guid);
+        for (const lp of linkedPages) {
+          db.prepare('UPDATE pages SET type = ? WHERE guid = ?').run('text', lp.page_guid);
+        }
+        // If text item has no pages but has legacy content, create page(s)
+        if (linkedPages.length === 0 && item.content) {
+          let pageContents = [];
+          try {
+            const parsed = JSON.parse(item.content);
+            if (Array.isArray(parsed)) {
+              pageContents = parsed.map(p => (typeof p === 'object' && p.content !== undefined) ? p.content : String(p));
+            } else {
+              pageContents = [item.content];
+            }
+          } catch (e) {
+            pageContents = [item.content];
+          }
+          if (pageContents.length === 0) pageContents = [''];
+          const insertPage = db.prepare('INSERT INTO pages (guid, content, type) VALUES (?, ?, ?)');
+          const linkPage = db.prepare(`
+            INSERT INTO library_item_pages (library_item_guid, page_guid, order_number)
+            VALUES (?, ?, ?)
+          `);
+          let nextGuid = (db.prepare('SELECT MAX(guid) as maxGuid FROM pages').get()?.maxGuid || 0) + 1;
+          for (let i = 0; i < pageContents.length; i++) {
+            insertPage.run(nextGuid, pageContents[i] || '', 'text');
+            linkPage.run(item.guid, nextGuid, i + 1);
+            nextGuid++;
+          }
+          db.prepare('UPDATE library_items SET content = ? WHERE guid = ?').run('', item.guid);
+        }
+      }
+    }
+    console.log('Migration completed: type moved from library_items to pages');
+  }
+
+  // Migration: Add css column to pages table if it doesn't exist
+  const pagesTableInfo2 = db.prepare("PRAGMA table_info(pages)").all();
+  const hasPagesCssColumn = pagesTableInfo2.some(col => col.name === 'css');
+  if (!hasPagesCssColumn) {
+    db.exec(`ALTER TABLE pages ADD COLUMN css TEXT`);
+    console.log('Added css column to pages table');
+  }
 
   // Library item pages junction table - links library items to pages with order
   db.exec(`

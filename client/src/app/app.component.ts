@@ -2,11 +2,11 @@ import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewInit, Cha
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { HttpClient } from "@angular/common/http";
-import { DomSanitizer, SafeResourceUrl } from "@angular/platform-browser";
+import { DomSanitizer, SafeResourceUrl, SafeHtml } from "@angular/platform-browser";
 import { WebSocketService, WebSocketMessage } from "./websocket.service";
 import { FormatTextPipe } from "./format-text.pipe";
 import { Subscription } from "rxjs";
-import { SERVER_BASE_URL, AUTO_LOGIN_LOCATION_ID } from "./api.config";
+import { AUTO_LOGIN_LOCATION_ID, getServerBaseUrlRuntime } from "./api.config";
 
 @Component({
   selector: "app-root",
@@ -60,10 +60,6 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
     }
   };
 
-  private keyboardHandler = (event: KeyboardEvent) => {
-    this.handleKeyboardEvent(event);
-  };
-
   private formatTextPipe: FormatTextPipe;
 
   constructor(
@@ -104,7 +100,7 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
 
       // Update content (chords should always be in the content, visibility controlled by showChords)
       // Only update if this is a content message (text, image, url, or video)
-      if (message.type === 'text' || message.type === 'image' || message.type === 'url' || message.type === 'video') {
+      if (message.type === 'text' || message.type === 'image' || message.type === 'url' || message.type === 'video' || message.type === 'iframe') {
         if (message.type === "text") {
           // Text content uses a double-buffered slide transition between two pages.
           // First text message: show immediately (no slide), still using font-size calculation.
@@ -213,11 +209,6 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
   ngAfterViewInit(): void {
     // Listen for window resize to adjust text size
     window.addEventListener("resize", this.resizeHandler);
-    // Listen for keyboard events to forward to admin app
-    window.addEventListener("keydown", this.keyboardHandler, true);
-    
-    // Note: Admin app is opened as a separate Chromium window by kiosk-start.sh
-    // No need to open it from here
   }
 
   ngOnDestroy(): void {
@@ -225,7 +216,6 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
     this.connectionStatusSubscription?.unsubscribe();
     this.websocketService.disconnect();
     window.removeEventListener("resize", this.resizeHandler);
-    window.removeEventListener("keydown", this.keyboardHandler, true);
   }
 
   private initializeLocation(): void {
@@ -272,26 +262,8 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
 
   // Get server URL at runtime (like websocket service does)
   private getServerBaseUrl(): string {
-    if (typeof window !== 'undefined' && window.location) {
-      const hostname = window.location.hostname;
-      const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
-      
-      // If accessing from localhost, use fixed Raspberry Pi IP (192.168.0.100)
-      if (hostname === 'localhost' || hostname === '127.0.0.1') {
-        return `${protocol}//192.168.0.100:5000`;
-      }
-      
-      // If accessing from Raspberry Pi fixed IP, use that IP with port 5000
-      if (hostname === '192.168.0.100') {
-        return `${protocol}//192.168.0.100:5000`;
-      }
-      
-      // For any other hostname (including mediaplayer.local), use fixed IP
-      return `${protocol}//192.168.0.100:5000`;
-    }
-    
-    // Fallback
-    return "http://192.168.0.100:5000";
+    // Use shared configuration (evaluated at runtime)
+    return getServerBaseUrlRuntime();
   }
 
   private loadLocations(): void {
@@ -539,6 +511,13 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
     return this.sanitizer.bypassSecurityTrustResourceUrl("about:blank");
   }
 
+  get safeIframeHtml(): SafeHtml {
+    if (this.currentContent?.type === "iframe" && this.currentContent.content) {
+      return this.sanitizer.bypassSecurityTrustHtml(this.currentContent.content as string);
+    }
+    return this.sanitizer.bypassSecurityTrustHtml("");
+  }
+
   get text(): string {
     return this.currentContent?.type === "text" && this.currentContent.content ? this.currentContent.content : "";
   }
@@ -689,93 +668,6 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
     }
     
     return style;
-  }
-
-  /**
-   * Handle keyboard events and forward to admin app via server
-   * Only captures specific keys: arrow keys, numbers, Enter
-   */
-  private handleKeyboardEvent(event: KeyboardEvent): void {
-    const key = event.key;
-
-    // Only capture specific keys
-    const allowedKeys = [
-      'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
-      '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
-      'Enter', 'Escape'
-    ];
-
-    if (!allowedKeys.includes(key)) {
-      return; // Ignore other keys (like space, which should work on video)
-    }
-
-    // Don't capture if user is typing in an input field
-    const target = event.target as HTMLElement;
-    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
-      return;
-    }
-
-    // Don't capture if target is a video element or inside a video container
-    // Let video handle its own controls (space for play/pause, arrow keys for seeking, etc.)
-    if (target.tagName === 'VIDEO' || target.closest('.video-container')) {
-      return;
-    }
-
-    // Send keyboard command to server
-    // Server will validate IP and forward to admin apps on same IP
-    this.sendKeyboardCommand(key);
-  }
-
-  /**
-   * Send keyboard command to server via HTTP POST
-   */
-  private sendKeyboardCommand(key: string): void {
-    this.http.post(`${this.getServerBaseUrl()}/api/keyboard/command`, {
-      key: key,
-      timestamp: Date.now()
-    }).subscribe({
-      next: () => {
-        // Successfully sent to server
-        // Server will forward to admin apps on same IP
-      },
-      error: (err) => {
-        // Silently fail - server might not be running or endpoint might not exist
-        // Don't log to avoid console spam
-      }
-    });
-  }
-
-  /**
-   * Handle keyboard events on video element
-   * Prevents default behavior for number keys and other allowed keys
-   * so they can bubble up to the window handler for forwarding to admin app
-   * Explicitly handles space key for play/pause
-   */
-  onVideoKeyDown(event: KeyboardEvent): void {
-    const key = event.key;
-
-    // Only intercept the same keys that the window handler processes
-    const allowedKeys = [
-      'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
-      '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
-      'Enter', 'Escape'
-    ];
-
-    // Explicitly handle space key for play/pause
-    // Don't prevent default - let video handle it naturally, but ensure window handler doesn't interfere
-    if (key === ' ' || key === 'Space') {
-      // Stop propagation to prevent window handler from interfering
-      event.stopPropagation();
-      // Don't prevent default - let the video element's native behavior handle play/pause
-      return;
-    }
-
-    if (allowedKeys.includes(key)) {
-      // Prevent default behavior (e.g., video seeking/restarting on number keys)
-      event.preventDefault();
-      // Don't stop propagation - let the event bubble up so the window handler
-      // (which uses capture phase) can process it for forwarding to admin app
-    }
   }
 
 }

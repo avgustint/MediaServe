@@ -48,12 +48,13 @@
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   min-width: 56px;
-  min-height: 56px;
+  min-height: 90px;
   align-items: center;
   justify-content: center;
   font-size: 1.5rem;
   transition: all 0.2s;
   backdrop-filter: blur(4px);
+  opacity: 0.7;
 
   &:hover {
     background-color: rgba(102, 126, 234, 0.95);
@@ -72,7 +73,7 @@
 .sidebar-overlay {
   display: none;
   position: fixed;
-  top: 60px; /* Start below navbar */
+  top: calc(60px + env(safe-area-inset-top, 0px)); /* Start below navbar, respect notch */
   left: 0;
   right: 0;
   bottom: 0;
@@ -208,11 +209,12 @@
   }
 
   &.icon-button {
-    min-width: 44px;
+    flex: 1 1 0;
+    min-width: 0;
     padding: 0.5rem;
     
     i {
-      font-size: 1.125rem;
+      font-size: 1.5rem;
     }
   }
 
@@ -320,6 +322,9 @@
   min-height: 48px;
   transition: all 0.2s;
   backdrop-filter: blur(4px);
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
 
   &:hover {
     background-color: rgba(0, 0, 0, 0.8);
@@ -351,6 +356,9 @@
   min-height: 48px;
   transition: all 0.2s;
   backdrop-filter: blur(4px);
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
 
   &:hover {
     background-color: rgba(0, 0, 0, 0.8);
@@ -461,6 +469,142 @@
   }
 }
 
+/* Mobile overlay buttons: use fixed positioning for reliable touch targets */
+@media (max-width: 768px) {
+  .fullscreen-button {
+    position: fixed;
+    top: calc(60px + 0.5rem + env(safe-area-inset-top, 0px));
+    right: calc(0.5rem + env(safe-area-inset-right, 0px));
+    min-width: 48px;
+    min-height: 48px;
+    padding: 0.5rem 0.75rem;
+    z-index: 999; /* Below sidebar (1001) when open on mobile */
+  }
+
+  .exit-fullscreen-button {
+    top: calc(0.5rem + env(safe-area-inset-top, 0px));
+    right: calc(0.5rem + env(safe-area-inset-right, 0px));
+    min-width: 48px;
+    min-height: 48px;
+    padding: 0.5rem 0.75rem;
+  }
+
+  .chord-display-button {
+    top: 3.75rem;
+    right: 0.5rem;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0.5rem 0.75rem;
+
+    &.fullscreen-mode {
+      top: 0.75rem;
+      right: 3.75rem;
+    }
+  }
+
+  .chord-size-decrease-button {
+    top: 3.75rem;
+    right: 0.5rem;
+
+    &.fullscreen-mode {
+      top: 0.75rem;
+      right: 3.75rem;
+    }
+  }
+
+  .chord-size-increase-button {
+    top: 6.5rem;
+    right: 0.5rem;
+
+    &.fullscreen-mode {
+      top: 3.75rem;
+      right: 3.75rem;
+    }
+  }
+
+  .chord-size-reset-button {
+    top: 9.25rem;
+    right: 0.5rem;
+
+    &.fullscreen-mode {
+      top: 6.5rem;
+      right: 3.75rem;
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .fullscreen-button,
+  .exit-fullscreen-button {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0.4rem 0.6rem;
+    font-size: 1.1rem;
+  }
+
+  .chord-display-button,
+  .chord-size-increase-button,
+  .chord-size-decrease-button,
+  .chord-size-reset-button {
+    min-width: 40px;
+    min-height: 40px;
+    padding: 0.4rem 0.6rem;
+    font-size: 1rem;
+  }
+}
+
+/* Overlay when content is hidden from display - diagonal cross-hatch pattern */
+.content-hidden-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  /* Cross-hatch diagonal stripes over semi-transparent dark layer */
+  background:
+    repeating-linear-gradient(
+      -45deg,
+      transparent,
+      transparent 8px,
+      rgba(220, 53, 69, 0.25) 8px,
+      rgba(220, 53, 69, 0.25) 16px
+    ),
+    repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 8px,
+      rgba(220, 53, 69, 0.25) 8px,
+      rgba(220, 53, 69, 0.25) 16px
+    ),
+    rgba(0, 0, 0, 0.2);
+
+  .content-hidden-label {
+    background: rgba(0, 0, 0, 0.85);
+    color: #fff;
+    padding: 1rem 2rem;
+    border-radius: 8px;
+    font-size: 1.25rem;
+    font-weight: 600;
+    text-align: center;
+    white-space: nowrap;
+
+    @media (max-width: 480px) {
+      white-space: normal;
+      padding: 0.75rem 1rem;
+      font-size: 1rem;
+      max-width: 90vw;
+    }
+    border: 2px solid rgba(220, 53, 69, 0.8);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  }
+}
+
 .content-container {
   width: 100%;
   height: 100%;
@@ -534,16 +678,6 @@
     }
   }
 
-  // Show chords only locally (don't broadcast) - no special CSS needed, just local state
-  &.chords-local {
-    // Chords are visible locally
-  }
-
-  // Show chords everywhere (broadcast) - default state
-  &.chords-everywhere {
-    // Chords are visible and broadcast
-  }
-  
   ::ng-deep p {
     margin: 0.5em 0;
     
@@ -596,6 +730,35 @@
   position: absolute;
   top: 0;
   left: 0;
+}
+
+/* iFrame Embed Container (pasted iframe HTML) */
+.iframe-embed-container {
+  background-color: #000;
+  padding: 0;
+  position: relative;
+  min-width: 100%;
+  min-height: 100%;
+}
+
+.iframe-embed-wrapper {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+
+  ::ng-deep iframe {
+    width: 100% !important;
+    height: 100% !important;
+    min-width: 100%;
+    min-height: 100%;
+    border: none;
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
+  }
 }
 
 /* Video Container */
@@ -674,6 +837,8 @@
   flex-direction: column;
   gap: 0.25rem;
   flex-shrink: 0;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .current-item-label {
@@ -703,6 +868,10 @@
   font-size: 1rem;
   color: #ecf0f1;
   font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 
 .current-item-page {
@@ -857,16 +1026,35 @@
   }
 }
 
-.clear-button {
-  background-color: #e74c3c;
-  color: white;
-  
-  &:hover:not(:disabled) {
-    background-color: #c0392b;
+.visibility-toggle-button {
+  &.visible {
+    background-color: #27ae60;
+    color: white;
+
+    &:hover:not(:disabled) {
+      background-color: #229954;
+    }
+
+    &:active:not(:disabled) {
+      background-color: #1e8449;
+    }
   }
-  
-  &:active:not(:disabled) {
-    background-color: #a93226;
+
+  &.hidden {
+    background-color: #e74c3c;
+    color: white;
+
+    &:hover:not(:disabled) {
+      background-color: #c0392b;
+    }
+
+    &:active:not(:disabled) {
+      background-color: #a93226;
+    }
+  }
+
+  i {
+    font-size: 1.25rem;
   }
 }
 
@@ -1007,7 +1195,7 @@
 
   .sidebar {
     position: fixed;
-    top: 60px; /* Start below navbar */
+    top: calc(60px + env(safe-area-inset-top, 0px)); /* Start below navbar, respect notch */
     left: 0;
     bottom: 0;
     width: 100vw;
@@ -1056,6 +1244,15 @@
     display: flex !important;
     min-width: 44px;
     min-height: 44px;
+  }
+
+  .tab-button.icon-button {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .tab-button.tab-playlist {
+    padding: 0.5rem;
   }
   
   .sidebar-actions {
@@ -1185,13 +1382,22 @@
     max-width: 100%;
   }
 
+  .tab-button.icon-button {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .tab-button.tab-playlist {
+    padding: 0.5rem;
+  }
+
   .sidebar-toggle-mobile {
     top: 50%;
     transform: translateY(-50%);
     padding: 0.875rem 1rem;
     font-size: 1.375rem;
     min-width: 52px;
-    min-height: 52px;
+    min-height: 90px;
     
     &:hover {
       transform: translateY(-50%) scale(1.05);
@@ -1202,11 +1408,15 @@
     }
   }
 
+  .footer {
+    gap: 0.5rem;
+  }
+
   .footer-button {
-    padding: 1rem 1.5rem;
-    font-size: 1.25rem;
-    min-width: 100px;
-    min-height: 70px;
+    padding: 0.875rem 1.25rem;
+    font-size: 1.15rem;
+    min-width: 90px;
+    min-height: 56px;
   }
 
   .current-item-guid-badge {

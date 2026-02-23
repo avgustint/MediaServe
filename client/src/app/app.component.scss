@@ -19,6 +19,8 @@
   justify-content: center;
   z-index: 2000;
   cursor: default; // Show cursor on location selection overlay
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  box-sizing: border-box;
 }
 
 .location-dialog {
@@ -53,6 +55,8 @@
   color: #fff;
   margin-bottom: 1rem;
   font-size: 0.95rem;
+  min-height: 44px;
+  box-sizing: border-box;
 }
 
 .location-error {
@@ -71,6 +75,37 @@
   cursor: pointer;
   font-size: 0.95rem;
   transition: background-color 0.2s ease, transform 0.1s ease;
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Mobile/Tablet responsive styles for location overlay */
+@media (max-width: 768px) {
+  .location-dialog {
+    max-width: 95vw;
+    width: 95%;
+    padding: 1.25rem 1.5rem;
+  }
+
+  .location-input {
+    font-size: 1rem;
+    padding: 0.75rem 1rem;
+  }
+
+  .location-confirm-button {
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .location-dialog {
+    padding: 1rem 1.25rem;
+  }
+
+  .location-dialog h2 {
+    font-size: 1.125rem;
+  }
 }
 
 .location-confirm-button:disabled {
@@ -227,7 +262,7 @@
   line-height: 1.8;
 }
 
-.image-container, .video-container, .iframe-container {
+.image-container, .video-container, .iframe-container, .iframe-embed-container {
   background-color: #000;
   padding: 10px;
   // Start off-screen to the right, will slide in when media-slide class is applied
@@ -239,8 +274,31 @@
   }
 }
 
-.iframe-container {
+.iframe-container, .iframe-embed-container {
   padding: 0;
+  position: relative;
+  min-width: 100%;
+  min-height: 100%;
+
+  .iframe-embed-wrapper {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+
+    ::ng-deep iframe {
+      width: 100% !important;
+      height: 100% !important;
+      min-width: 100%;
+      min-height: 100%;
+      border: none;
+      display: block;
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+  }
 }
 
 .display-image, .display-video {

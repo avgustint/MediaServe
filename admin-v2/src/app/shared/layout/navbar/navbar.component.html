@@ -1,4 +1,13 @@
 <nav class="navbar" *ngIf="isAuthenticated()">
+  <button
+    *ngIf="connectionStatus === 'disconnected'"
+    class="reload-button"
+    (click)="reloadApp()"
+    [title]="'reload' | translate"
+  >
+    <i class="fas fa-sync-alt"></i>
+    <span>{{ 'reload' | translate }}</span>
+  </button>
   <div class="nav-brand-section">
     <button class="mobile-menu-toggle" (click)="toggleMobileMenu()" aria-label="Toggle menu">
       <i class="fas fa-bars"></i>
@@ -19,17 +28,17 @@
     <div class="user-info" *ngIf="user">
       <span class="user-name">{{ getUserName() }}</span>
     </div>
-    <button class="nav-btn" (click)="navigateToPlaylist()" *ngIf="shouldShowPlaylistButton()" [title]="'playlist' | translate">
-      <i class="fas fa-list"></i>
+    <button class="nav-btn" (click)="navigateToPlaylist()" *ngIf="shouldShowPlaylistButton()" [title]="'projection' | translate">
+      <i class="fas fa-tv"></i>
     </button>
     <button class="nav-btn" (click)="navigateToEditor()" *ngIf="hasViewEditorPermission()" [title]="'editor' | translate">
       <i class="fas fa-edit"></i>
     </button>
+    <button class="nav-btn" (click)="navigateToDisplay()" *ngIf="hasViewDisplayPermission()" [title]="'display' | translate">
+      <i class="fas fa-power-off"></i>
+    </button>
     <button class="nav-btn" (click)="navigateToSettings()" *ngIf="hasViewSettingsPermission()" [title]="'settings' | translate">
       <i class="fas fa-cog"></i>
-    </button>
-    <button class="nav-btn" (click)="navigateToDisplay()" *ngIf="hasViewDisplayPermission()" [title]="'display' | translate">
-      <i class="fas fa-tv"></i>
     </button>
     <button class="nav-btn" (click)="navigateToUser()" [title]="'userProfile' | translate">
       <i class="fas fa-user"></i>
@@ -52,20 +61,20 @@
   </div>
   <div class="mobile-menu-items">
     <button class="mobile-nav-btn" (click)="navigateToPlaylistMobile()" *ngIf="shouldShowPlaylistButton()">
-      <i class="fas fa-list"></i>
-      <span>{{ 'playlist' | translate }}</span>
+      <i class="fas fa-tv"></i>
+      <span>{{ 'projection' | translate }}</span>
     </button>
     <button class="mobile-nav-btn" (click)="navigateToEditorMobile()" *ngIf="hasViewEditorPermission()">
       <i class="fas fa-edit"></i>
       <span>{{ 'editor' | translate }}</span>
     </button>
+    <button class="mobile-nav-btn" (click)="navigateToDisplay()" *ngIf="hasViewDisplayPermission()">
+      <i class="fas fa-power-off"></i>
+      <span>{{ 'display' | translate }}</span>
+    </button>
     <button class="mobile-nav-btn" (click)="navigateToSettings()" *ngIf="hasViewSettingsPermission()">
       <i class="fas fa-cog"></i>
       <span>{{ 'settings' | translate }}</span>
-    </button>
-    <button class="mobile-nav-btn" (click)="navigateToDisplay()" *ngIf="hasViewDisplayPermission()">
-      <i class="fas fa-tv"></i>
-      <span>{{ 'display' | translate }}</span>
     </button>
     <button class="mobile-nav-btn" (click)="navigateToUser()">
       <i class="fas fa-user"></i>

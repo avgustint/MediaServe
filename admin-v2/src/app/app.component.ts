@@ -37,6 +37,10 @@ import { Subscription } from 'rxjs';
       flex-direction: column;
       overflow: hidden;
       position: relative;
+      padding-top: env(safe-area-inset-top);
+      padding-left: env(safe-area-inset-left);
+      padding-right: env(safe-area-inset-right);
+      padding-bottom: env(safe-area-inset-bottom);
     }
     
     .router-outlet-container {

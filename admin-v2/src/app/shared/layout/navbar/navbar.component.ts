@@ -141,4 +141,8 @@ export class NavbarComponent implements OnInit, OnDestroy {
   closeLogoutConfirmDialog(): void {
     this.showLogoutConfirmDialog = false;
   }
+
+  reloadApp(): void {
+    window.location.reload();
+  }
 }

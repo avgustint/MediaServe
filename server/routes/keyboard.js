@@ -30,28 +30,11 @@ function initializeKeyboardRoutes(wss, getServerIPsFn, isSameIPFn, clientsSet, a
 
 /**
  * POST /api/keyboard/command
- * Receives keyboard command from client app or OS-level keyboard listener service
+ * Receives keyboard command from any source (e.g. OS-level keyboard listener service)
  * Forwards to admin clients on same IP as server
  */
 router.post('/command', (req, res) => {
-  // Get client IP address
-  const remoteAddress = req.socket.remoteAddress || req.connection.remoteAddress || req.ip;
-  const normalizedRemote = normalizeIP(remoteAddress);
-  
-  // Get server IP addresses for comparison
   const serverIPs = getServerIPs ? getServerIPs() : ['127.0.0.1', '::1'];
-  
-  // Validate that request comes from same IP as server
-  // This allows requests from client app on same machine, or OS-level listener
-  const checkSameIP = (clientIP, serverIPs) => {
-    const normalizedClientIP = normalizeIP(clientIP);
-    return serverIPs.some(serverIP => normalizeIP(serverIP) === normalizedClientIP);
-  };
-  
-  if (!checkSameIP(normalizedRemote, serverIPs)) {
-    console.warn('Keyboard command rejected from different IP:', normalizedRemote, 'Server IPs:', serverIPs);
-    return res.status(403).json({ success: false, message: 'Request must come from same IP as server' });
-  }
 
   const { key, timestamp } = req.body;
 
@@ -101,7 +84,7 @@ router.post('/command', (req, res) => {
     }
   });
 
-  console.log(`Keyboard command '${key}' forwarded to ${sentCount} admin client(s) on same IP`);
+  console.log(`Keyboard command '${key}' forwarded to ${sentCount} admin client(s)`);
 
   res.json({
     success: true,
@@ -109,22 +92,6 @@ router.post('/command', (req, res) => {
     clientsNotified: sentCount
   });
 });
-
-/**
- * Helper to normalize IP addresses
- */
-function normalizeIP(ip) {
-  if (!ip) return 'unknown';
-  // Handle IPv6 mapped IPv4 (::ffff:127.0.0.1 -> 127.0.0.1)
-  if (ip.startsWith('::ffff:')) {
-    return ip.substring(7);
-  }
-  // Handle IPv6 localhost variants (::1 -> 127.0.0.1)
-  if (ip === '::1') {
-    return '127.0.0.1';
-  }
-  return ip;
-}
 
 module.exports = { router, initializeKeyboardRoutes };
 
