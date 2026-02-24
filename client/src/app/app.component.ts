@@ -32,7 +32,7 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
   // Duration of slide transition in ms (keep in sync with CSS)
   private readonly textTransitionDuration = 400;
 
-  // Simple slide-in animation toggle for non-text content (image, url, video)
+  // Simple slide-in animation toggle for non-text content (image, url, video, iframe)
   mediaSlideToggle: boolean = false;
 
   private subscription?: Subscription;
@@ -88,18 +88,19 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
       }
 
       // Always update chord visibility first (before updating content)
-      // This ensures visibility changes are applied immediately
-      // Only update if chordsVisible is explicitly set in the message
-      if (message.chordsVisible !== undefined) {
-        // Only update if the value actually changed to prevent unnecessary re-renders
-        if (this.showChords !== message.chordsVisible) {
-          this.showChords = message.chordsVisible;
+      // Prefer chordVisibility (3-state): show only when 'everywhere'
+      // Fall back to chordsVisible for legacy messages
+      const shouldShowChords = message.chordVisibility !== undefined
+        ? (message.chordVisibility === 'everywhere')
+        : (message.chordsVisible !== undefined ? message.chordsVisible : undefined);
+      if (shouldShowChords !== undefined) {
+        if (this.showChords !== shouldShowChords) {
+          this.showChords = shouldShowChords;
         }
       }
-      // If chordsVisible is undefined, keep current state (don't default to true)
 
       // Update content (chords should always be in the content, visibility controlled by showChords)
-      // Only update if this is a content message (text, image, url, or video)
+      // Only update if this is a content message (text, image, url, video, or iframe)
       if (message.type === 'text' || message.type === 'image' || message.type === 'url' || message.type === 'video' || message.type === 'iframe') {
         if (message.type === "text") {
           // Text content uses a double-buffered slide transition between two pages.
@@ -130,6 +131,25 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
           if (this.isTextTransitioning) {
             this.nextTextContent = message;
             this.currentContent = message;
+            return;
+          }
+
+          // Same page with only chord transposition change: update in place, skip slide animation
+          const currentGuid = this.currentTextContent?.guid ?? this.currentContent?.guid;
+          const currentPage = this.currentTextContent?.page ?? this.currentContent?.page ?? 1;
+          const msgPage = message.page ?? 1;
+          if (currentGuid !== undefined && message.guid !== undefined &&
+              currentGuid === message.guid && currentPage === msgPage) {
+            this.currentTextContent = message;
+            this.currentContent = message;
+            this.nextTextContent = null;
+            // Recalculate font size for current page (content may have changed slightly with transposition)
+            requestAnimationFrame(() => {
+              requestAnimationFrame(() => {
+                this.adjustTextSizeForPage(this.activeTextPageIndex);
+                this.cdr.detectChanges();
+              });
+            });
             return;
           }
 
@@ -175,7 +195,7 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
             });
           });
         } else {
-          // For non-text content (image, url, video), always use slide transition
+          // For non-text content (image, url, video, iframe), always use slide transition
           // Hide text first if it was showing
           if (this.currentTextContent) {
             this.isTextReady = false;

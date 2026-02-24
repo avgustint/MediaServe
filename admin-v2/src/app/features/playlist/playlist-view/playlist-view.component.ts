@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewInit } from "@angular/core";
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewInit, ChangeDetectorRef } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { DomSanitizer, SafeResourceUrl, SafeHtml } from "@angular/platform-browser";
 import { WebSocketService, WebSocketMessage } from "../../../core/services/websocket.service";
@@ -110,7 +110,8 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
     private playlistService: PlaylistService,
     private userService: UserService,
     private chordSettingsService: ChordSettingsService,
-    private keyboardCommandService: KeyboardCommandService
+    private keyboardCommandService: KeyboardCommandService,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
@@ -142,6 +143,14 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
         }
         if (storedContent.guid !== undefined) {
           this.loadManualItemForPages(storedContent.guid);
+        }
+        // When chords visible locally but server sent display version (no chords), request content with chords
+        const storedClientsHideChords = storedContent.chordVisibility !== undefined
+          ? (storedContent.chordVisibility !== 'everywhere')
+          : (storedContent.chordsVisible === false);
+        if (storedContent.type === 'text' && storedContent.guid !== undefined &&
+            this.chordDisplayState === 'local' && storedClientsHideChords) {
+          this.requestContentWithChords();
         }
       }
     });
@@ -235,11 +244,15 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
           this.loadManualItemForPages(message.guid);
         }
         
-        // Always use service value for chord display state (preserve user's selection)
-        // Only update from message if we don't have a stored preference yet (initial load)
+        // Chord display state: always sync from message when chordVisibility is present (multi-admin sync)
         if (message.type === 'text' || message.type === 'image' || message.type === 'url' || message.type === 'video' || message.type === 'iframe') {
-          // Always restore from service to preserve user's chord display preference
-          this.chordDisplayState = this.chordSettingsService.getChordDisplayState();
+          if (message.chordVisibility !== undefined) {
+            const msgState = message.chordVisibility as 'local' | 'everywhere' | 'hidden';
+            this.chordDisplayState = msgState;
+            this.chordSettingsService.setChordDisplayState(msgState);
+          } else {
+            this.chordDisplayState = this.chordSettingsService.getChordDisplayState();
+          }
         }
         
         // Update chord transposition from message if present, otherwise use service value
@@ -318,6 +331,15 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
               this.currentContent.content = this.removeChordsFromContent(currentContentStr);
             }
           }
+
+          // When chords visible locally but server sent display version (no chords), request content with chords
+          const messageClientsHideChords = message.chordVisibility !== undefined
+            ? (message.chordVisibility !== 'everywhere')
+            : (message.chordsVisible === false);
+          if (!hasChords && this.chordDisplayState === 'local' && messageClientsHideChords &&
+              (messageGuid ?? this.currentItemGuid) !== undefined) {
+            this.requestContentWithChords();
+          }
         }
 
         // Adjust font size for text after view update
@@ -325,26 +347,11 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
           setTimeout(() => this.adjustTextSize(), 100);
         }
 
-        // If received message's chordsVisible doesn't match what clients should see, rebroadcast
-        // This ensures clients always get the correct visibility state
-        // Skip rebroadcast when message has contentVisible - those are authoritative server pushes
-        // (visibility toggle, connection/reconnect). Each admin would rebroadcast otherwise = N duplicates for N admins.
-        if ((message.type === 'text' || message.type === 'image' || message.type === 'url' || message.type === 'video') &&
-            message.contentVisible === undefined) {
-          const expectedChordsVisible = this.chordsVisibleForClients;
-          if (message.chordsVisible !== undefined && 
-              message.chordsVisible !== expectedChordsVisible &&
-              this.currentContent) {
-            setTimeout(() => {
-              if (this.chordsVisibleForClients !== message.chordsVisible && this.currentContent) {
-                this.broadcastContentUpdate();
-              }
-            }, 50);
-          }
-        }
+        // When receiving content update from another admin (no contentVisible = not initial connection),
+        // sync our state to match - last writer wins. Do NOT rebroadcast (causes loop with multiple admins).
 
-        // If URL content is loaded, ensure focus stays on main container for keyboard handling
-        if (message.type === "url" && this.activeTab === 'manual') {
+        // If URL or iframe content is loaded, ensure focus stays on main container for keyboard handling
+        if ((message.type === "url" || message.type === "iframe") && this.activeTab === 'manual') {
           setTimeout(() => {
             const mainContainer = document.querySelector('.main-container') as HTMLElement;
             if (mainContainer) {
@@ -441,11 +448,9 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
 
   switchTab(tab: "playlist" | "search" | "manual"): void {
     this.activeTab = tab;
-    // Clear manual item tracking when switching tabs
-    if (tab === 'playlist') {
-      this.manualItem = null;
-      this.manualItemPages = [];
-    }
+    // Do NOT clear manualItem/manualItemPages when switching to playlist tab.
+    // If the displayed item was selected via numpad/search and is not in the playlist,
+    // we need manualItem/manualItemPages for getAvailablePages() to show page buttons.
   }
 
   toggleSidebar(): void {
@@ -850,8 +855,8 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
         type: "Change",
         guid: guid,
         page: page,
-        chordsVisible: this.chordsVisibleForClients, // Send correct visibility for clients
-        chordTransposition: this.chordTransposition // Include current chord transposition
+        chordVisibility: this.chordDisplayState,
+        chordTransposition: this.chordTransposition
       };
       if (user?.locationId) {
         changeMessage.locationId = user.locationId;
@@ -1115,7 +1120,7 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
             type: "Change",
             guid: this.manualItem.guid,
             page: nextPage,
-            chordsVisible: this.chordsVisibleForClients,
+            chordVisibility: this.chordDisplayState,
             chordTransposition: this.chordTransposition
           };
           if (user?.locationId) {
@@ -1190,7 +1195,7 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
             type: "Change",
             guid: this.manualItem.guid,
             page: prevPage,
-            chordsVisible: this.chordsVisibleForClients,
+            chordVisibility: this.chordDisplayState,
             chordTransposition: this.chordTransposition
           };
           if (user?.locationId) {
@@ -1210,31 +1215,20 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
   getAvailablePages(): number[] {
     if (!this.currentItemGuid) return [];
     
-    // Handle manual/search tabs - if manualItem matches current item, use manualItemPages
     if (this.manualItem && this.manualItem.guid === this.currentItemGuid) {
-      // If manualItemPages is set, use it (for playlist items with selected pages)
       if (this.manualItemPages && this.manualItemPages.length > 0) {
-        console.log('getAvailablePages - using manualItemPages:', this.manualItemPages);
         return this.manualItemPages;
       }
-      // Otherwise, if manualItem has pages array, use that
       if (this.manualItem.pages && this.manualItem.pages.length > 0) {
-        console.log('getAvailablePages - using manualItem.pages:', this.manualItem.pages);
         return this.manualItem.pages;
       }
     }
     
-    // Handle playlist tab - check if current item is in playlist
     const currentItem = this.playlistItems.find(item => item.guid === this.currentItemGuid);
-    if (currentItem) {
-      // Return pages for text items
-      if (currentItem.type === 'text' && currentItem.pages && currentItem.pages.length > 0) {
-        console.log('getAvailablePages - using currentItem.pages:', currentItem.pages);
-        return currentItem.pages;
-      }
+    if (currentItem?.type === 'text' && currentItem.pages && currentItem.pages.length > 0) {
+      return currentItem.pages;
     }
     
-    console.log('getAvailablePages - returning empty array');
     return [];
   }
 
@@ -1249,7 +1243,7 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
         type: "Change",
         guid: this.manualItem.guid,
         page: pageNum,
-        chordsVisible: this.chordsVisibleForClients,
+        chordVisibility: this.chordDisplayState,
         chordTransposition: this.chordTransposition
       };
       if (user?.locationId) {
@@ -1505,7 +1499,8 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
   }
   
   /**
-   * Request content from server with chordsVisible=true to get original content with chords
+   * Request content from server with chords for local admin display.
+   * Sends chordVisibility so server keeps client state (e.g. 'local' = clients stay chordless).
    */
   private requestContentWithChords(): void {
     if (!this.currentItemGuid) {
@@ -1517,8 +1512,8 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
       type: "Change",
       guid: this.currentItemGuid,
       page: this.currentPage || 1,
-      chordsVisible: true, // Request content with chords
-      chordTransposition: this.chordSettingsService.getChordTransposition() // Use current transposition
+      chordVisibility: this.chordDisplayState, // Preserve state so clients don't get chords
+      chordTransposition: this.chordSettingsService.getChordTransposition()
     };
     if (user?.locationId) {
       changeMessage.locationId = user.locationId;
@@ -1560,31 +1555,29 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   increaseChordTransposition(): void {
-    // Increase by half a tone (semitone)
-    // Use modulo 12 arithmetic like Pevec system: (12 + current + 1) % 12
     const current = this.chordTransposition || 0;
     this.chordTransposition = (12 + current + 1) % 12;
     this.chordSettingsService.setChordTransposition(this.chordTransposition);
     this.applyChordTranspositionToContent();
     this.broadcastContentUpdate();
+    this.cdr.detectChanges();
   }
 
   decreaseChordTransposition(): void {
-    // Decrease by half a tone (semitone)
-    // Use modulo 12 arithmetic like Pevec system: (12 + current - 1) % 12
     const current = this.chordTransposition || 0;
     this.chordTransposition = (12 + current - 1) % 12;
     this.chordSettingsService.setChordTransposition(this.chordTransposition);
     this.applyChordTranspositionToContent();
     this.broadcastContentUpdate();
+    this.cdr.detectChanges();
   }
 
   resetChordTransposition(): void {
-    // Reset transposition to 0
     this.chordTransposition = 0;
     this.chordSettingsService.resetChordTransposition();
     this.applyChordTranspositionToContent();
     this.broadcastContentUpdate();
+    this.cdr.detectChanges();
   }
 
   private extractOriginalContent(content: string): string {
@@ -1731,9 +1724,9 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
       }
     );
 
-    // Update current content
-    if (this.currentContent.content) {
-      this.currentContent.content = modifiedContent;
+    // Update current content - assign new reference to ensure Angular detects change
+    if (this.currentContent && modifiedContent) {
+      this.currentContent = { ...this.currentContent, content: modifiedContent };
     }
   }
 
@@ -1764,15 +1757,8 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
       this.restoreOriginalContent();
     }
 
-    // Always send content with chords - let clients handle visibility via chordsVisible flag
-    // This allows clients to toggle visibility without re-requesting content
+    // Always send content with chords - let clients handle visibility via chordVisibility
     const contentToSend = this.currentContent.content;
-
-    // Determine chordsVisible based on state:
-    // - 'everywhere': true (show on clients)
-    // - 'local': false (hide on clients, show in admin only)
-    // - 'hidden': false (hide everywhere)
-    const chordsVisibleForClients = this.chordsVisibleForClients;
 
     // Only send if we have valid content and locationId
     if (!contentToSend || !user?.locationId) {
@@ -1782,9 +1768,11 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
     const message: any = {
       type: this.currentContent.type,
       content: contentToSend,
+      guid: this.currentContent.guid,
+      page: this.currentContent.page,
       background_color: this.currentContent.background_color,
       font_color: this.currentContent.font_color,
-      chordsVisible: chordsVisibleForClients,
+      chordVisibility: this.chordDisplayState,
       chordTransposition: this.chordTransposition,
       locationId: user.locationId
     };

@@ -759,7 +759,7 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     loginFailed: 'Prijava ni uspela. Poskusite znova.',
     
     // App Navigation
-    mediaPlayerAdmin: 'Upravljalec medijskega predvajalnika',
+    mediaPlayerAdmin: 'Medijski upravljalnik',
     playlist: 'Seznam predvajanja',
     projection: 'Projekcija',
     editor: 'Urejevalnik',

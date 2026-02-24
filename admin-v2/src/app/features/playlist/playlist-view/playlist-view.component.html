@@ -104,50 +104,52 @@
           <i class="fas fa-compress"></i>
         </button>
 
-        <!-- Chord display toggle button (commented out - only shown in dev mode if needed) -->
-        <!--
+        <!-- Chord display toggle and transposition buttons -->
         <button 
-          *ngIf="currentContent?.type === 'text' && isDevMode" 
+          *ngIf="currentContent?.type === 'text'" 
           class="chord-display-button" 
           [class.fullscreen-mode]="isFullscreen"
           (click)="toggleChordDisplay()"
           [title]="getChordDisplayTitle() | translate"
+          [attr.aria-label]="getChordDisplayTitle() | translate"
         >
           <i class="fas" [ngClass]="getChordDisplayIcon()"></i>
         </button>
 
         <button 
-          *ngIf="currentContent?.type === 'text' && chordsVisible && isDevMode" 
+          *ngIf="currentContent?.type === 'text' && chordsVisible" 
           class="chord-size-decrease-button" 
           [class.fullscreen-mode]="isFullscreen"
           (click)="decreaseChordTransposition()"
           [title]="'decreaseChordTransposition' | translate"
+          [attr.aria-label]="'decreaseChordTransposition' | translate"
         >
           <i class="fas fa-minus"></i>
         </button>
 
         <button 
-          *ngIf="currentContent?.type === 'text' && chordsVisible && isDevMode" 
+          *ngIf="currentContent?.type === 'text' && chordsVisible" 
           class="chord-size-increase-button" 
           [class.fullscreen-mode]="isFullscreen"
           (click)="increaseChordTransposition()"
           [title]="'increaseChordTransposition' | translate"
+          [attr.aria-label]="'increaseChordTransposition' | translate"
         >
           <i class="fas fa-plus"></i>
         </button>
 
         <button 
-          *ngIf="currentContent?.type === 'text' && chordsVisible && isDevMode" 
+          *ngIf="currentContent?.type === 'text' && chordsVisible" 
           class="chord-size-reset-button" 
           [class.fullscreen-mode]="isFullscreen"
           [class.disabled]="chordTransposition === 0"
           (click)="resetChordTransposition()"
           [title]="'resetChordTransposition' | translate"
+          [attr.aria-label]="'resetChordTransposition' | translate"
           [disabled]="chordTransposition === 0"
         >
           <i class="fas fa-undo"></i>
         </button>
-        -->
 
         <!-- Text Content -->
         <div *ngIf="currentContent?.type === 'text'" class="content-container text-container" [ngStyle]="textContainerStyle" [class.chords-hidden]="chordDisplayState === 'hidden'" [class.chords-local]="chordDisplayState === 'local'" [class.chords-everywhere]="chordDisplayState === 'everywhere'" #textContainer>

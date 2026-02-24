@@ -28,6 +28,19 @@ function setupWebSocket(server, library) {
   // Store current content being displayed per location
   const locationContent = new Map();
 
+  /** Resolve chordVisibility from message. Supports chordVisibility (3-state) or legacy chordsVisible (boolean). */
+  function resolveChordVisibility(msg) {
+    if (msg.chordVisibility === 'everywhere' || msg.chordVisibility === 'local' || msg.chordVisibility === 'hidden') {
+      return msg.chordVisibility;
+    }
+    return msg.chordsVisible === true ? 'everywhere' : 'local';
+  }
+
+  /** chordsVisible for clients: true only when everywhere */
+  function chordsVisibleForClients(chordVisibility) {
+    return chordVisibility === 'everywhere';
+  }
+
   // Helper to normalize IP addresses
   function normalizeIP(ip) {
     if (!ip) return 'unknown';
@@ -123,7 +136,9 @@ function setupWebSocket(server, library) {
                       page: 1,
                       background_color: formattedItem.background_color || settings2.defaultBackgroundColor || '#000000',
                       font_color: formattedItem.font_color || settings2.defaultFontColor || '#FFFFFF',
-                      chord_font_color: settings2.defaultChordFontColor || '#FFD700'
+                      chord_font_color: settings2.defaultChordFontColor || '#FFD700',
+                      chordVisibility: 'everywhere',
+                      chordsVisible: true
                     };
                     locationContent.set(locationIdFromUrl, contentToSend);
                   }
@@ -162,7 +177,9 @@ function setupWebSocket(server, library) {
                       page: requestedPageNum,
                       background_color: matchingItem.background_color || settings2.defaultBackgroundColor || '#000000',
                       font_color: matchingItem.font_color || settings2.defaultFontColor || '#FFFFFF',
-                      chord_font_color: settings2.defaultChordFontColor || '#FFD700'
+                      chord_font_color: settings2.defaultChordFontColor || '#FFD700',
+                      chordVisibility: 'everywhere',
+                      chordsVisible: true
                     };
                     locationContent.set(locationIdFromUrl, contentToSend);
                     const locState = locationStates.get(locationIdFromUrl) || {};
@@ -287,48 +304,62 @@ function setupWebSocket(server, library) {
               chordFontColor = settings.defaultChordFontColor || '#FFD700';
             }
             
-            // Remove chords from content if chordsVisible is false
-            // Default to false if not specified (chords hidden by default)
-            let finalContent = matchingItemContent;
+            // Build content for clients (display) and admin
+            // chordVisibility: 'everywhere' = show on all, 'local' = admin only, 'hidden' = none
+            const chordVisibility = resolveChordVisibility(message);
+            const clientsShowChords = chordsVisibleForClients(chordVisibility);
+            let finalContentForClients = matchingItemContent;
+            let finalContentForAdmin = matchingItemContent;
             if (pageType === 'text' && typeof matchingItemContent === 'string') {
-              const chordsVisible = message.chordsVisible !== undefined ? message.chordsVisible : false;
-              if (!chordsVisible) {
-                // Remove all <chord> tags and their content
-                finalContent = matchingItemContent.replace(/<chord\b[^>]*>.*?<\/chord>/gi, '');
+              if (!clientsShowChords) {
+                // Remove chords for display clients (local and hidden)
+                finalContentForClients = matchingItemContent.replace(/<chord\b[^>]*>.*?<\/chord>/gi, '');
+                // Admin keeps full content with chords for local display
+                finalContentForAdmin = matchingItemContent;
               }
             }
-            
+
             // Merge css: page css overrides library item css
             let mergedCss = matchingItem.css || undefined;
             if (pageCss && typeof pageCss === 'object' && Object.keys(pageCss).length > 0) {
               mergedCss = { ...(mergedCss || {}), ...pageCss };
             }
 
-            // Store current content for this location
+            // Store current content for this location (what display clients see)
             const contentVisible = dbOps.getLocationContentVisible(locationId);
             const locationContentData = {
               type: pageType,
-              content: finalContent,
+              content: finalContentForClients,
               guid: message.guid,
               page: requestedPageNum,
               background_color: backgroundColor,
               font_color: fontColor,
               chord_font_color: chordFontColor,
               css: mergedCss,
-              chordsVisible: message.chordsVisible !== undefined ? message.chordsVisible : false,
+              chordVisibility: chordVisibility,
+              chordsVisible: clientsShowChords, // Keep for client backward compat
               chordTransposition: message.chordTransposition !== undefined ? message.chordTransposition : 0,
               contentVisible: contentVisible
             };
             locationContent.set(locationId, locationContentData);
+
+            // Admin version: full content with chords when chordVisibility is 'local' (for local-only display)
+            const adminContentData = clientsShowChords ? locationContentData : {
+              ...locationContentData,
+              content: finalContentForAdmin,
+              chordVisibility: chordVisibility
+            };
             
             // Store last selected library item and page for new connections
             const locationState = locationStates.get(locationId) || {};
             locationState.currentLibraryItemGuid = message.guid;
             locationState.currentLibraryItemPage = message.page ?? requestedPageNum ?? null;
+            locationState.chordVisibility = chordVisibility;
             locationStates.set(locationId, locationState);
             dbOps.setLocationLastItem(locationId, message.guid, requestedPageNum);
             
-            const messageJson = JSON.stringify(locationContentData);
+            const messageJsonForClients = JSON.stringify(locationContentData);
+            const messageJsonForAdmin = JSON.stringify(adminContentData);
             let sentCount = 0;
             
             // Only update and broadcast to display clients if content is visible
@@ -336,10 +367,10 @@ function setupWebSocket(server, library) {
               locationContent.set(locationId, locationContentData);
             }
             
-            // Always send to the sender (admin app) so admin sees the selection
+            // Always send to the sender (admin app) - send content with chords when chordsVisible is false so admin can show chords locally
             if (ws.readyState === WebSocket.OPEN) {
               try {
-                ws.send(messageJson);
+                ws.send(messageJsonForAdmin);
                 sentCount++;
               } catch (error) {
                 console.error('Error sending message to sender:', error);
@@ -348,14 +379,17 @@ function setupWebSocket(server, library) {
               }
             }
             
-            // Broadcast to other clients (display + admin) only if contentVisible
+            // Broadcast to other clients: admins get chorded content when chordVisibility is local
+            // (prevents requestContentWithChords loop when one admin reloads)
             if (contentVisible) {
+              const payloadForAdmins = clientsShowChords ? messageJsonForClients : messageJsonForAdmin;
               clients.forEach((client) => {
                 if (client === ws) return;
                 const clientLocationId = clientLocations.get(client);
                 if (client.readyState === WebSocket.OPEN && clientLocationId === locationId) {
                   try {
-                    client.send(messageJson);
+                    const payload = adminClients.has(client) ? payloadForAdmins : messageJsonForClients;
+                    client.send(payload);
                     sentCount++;
                   } catch (error) {
                     console.error('Error sending message to client:', error);
@@ -438,18 +472,25 @@ function setupWebSocket(server, library) {
                 let chordFontColor = settings.defaultChordFontColor || '#FFD700';
                 if (!backgroundColor) backgroundColor = settings.defaultBackgroundColor || '#000000';
                 if (!fontColor) fontColor = settings.defaultFontColor || '#FFFFFF';
-                
+                // Preserve chordVisibility from previous state
+                const chordVisibility = locationState.chordVisibility || 'everywhere';
+                const clientsShowChords = chordsVisibleForClients(chordVisibility);
+                let finalContent = matchingItemContent;
+                if (pageType === 'text' && typeof matchingItemContent === 'string' && !clientsShowChords) {
+                  finalContent = matchingItemContent.replace(/<chord\b[^>]*>.*?<\/chord>/gi, '');
+                }
                 const locationContentData = {
                   type: pageType,
-                  content: matchingItemContent,
+                  content: finalContent,
                   guid: guid,
                   page: requestedPageNum,
                   background_color: backgroundColor,
                   font_color: fontColor,
                   chord_font_color: chordFontColor,
                   css: mergedCssRestore,
-                  chordsVisible: true,
-                  chordTransposition: 0,
+                  chordVisibility: chordVisibility,
+                  chordsVisible: clientsShowChords,
+                  chordTransposition: locationContent.get(locationId)?.chordTransposition ?? 0,
                   contentVisible: true
                 };
                 locationState.currentLibraryItemGuid = guid;
@@ -847,10 +888,10 @@ function setupWebSocket(server, library) {
           }
         }
         
-        // Check if it's a direct content update message (with chordsVisible or chordTransposition properties)
+        // Check if it's a direct content update message (with chordVisibility, chordsVisible, or chordTransposition)
         // This allows clients to send modified content with chord adjustments
         if ((message.type === 'text' || message.type === 'image' || message.type === 'url' || message.type === 'video' || message.type === 'iframe') && 
-            (message.chordsVisible !== undefined || message.chordTransposition !== undefined) && 
+            (message.chordVisibility !== undefined || message.chordsVisible !== undefined || message.chordTransposition !== undefined) && 
             message.content !== undefined) {
           const locationId = message.locationId ? parseInt(message.locationId, 10) : null;
           
@@ -862,7 +903,9 @@ function setupWebSocket(server, library) {
           // Store location for this client
           clientLocations.set(ws, locationId);
           
-          console.log('Received content update message for location:', locationId, 'chordsVisible:', message.chordsVisible, 'chordTransposition:', message.chordTransposition);
+          const chordVisibility = resolveChordVisibility(message);
+          const clientsShowChords = chordsVisibleForClients(chordVisibility);
+          console.log('Received content update message for location:', locationId, 'chordVisibility:', chordVisibility, 'chordTransposition:', message.chordTransposition);
           
           // Get chord font color from settings if not provided
           let chordFontColor = message.chord_font_color;
@@ -871,46 +914,52 @@ function setupWebSocket(server, library) {
             chordFontColor = settings.defaultChordFontColor || '#FFD700';
           }
           
-          // Remove chords from content if chordsVisible is false
-          // Default to false if not specified (chords hidden by default)
+          // Remove chords from content for clients when chordVisibility is not 'everywhere'
           let finalContent = message.content;
           if (message.type === 'text' && typeof message.content === 'string') {
-            const chordsVisible = message.chordsVisible !== undefined ? message.chordsVisible : false;
-            if (!chordsVisible) {
+            if (!clientsShowChords) {
               // Remove all <chord> tags and their content
               finalContent = message.content.replace(/<chord\b[^>]*>.*?<\/chord>/gi, '');
             }
           }
           
+          // Get guid and page from message or stored location state (for client same-page detection)
+          const locationState = locationStates.get(locationId) || {};
+          const contentGuid = message.guid ?? locationState.currentLibraryItemGuid;
+          const contentPage = message.page ?? locationState.currentLibraryItemPage ?? 1;
+
           // Update stored content for this location
-          // Only include chordsVisible if explicitly set, otherwise default to false
           const locationContentData = {
             type: message.type,
             content: finalContent,
+            guid: contentGuid,
+            page: contentPage,
             background_color: message.background_color,
             font_color: message.font_color,
             chord_font_color: chordFontColor,
             css: message.css || undefined,
-            chordsVisible: message.chordsVisible !== undefined ? message.chordsVisible : false,
+            chordVisibility: chordVisibility,
+            chordsVisible: clientsShowChords, // Keep for client backward compat
             chordTransposition: message.chordTransposition !== undefined ? message.chordTransposition : 0
           };
           locationContent.set(locationId, locationContentData);
           
-          // Broadcast the updated content to all clients with matching locationId
-          // EXCLUDE the sender (admin app) to prevent rebroadcast loops
-          const messageJson = JSON.stringify(locationContentData);
+          // Broadcast: admins get content with chords when chordVisibility is local (so they don't
+          // request it via Change and cause a loop); display clients get chordless.
+          // Include sender so the clicking admin's display updates (same path as other admins).
+          const messageJsonForDisplays = JSON.stringify(locationContentData);
+          const messageJsonForAdmins = clientsShowChords ? messageJsonForDisplays : JSON.stringify({
+            ...locationContentData,
+            content: message.content
+          });
           let sentCount = 0;
           
           clients.forEach((client) => {
-            // Skip the sender (admin app that sent the update)
-            if (client === ws) {
-              return;
-            }
-            
             const clientLocationId = clientLocations.get(client);
             if (client.readyState === WebSocket.OPEN && clientLocationId === locationId) {
               try {
-                client.send(messageJson);
+                const payload = adminClients.has(client) ? messageJsonForAdmins : messageJsonForDisplays;
+                client.send(payload);
                 sentCount++;
               } catch (error) {
                 console.error('Error sending content update message to client:', error);

@@ -341,7 +341,7 @@ function createTables() {
     // Data migration: move type from library_items to pages
     const libraryItems = db.prepare('SELECT guid, type, content FROM library_items').all();
     for (const item of libraryItems) {
-      if (item.type === 'image' || item.type === 'url' || item.type === 'video') {
+      if (item.type === 'image' || item.type === 'url' || item.type === 'video' || item.type === 'iframe') {
         // Create a page with the content and type, link to library item
         const maxGuid = db.prepare('SELECT MAX(guid) as maxGuid FROM pages').get()?.maxGuid || 0;
         const newPageGuid = maxGuid + 1;

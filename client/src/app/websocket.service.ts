@@ -5,12 +5,15 @@ import { getWsUrl } from '../../../shared-config';
 export interface WebSocketMessage {
   type: 'text' | 'image' | 'url' | 'video' | 'iframe' | 'UrlPlayPause';
   content?: string;
+  guid?: number;
+  page?: number;
   background_color?: string;
   font_color?: string;
   chord_font_color?: string;
   css?: { [key: string]: string }; // CSS custom properties object
   locationId?: number;
-  chordsVisible?: boolean;
+  chordsVisible?: boolean; // Legacy, prefer chordVisibility
+  chordVisibility?: 'everywhere' | 'local' | 'hidden';
   chordTransposition?: number;
   play?: boolean; // For UrlPlayPause messages - true to play, false to pause
 }

@@ -11,7 +11,8 @@ export interface WebSocketMessage {
   font_color?: string;
   css?: { [key: string]: string }; // CSS custom properties object
   locationId?: number;
-  chordsVisible?: boolean;
+  chordsVisible?: boolean; // Legacy, prefer chordVisibility
+  chordVisibility?: 'everywhere' | 'local' | 'hidden';
   chordTransposition?: number;
   actionType?: string;
   status?: 'processing' | 'success' | 'error';
