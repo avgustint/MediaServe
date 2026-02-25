@@ -26,6 +26,6 @@ module.exports = {
     }
   },
   
-  bodySizeLimit: process.env.BODY_SIZE_LIMIT || '10mb' // Default 10 MB for JSON/URL-encoded body parser
+  bodySizeLimit: process.env.BODY_SIZE_LIMIT || '50mb' // Default 50 MB for JSON/URL-encoded body parser (library items can contain multiple base64 images)
 };
 

@@ -28,6 +28,25 @@ function setupWebSocket(server, library) {
   // Store current content being displayed per location
   const locationContent = new Map();
 
+  // Deduplicate Change messages to prevent multi-admin loops (same guid+page+location within window)
+  const lastChangeByLocation = new Map();
+  const CHANGE_DEDUPE_MS = 500;
+
+  // In-memory contentVisible cache — always starts true on server start so a stale DB value
+  // from a previous session never silently hides content on a fresh restart.
+  // Updated only when SetDisplayVisible is explicitly received.
+  const contentVisibleCache = new Map();
+  function getContentVisible(locationId) {
+    if (contentVisibleCache.has(locationId)) {
+      return contentVisibleCache.get(locationId);
+    }
+    return true; // default: visible (fresh server start)
+  }
+  function setContentVisible(locationId, visible) {
+    contentVisibleCache.set(locationId, visible);
+    dbOps.setLocationContentVisible(locationId, visible);
+  }
+
   /** Resolve chordVisibility from message. Supports chordVisibility (3-state) or legacy chordsVisible (boolean). */
   function resolveChordVisibility(msg) {
     if (msg.chordVisibility === 'everywhere' || msg.chordVisibility === 'local' || msg.chordVisibility === 'hidden') {
@@ -111,7 +130,7 @@ function setupWebSocket(server, library) {
             // Send content to new connection - respect contentVisible from DB on cold start
             let contentToSend = locationContent.get(locationIdFromUrl);
             if (!contentToSend) {
-              const contentVisible = dbOps.getLocationContentVisible(locationIdFromUrl);
+              const contentVisible = getContentVisible(locationIdFromUrl);
               if (!contentVisible) {
                 const settings = dbOps.getAllSettings();
                 const defaultBlankPageGuid = settings.defaultBlankPage;
@@ -121,14 +140,21 @@ function setupWebSocket(server, library) {
                   const formattedItem = rawBlankPageItem ? dbOps.formatLibraryItem(rawBlankPageItem) : null;
                   if (formattedItem) {
                     let blankPageContent = '';
+                    let blankPageCss = undefined;
                     const blankPageArray = formattedItem.content;
                     const blankPageType = formattedItem.type || 'text';
                     if (Array.isArray(blankPageArray) && blankPageArray.length > 0) {
                       blankPageContent = blankPageArray[0].content || '';
+                      blankPageCss = blankPageArray[0].css;
                     } else if (typeof blankPageArray === 'string') {
                       blankPageContent = blankPageArray;
                     }
+                    let mergedBlankCss = formattedItem.css || undefined;
+                    if (blankPageCss && typeof blankPageCss === 'object' && Object.keys(blankPageCss).length > 0) {
+                      mergedBlankCss = { ...(mergedBlankCss || {}), ...blankPageCss };
+                    }
                     const settings2 = dbOps.getAllSettings();
+                    const savedChordState0 = dbOps.getLocationChordState(locationIdFromUrl);
                     contentToSend = {
                       type: blankPageType,
                       content: blankPageContent,
@@ -137,8 +163,11 @@ function setupWebSocket(server, library) {
                       background_color: formattedItem.background_color || settings2.defaultBackgroundColor || '#000000',
                       font_color: formattedItem.font_color || settings2.defaultFontColor || '#FFFFFF',
                       chord_font_color: settings2.defaultChordFontColor || '#FFD700',
-                      chordVisibility: 'everywhere',
-                      chordsVisible: true
+                      css: mergedBlankCss,
+                      chordVisibility: savedChordState0.chordVisibility,
+                      chordsVisible: chordsVisibleForClients(savedChordState0.chordVisibility),
+                      chordTransposition: savedChordState0.chordTransposition,
+                      isBlankPage: true
                     };
                     locationContent.set(locationIdFromUrl, contentToSend);
                   }
@@ -151,6 +180,7 @@ function setupWebSocket(server, library) {
                   if (matchingItem) {
                     let matchingItemContent = matchingItem.content;
                     let pageType = matchingItem.type;
+                    let pageCssCold = undefined;
                     const requestedPageNum = lastItem.page ?? 1;
                     if (Array.isArray(matchingItemContent) && matchingItemContent.length > 0) {
                       const pageItem = matchingItemContent.find(item => {
@@ -160,6 +190,7 @@ function setupWebSocket(server, library) {
                       if (pageItem) {
                         pageType = pageItem.type || 'text';
                         matchingItemContent = pageItem.content !== undefined && pageItem.content !== null ? pageItem.content : '';
+                        pageCssCold = pageItem.css;
                       } else {
                         pageType = matchingItemContent[0]?.type || 'text';
                         matchingItemContent = matchingItemContent[0]?.content || '';
@@ -169,29 +200,45 @@ function setupWebSocket(server, library) {
                     } else {
                       matchingItemContent = '';
                     }
+                    let mergedCssCold = matchingItem.css || undefined;
+                    if (pageCssCold && typeof pageCssCold === 'object' && Object.keys(pageCssCold).length > 0) {
+                      mergedCssCold = { ...(mergedCssCold || {}), ...pageCssCold };
+                    }
                     const settings2 = dbOps.getAllSettings();
+                    const savedChordState = dbOps.getLocationChordState(locationIdFromUrl);
+                    const coldChordVisibility = savedChordState.chordVisibility;
+                    const coldClientsShowChords = chordsVisibleForClients(coldChordVisibility);
+                    // Strip chords for clients if needed
+                    let coldContent = matchingItemContent;
+                    if (pageType === 'text' && typeof matchingItemContent === 'string' && !coldClientsShowChords) {
+                      coldContent = matchingItemContent.replace(/<chord\b[^>]*>.*?<\/chord>/gi, '');
+                    }
                     contentToSend = {
                       type: pageType,
-                      content: matchingItemContent,
+                      content: coldContent,
                       guid: lastItem.guid,
                       page: requestedPageNum,
                       background_color: matchingItem.background_color || settings2.defaultBackgroundColor || '#000000',
                       font_color: matchingItem.font_color || settings2.defaultFontColor || '#FFFFFF',
                       chord_font_color: settings2.defaultChordFontColor || '#FFD700',
-                      chordVisibility: 'everywhere',
-                      chordsVisible: true
+                      css: mergedCssCold,
+                      chordVisibility: coldChordVisibility,
+                      chordsVisible: coldClientsShowChords,
+                      chordTransposition: savedChordState.chordTransposition
                     };
                     locationContent.set(locationIdFromUrl, contentToSend);
                     const locState = locationStates.get(locationIdFromUrl) || {};
                     locState.currentLibraryItemGuid = lastItem.guid;
                     locState.currentLibraryItemPage = requestedPageNum;
+                    locState.chordVisibility = coldChordVisibility;
+                    locState.chordTransposition = savedChordState.chordTransposition;
                     locationStates.set(locationIdFromUrl, locState);
                   }
                 }
               }
             }
             if (contentToSend && ws.readyState === WebSocket.OPEN) {
-              const contentVisible = dbOps.getLocationContentVisible(locationIdFromUrl);
+              const contentVisible = getContentVisible(locationIdFromUrl);
               const contentMessage = { ...contentToSend, locationId: locationIdFromUrl, contentVisible };
               try {
                 ws.send(JSON.stringify(contentMessage));
@@ -244,6 +291,16 @@ function setupWebSocket(server, library) {
             console.warn('Received Change message without locationId, ignoring');
             return;
           }
+          
+          // Deduplicate: ignore repeated identical Change within window (prevents multi-admin loop)
+          const changeKey = `${locationId}:${message.guid}:${message.page ?? 1}`;
+          const last = lastChangeByLocation.get(locationId);
+          const now = Date.now();
+          if (last && last.key === changeKey && (now - last.at) < CHANGE_DEDUPE_MS) {
+            console.log('Ignoring duplicate Change (guid:', message.guid, ', page:', message.page, ') - dedupe window');
+            return;
+          }
+          lastChangeByLocation.set(locationId, { key: changeKey, at: now });
           
           // Store location for this client
           clientLocations.set(ws, locationId);
@@ -326,7 +383,7 @@ function setupWebSocket(server, library) {
             }
 
             // Store current content for this location (what display clients see)
-            const contentVisible = dbOps.getLocationContentVisible(locationId);
+            const contentVisible = getContentVisible(locationId);
             const locationContentData = {
               type: pageType,
               content: finalContentForClients,
@@ -350,24 +407,24 @@ function setupWebSocket(server, library) {
               chordVisibility: chordVisibility
             };
             
-            // Store last selected library item and page for new connections
+            // Store last selected library item, page and chord state for new connections
             const locationState = locationStates.get(locationId) || {};
             locationState.currentLibraryItemGuid = message.guid;
             locationState.currentLibraryItemPage = message.page ?? requestedPageNum ?? null;
             locationState.chordVisibility = chordVisibility;
+            locationState.chordTransposition = message.chordTransposition !== undefined ? message.chordTransposition : 0;
             locationStates.set(locationId, locationState);
             dbOps.setLocationLastItem(locationId, message.guid, requestedPageNum);
+            dbOps.setLocationChordState(locationId, chordVisibility, locationState.chordTransposition);
             
             const messageJsonForClients = JSON.stringify(locationContentData);
             const messageJsonForAdmin = JSON.stringify(adminContentData);
             let sentCount = 0;
             
-            // Only update and broadcast to display clients if content is visible
-            if (contentVisible) {
-              locationContent.set(locationId, locationContentData);
-            }
-            
-            // Always send to the sender (admin app) - send content with chords when chordsVisible is false so admin can show chords locally
+            // Always update locationContent (used for new connections)
+            locationContent.set(locationId, locationContentData);
+
+            // Always send to the sender (admin app)
             if (ws.readyState === WebSocket.OPEN) {
               try {
                 ws.send(messageJsonForAdmin);
@@ -379,17 +436,26 @@ function setupWebSocket(server, library) {
               }
             }
             
-            // Broadcast to other clients: admins get chorded content when chordVisibility is local
-            // (prevents requestContentWithChords loop when one admin reloads)
-            if (contentVisible) {
-              const payloadForAdmins = clientsShowChords ? messageJsonForClients : messageJsonForAdmin;
-              clients.forEach((client) => {
-                if (client === ws) return;
-                const clientLocationId = clientLocations.get(client);
-                if (client.readyState === WebSocket.OPEN && clientLocationId === locationId) {
+            // Broadcast to other clients:
+            //   Admins always receive so their preview stays in sync.
+            //   Display clients only receive when content is visible to the audience.
+            const payloadForAdmins = clientsShowChords ? messageJsonForClients : messageJsonForAdmin;
+            clients.forEach((client) => {
+              if (client === ws) return;
+              const clientLocationId = clientLocations.get(client);
+              if (client.readyState === WebSocket.OPEN && clientLocationId === locationId) {
+                if (adminClients.has(client)) {
                   try {
-                    const payload = adminClients.has(client) ? payloadForAdmins : messageJsonForClients;
-                    client.send(payload);
+                    client.send(payloadForAdmins);
+                    sentCount++;
+                  } catch (error) {
+                    console.error('Error sending message to admin client:', error);
+                    clients.delete(client);
+                    clientLocations.delete(client);
+                  }
+                } else if (contentVisible) {
+                  try {
+                    client.send(messageJsonForClients);
                     sentCount++;
                   } catch (error) {
                     console.error('Error sending message to client:', error);
@@ -397,8 +463,8 @@ function setupWebSocket(server, library) {
                     clientLocations.delete(client);
                   }
                 }
-              });
-            }
+              }
+            });
             
             if (sentCount > 0) {
               console.log(`Broadcasted item with guid ${message.guid} to ${sentCount} client(s) for location ${locationId}`);
@@ -425,8 +491,21 @@ function setupWebSocket(server, library) {
           
           console.log(`Received SetDisplayVisible for location ${locationId}, visible=${visible}`);
           
-          // Persist to DB
-          dbOps.setLocationContentVisible(locationId, visible);
+          // Persist to DB and in-memory cache
+          setContentVisible(locationId, visible);
+          
+          // Notify all admin clients of the new visibility state (so they update their toggle button)
+          const visibilityStateMsg = JSON.stringify({
+            type: 'DisplayVisibleState',
+            contentVisible: visible,
+            locationId: locationId
+          });
+          clients.forEach((client) => {
+            const clientLocationId = clientLocations.get(client);
+            if (client.readyState === WebSocket.OPEN && clientLocationId === locationId && adminClients.has(client)) {
+              try { client.send(visibilityStateMsg); } catch (e) { /* ignore */ }
+            }
+          });
           
           const locationState = locationStates.get(locationId) || {};
           // Do NOT clear currentLibraryItemGuid/Page - we need them to restore when toggling back
@@ -538,12 +617,18 @@ function setupWebSocket(server, library) {
               
               if (formattedItem) {
                 let blankPageContent = '';
+                let blankPageCssHide = undefined;
                 const blankPageArray = formattedItem.content;
                 const blankPageType = formattedItem.type || 'text';
                 if (Array.isArray(blankPageArray) && blankPageArray.length > 0) {
                   blankPageContent = blankPageArray[0].content || '';
+                  blankPageCssHide = blankPageArray[0].css;
                 } else if (typeof blankPageArray === 'string') {
                   blankPageContent = blankPageArray;
+                }
+                let mergedBlankCssHide = formattedItem.css || undefined;
+                if (blankPageCssHide && typeof blankPageCssHide === 'object' && Object.keys(blankPageCssHide).length > 0) {
+                  mergedBlankCssHide = { ...(mergedBlankCssHide || {}), ...blankPageCssHide };
                 }
                 let backgroundColor = formattedItem.background_color;
                 let fontColor = formattedItem.font_color;
@@ -559,8 +644,9 @@ function setupWebSocket(server, library) {
                   background_color: backgroundColor,
                   font_color: fontColor,
                   chord_font_color: chordFontColor,
-                  css: formattedItem.css || undefined,
-                  contentVisible: false
+                  css: mergedBlankCssHide,
+                  contentVisible: false,
+                  isBlankPage: true
                 };
                 locationContent.set(locationId, locationContentData);
                 const messageJson = JSON.stringify(locationContentData);
@@ -644,7 +730,7 @@ function setupWebSocket(server, library) {
               }
             }
             // Send content visible state for the visibility toggle button
-            const contentVisible = dbOps.getLocationContentVisible(adminLocationId);
+            const contentVisible = getContentVisible(adminLocationId);
             try {
               ws.send(JSON.stringify({
                 type: 'DisplayVisibleState',
@@ -654,8 +740,48 @@ function setupWebSocket(server, library) {
             } catch (err) {
               console.error('Error sending DisplayVisibleState to admin:', err);
             }
-            // Don't send content here - admin already received it from connection handler
-            // (admin connects with locationId in URL, so content was sent on connect)
+            // Re-send admin-version content (with chords) because the connection handler sent
+            // the client-version (chords stripped) before this client was marked as admin.
+            const adminContent = locationContent.get(adminLocationId);
+            const adminLocState = locationStates.get(adminLocationId) || {};
+            if (adminContent && ws.readyState === WebSocket.OPEN) {
+              try {
+                const adminChordVisibility = adminLocState.chordVisibility || adminContent.chordVisibility || 'everywhere';
+                const adminClientsShowChords = chordsVisibleForClients(adminChordVisibility);
+                if (!adminClientsShowChords && adminContent.type === 'text') {
+                  // Re-fetch raw content from DB for the admin version
+                  const rawItemForAdmin = dbOps.getLibraryItem(adminContent.guid);
+                  const formattedForAdmin = rawItemForAdmin ? dbOps.formatLibraryItem(rawItemForAdmin) : null;
+                  if (formattedForAdmin) {
+                    let adminRawContent = formattedForAdmin.content;
+                    const adminPage = adminContent.page ?? 1;
+                    if (Array.isArray(adminRawContent)) {
+                      const pageItem = adminRawContent.find(p => {
+                        const pn = typeof p.page === 'string' ? parseInt(p.page, 10) : p.page;
+                        return pn === adminPage;
+                      });
+                      adminRawContent = pageItem ? (pageItem.content || '') : (adminRawContent[0]?.content || '');
+                    }
+                    ws.send(JSON.stringify({
+                      ...adminContent,
+                      content: adminRawContent,
+                      chordVisibility: adminChordVisibility,
+                      chordTransposition: adminLocState.chordTransposition ?? adminContent.chordTransposition ?? 0,
+                      contentVisible: contentVisible
+                    }));
+                  }
+                } else {
+                  ws.send(JSON.stringify({
+                    ...adminContent,
+                    chordVisibility: adminChordVisibility,
+                    chordTransposition: adminLocState.chordTransposition ?? adminContent.chordTransposition ?? 0,
+                    contentVisible: contentVisible
+                  }));
+                }
+              } catch (err) {
+                console.error('Error sending admin content on AdminClient:', err);
+              }
+            }
           }
           return; // No further processing needed for AdminClient message
         }
@@ -914,11 +1040,12 @@ function setupWebSocket(server, library) {
             chordFontColor = settings.defaultChordFontColor || '#FFD700';
           }
           
+          // message.content     = transposed content (for display clients)
+          // message.rawContent  = untransposed original (for admins to store as originalContent)
           // Remove chords from content for clients when chordVisibility is not 'everywhere'
           let finalContent = message.content;
           if (message.type === 'text' && typeof message.content === 'string') {
             if (!clientsShowChords) {
-              // Remove all <chord> tags and their content
               finalContent = message.content.replace(/<chord\b[^>]*>.*?<\/chord>/gi, '');
             }
           }
@@ -927,8 +1054,14 @@ function setupWebSocket(server, library) {
           const locationState = locationStates.get(locationId) || {};
           const contentGuid = message.guid ?? locationState.currentLibraryItemGuid;
           const contentPage = message.page ?? locationState.currentLibraryItemPage ?? 1;
+          locationState.chordVisibility = chordVisibility;
+          locationState.chordTransposition = message.chordTransposition !== undefined ? message.chordTransposition : 0;
+          locationStates.set(locationId, locationState);
+          dbOps.setLocationChordState(locationId, chordVisibility, locationState.chordTransposition);
 
           // Update stored content for this location
+          // Preserve CSS from current locationContent if the message doesn't include it
+          const existingCss = locationContent.get(locationId)?.css;
           const locationContentData = {
             type: message.type,
             content: finalContent,
@@ -937,34 +1070,44 @@ function setupWebSocket(server, library) {
             background_color: message.background_color,
             font_color: message.font_color,
             chord_font_color: chordFontColor,
-            css: message.css || undefined,
+            css: message.css || existingCss || undefined,
             chordVisibility: chordVisibility,
-            chordsVisible: clientsShowChords, // Keep for client backward compat
+            chordsVisible: clientsShowChords,
             chordTransposition: message.chordTransposition !== undefined ? message.chordTransposition : 0
           };
           locationContent.set(locationId, locationContentData);
           
-          // Broadcast: admins get content with chords when chordVisibility is local (so they don't
-          // request it via Change and cause a loop); display clients get chordless.
-          // Include sender so the clicking admin's display updates (same path as other admins).
+          // Broadcast: admins receive rawContent (untransposed original) so they correctly store
+          // originalContent without double-transposition on refresh; display clients receive the
+          // transposed + chord-stripped content stored in locationContentData.
+          const adminContentForBroadcast = message.rawContent || message.content;
           const messageJsonForDisplays = JSON.stringify(locationContentData);
-          const messageJsonForAdmins = clientsShowChords ? messageJsonForDisplays : JSON.stringify({
-            ...locationContentData,
-            content: message.content
-          });
+          const messageJsonForAdmins = JSON.stringify({ ...locationContentData, content: adminContentForBroadcast });
           let sentCount = 0;
           
+          // Admins always receive chord/transposition updates; display clients only when visible.
+          const contentVisibleNow = getContentVisible(locationId);
           clients.forEach((client) => {
             const clientLocationId = clientLocations.get(client);
             if (client.readyState === WebSocket.OPEN && clientLocationId === locationId) {
-              try {
-                const payload = adminClients.has(client) ? messageJsonForAdmins : messageJsonForDisplays;
-                client.send(payload);
-                sentCount++;
-              } catch (error) {
-                console.error('Error sending content update message to client:', error);
-                clients.delete(client);
-                clientLocations.delete(client);
+              if (adminClients.has(client)) {
+                try {
+                  client.send(messageJsonForAdmins);
+                  sentCount++;
+                } catch (error) {
+                  console.error('Error sending content update to admin:', error);
+                  clients.delete(client);
+                  clientLocations.delete(client);
+                }
+              } else if (contentVisibleNow) {
+                try {
+                  client.send(messageJsonForDisplays);
+                  sentCount++;
+                } catch (error) {
+                  console.error('Error sending content update to display client:', error);
+                  clients.delete(client);
+                  clientLocations.delete(client);
+                }
               }
             }
           });

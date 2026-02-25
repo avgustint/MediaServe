@@ -5,6 +5,7 @@ import { environment } from '../../../environments/environment';
 export interface WebSocketMessage {
   type: 'text' | 'image' | 'url' | 'video' | 'iframe' | 'SelectPlaylist' | 'SelectLibraryItem' | 'ActionResponse' | 'KeyboardCommand' | 'UrlPlayPause' | 'DisplayVisibleState';
   content?: string;
+  rawContent?: string; // Untransposed original, sent alongside transposed content in chord updates
   guid?: number;
   page?: number;
   background_color?: string;
@@ -36,15 +37,20 @@ export class WebSocketService {
   private connectionStatusSubject = new BehaviorSubject<ConnectionStatus>('disconnected');
   public connectionStatus$ = this.connectionStatusSubject.asObservable();
 
-  /** Last content message received (for replay when playlist-view mounts after reconnect) */
+  /** Last real content message received (for replay when playlist-view mounts after reconnect).
+   *  Blank page messages (isBlankPage) are excluded so the admin can restore the
+   *  previously selected item when navigating back. */
   private lastContentSubject = new BehaviorSubject<WebSocketMessage | null>(null);
   public lastContent$ = this.lastContentSubject.asObservable();
+
+  /** Tracks display-visibility state so playlist-view can restore it after navigation */
+  private contentVisibleSubject = new BehaviorSubject<boolean>(true);
+  public contentVisible$ = this.contentVisibleSubject.asObservable();
 
   private reconnectTimeout: any = null;
   private currentLocationId: number | null = null;
   private fallbackUrl: string | null = null;
   private reconnectAttempts = 0;
-  private maxReconnectAttempts = 5;
   private isUsingFallback = false;
 
   private getWsUrl(): string {
@@ -152,9 +158,20 @@ export class WebSocketService {
         try {
           const data = JSON.parse(event.data) as WebSocketMessage;
           this.messageSubject.next(data);
-          // Store content messages for late subscribers (e.g. playlist-view mounting after reconnect)
-          if (data.type === 'text' || data.type === 'image' || data.type === 'url' || data.type === 'video' || data.type === 'iframe') {
-            this.lastContentSubject.next(data);
+
+          if (data.type === 'DisplayVisibleState') {
+            if (data.contentVisible !== undefined) {
+              this.contentVisibleSubject.next(data.contentVisible);
+            }
+          } else if (data.type === 'text' || data.type === 'image' || data.type === 'url' || data.type === 'video' || data.type === 'iframe') {
+            if ((data as any).isBlankPage === true) {
+              this.contentVisibleSubject.next(false);
+            } else {
+              this.lastContentSubject.next(data);
+              if (data.contentVisible === true) {
+                this.contentVisibleSubject.next(true);
+              }
+            }
           }
         } catch (error) {
           console.error('Error parsing WebSocket message:', error);
@@ -185,20 +202,18 @@ export class WebSocketService {
         // Only attempt reconnect if it wasn't a manual disconnect
         if (event.code !== 1000) {
           // Try fallback if primary failed and we haven't tried it yet
-          if (!isFallback && this.fallbackUrl && this.reconnectAttempts < this.maxReconnectAttempts) {
+          if (!isFallback && this.fallbackUrl) {
             console.log(`Connection failed, trying fallback URL: ${this.fallbackUrl}`);
             this.reconnectAttempts++;
             this.reconnectTimeout = setTimeout(() => {
               this.attemptConnection(this.fallbackUrl!, true, this.currentLocationId || undefined);
             }, 3000);
-          } else if (this.reconnectAttempts < this.maxReconnectAttempts) {
-            // Retry with same URL
+          } else {
+            // Retry with same URL (no limit - keep trying indefinitely)
             this.reconnectAttempts++;
             this.reconnectTimeout = setTimeout(() => {
               this.attemptConnection(url, isFallback, this.currentLocationId || undefined);
             }, 5000);
-          } else {
-            console.error('Max reconnection attempts reached');
           }
         }
       };
@@ -206,13 +221,13 @@ export class WebSocketService {
       console.error('Failed to create WebSocket connection:', error);
       this.connectionStatusSubject.next('disconnected');
       
-      // Try fallback if available
-      if (!isFallback && this.fallbackUrl && this.reconnectAttempts < this.maxReconnectAttempts) {
+      // Try fallback if available, otherwise retry same URL (no limit - keep trying indefinitely)
+      if (!isFallback && this.fallbackUrl) {
         this.reconnectAttempts++;
         this.reconnectTimeout = setTimeout(() => {
           this.attemptConnection(this.fallbackUrl!, true, locationId);
         }, 1000);
-      } else if (this.reconnectAttempts < this.maxReconnectAttempts) {
+      } else {
         this.reconnectAttempts++;
         this.reconnectTimeout = setTimeout(() => {
           this.attemptConnection(url, isFallback, locationId);
@@ -236,7 +251,8 @@ export class WebSocketService {
     this.connectionStatusSubject.next('disconnected');
     this.reconnectAttempts = 0;
     this.isUsingFallback = false;
-    this.lastContentSubject.next(null); // Clear stored content on disconnect
+    this.lastContentSubject.next(null);
+    this.contentVisibleSubject.next(true);
   }
 
   send(message: string): void {

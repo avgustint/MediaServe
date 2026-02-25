@@ -32,8 +32,9 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
   // Duration of slide transition in ms (keep in sync with CSS)
   private readonly textTransitionDuration = 400;
 
-  // Simple slide-in animation toggle for non-text content (image, url, video, iframe)
+  // Fade animation toggle for non-text content (image, url, video, iframe)
   mediaSlideToggle: boolean = false;
+  private readonly mediaTransitionDuration = 400;
 
   private subscription?: Subscription;
   private connectionStatusSubscription?: Subscription;
@@ -195,8 +196,7 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
             });
           });
         } else {
-          // For non-text content (image, url, video, iframe), always use slide transition
-          // Hide text first if it was showing
+          // For non-text content (image, url, video, iframe), use fade out / fade in
           if (this.currentTextContent) {
             this.isTextReady = false;
             this.currentTextContent = null;
@@ -204,23 +204,17 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
             this.isTextTransitioning = false;
           }
 
-          // Update non-text content and trigger slide-in animation
-          // First, hide the current content by moving it off-screen
+          // Fade out current content, then update and fade in new content
+          const hadMediaContent = this.currentContent && this.currentContent.type !== 'text';
           this.mediaSlideToggle = false;
-          
-          // Wait for the container to move off-screen, then update content and slide in
-          requestAnimationFrame(() => {
+          const delay = hadMediaContent ? this.mediaTransitionDuration : 0;
+          setTimeout(() => {
+            this.currentContent = message;
+            this.cdr.detectChanges();
             requestAnimationFrame(() => {
-              // Update content while off-screen
-              this.currentContent = message;
-              this.cdr.detectChanges();
-              
-              // Now slide it in from the right
-              requestAnimationFrame(() => {
-                this.mediaSlideToggle = true;
-              });
+              this.mediaSlideToggle = true;
             });
-          });
+          }, delay);
         }
       }
     });

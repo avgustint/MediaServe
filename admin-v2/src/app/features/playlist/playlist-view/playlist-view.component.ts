@@ -103,6 +103,10 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
   private lastManualSelectionTime: number = 0;
   private lastManualSelectionGuid: number | undefined = undefined;
 
+  // Throttle requestContentWithChords to prevent multi-admin loop (don't re-request right after receiving)
+  private lastContentReceivedAt: number = 0;
+  private static readonly REQUEST_CHORDS_DEBOUNCE_MS = 600;
+
 
   constructor(
     private websocketService: WebSocketService,
@@ -124,6 +128,11 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
     // Load chord settings from service
     this.chordTransposition = this.chordSettingsService.getChordTransposition();
     this.chordDisplayState = this.chordSettingsService.getChordDisplayState();
+
+    // Restore contentVisible state from service (survives component destruction during navigation)
+    this.websocketService.contentVisible$.pipe(take(1)).subscribe((visible) => {
+      this.contentVisible = visible;
+    });
 
     // Apply last content if we missed it (e.g. mounted after reconnect - Subject doesn't replay)
     this.lastContentSubscription = this.websocketService.lastContent$.pipe(
@@ -187,20 +196,11 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
           const timeSinceLastManualSelection = now - this.lastManualSelectionTime;
           
           // If we just made a manual selection (within last 2 seconds) and this sync message
-          // is for a different GUID, ignore it (it's likely stale)
+          // is for a different GUID, ignore it (it's likely stale from before our click)
           if (timeSinceLastManualSelection < 2000 && 
               this.lastManualSelectionGuid !== undefined && 
               message.guid !== this.lastManualSelectionGuid) {
-            console.log(`Ignoring stale SelectLibraryItem sync for guid ${message.guid}, current selection is ${this.lastManualSelectionGuid}`);
-            return;
-          }
-          
-          // Also ignore if we have a current selection and this sync message is for a different item
-          // (unless we don't have a selection yet, in which case allow sync to set it)
-          if (this.currentItemGuid !== undefined && 
-              message.guid !== this.currentItemGuid &&
-              this.activeTab === 'manual') {
-            console.log(`Ignoring SelectLibraryItem sync for guid ${message.guid}, current selection is ${this.currentItemGuid}`);
+            console.log(`Ignoring stale SelectLibraryItem sync for guid ${message.guid}, we just selected ${this.lastManualSelectionGuid}`);
             return;
           }
           
@@ -211,17 +211,35 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
 
       // Handle content messages
       if (message.type === 'text' || message.type === 'image' || message.type === 'url' || message.type === 'video' || message.type === 'iframe') {
-        // Update contentVisible from message (server includes it so admin has correct toggle state on load)
-        if (message.contentVisible !== undefined) {
-          this.contentVisible = message.contentVisible;
+        this.lastContentReceivedAt = Date.now();
+
+        // contentVisible state is authoritative only from:
+        //   1. DisplayVisibleState messages (handled separately above)
+        //   2. isBlankPage messages  (server explicitly sending hide/blank page)
+        //   3. contentVisible:true   (content is being made visible again)
+        // Ordinary content messages with contentVisible:false (e.g. Change response while
+        // the audience display is hidden) must NOT flip the admin overlay on.
+        if ((message as any).isBlankPage === true) {
+          // Explicit blank/hide page — update visibility flag and stop here so the
+          // admin keeps showing the current song preview under the overlay.
+          this.contentVisible = false;
+          return;
         }
+        if (message.contentVisible === true) {
+          this.contentVisible = true;
+        }
+
         // Determine the GUID for this message
         const messageGuid = message.guid !== undefined ? message.guid : this.currentItemGuid;
         
-        // Check if this message is for the current item (to avoid processing stale messages)
+        // Ignore content for a different item only if WE just clicked something locally
+        // (cross-admin updates from another admin should always be accepted)
         if (messageGuid !== undefined && this.currentItemGuid !== undefined && messageGuid !== this.currentItemGuid) {
-          // This message is for a different item, ignore it completely
-          return;
+          const msSinceLocalSelect = Date.now() - this.lastManualSelectionTime;
+          if (msSinceLocalSelect < 2000 && this.lastManualSelectionGuid === this.currentItemGuid) {
+            return; // Stale content — arrived before our own click was broadcast
+          }
+          // Otherwise accept: another admin changed the item
         }
         
         // Update currentContent with the received message
@@ -277,29 +295,18 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
           // Determine the page number for this message
           const messagePage = message.page !== undefined ? message.page : this.currentPage;
           
-          // Only update originalContent if:
-          // 1. This is a new item (different GUID), OR
-          // 2. This is a different page of the same item (different page), OR
-          // 3. We don't have originalContent yet for this item/page combination
-          const isNewItemOrPage = (messageGuid !== undefined && messageGuid !== this.originalContentGuid) ||
-                                  (messagePage !== undefined && messagePage !== this.originalContentPage) ||
-                                  (messageGuid !== undefined && messagePage !== undefined && 
-                                   (this.originalContentGuid === null || this.originalContentPage === null));
-          const shouldUpdateOriginal = isNewItemOrPage || (this.originalContentGuid === null && hasChords);
-          
-          if (shouldUpdateOriginal && hasChords) {
-            // Store as original content (with chords) - this is the TRUE original, untransposed
-            this.originalContent = this.extractOriginalContent(receivedContent);
-            if (messageGuid !== undefined) {
-              this.originalContentGuid = messageGuid;
-            } else if (this.currentItemGuid !== undefined) {
-              this.originalContentGuid = this.currentItemGuid;
-            }
-            if (messagePage !== undefined) {
-              this.originalContentPage = messagePage;
-            } else if (this.currentPage !== undefined) {
-              this.originalContentPage = this.currentPage;
-            }
+          // Always update originalContent from the best available raw source.
+          // Prefer message.rawContent (explicit untransposed field from broadcastContentUpdate).
+          // Fall back to receivedContent if it has chords (e.g. server-fetched via Change).
+          const rawSource = message.rawContent;
+          if (rawSource) {
+            this.originalContent = rawSource;
+            this.originalContentGuid = messageGuid ?? this.currentItemGuid ?? null;
+            this.originalContentPage = messagePage ?? this.currentPage ?? null;
+          } else if (hasChords) {
+            this.originalContent = receivedContent;
+            this.originalContentGuid = messageGuid ?? this.currentItemGuid ?? null;
+            this.originalContentPage = messagePage ?? this.currentPage ?? null;
           }
           
           // Set the content initially to what we received
@@ -1506,6 +1513,11 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
     if (!this.currentItemGuid) {
       return;
     }
+    // Skip if we just received content (prevents multi-admin loop - don't re-request immediately)
+    const now = Date.now();
+    if ((now - this.lastContentReceivedAt) < PlaylistViewComponent.REQUEST_CHORDS_DEBOUNCE_MS) {
+      return;
+    }
     
     const user = this.userService.getUser();
     const changeMessage: any = {
@@ -1747,18 +1759,26 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     const user = this.userService.getUser();
-    
-    // For 'local' state, restore original content first (to ensure we have chords)
-    // We'll send this to clients with chordsVisible: false
-    if (this.chordDisplayState === 'local') {
-      this.restoreOriginalContent();
-    } else if (this.chordDisplayState === 'everywhere' || this.chordDisplayState === 'hidden') {
-      // For 'everywhere' or 'hidden', restore original content first
-      this.restoreOriginalContent();
-    }
 
-    // Always send content with chords - let clients handle visibility via chordVisibility
-    const contentToSend = this.currentContent.content;
+    // For text: send two fields so server can route correctly:
+    //   content    = transposed content  → forwarded to display clients as-is
+    //   rawContent = untransposed original → forwarded to other admins so they never
+    //                                        store pre-transposed text as their originalContent
+    // For non-text: single content field (no transposition concept).
+    let contentToSend: string | undefined;
+    let rawContentToSend: string | undefined;
+    if (this.currentContent.type === 'text' && this.originalContent) {
+      // Build transposed version without mutating currentContent permanently
+      rawContentToSend = this.originalContent;
+      if (this.chordTransposition !== 0) {
+        this.restoreOriginalContent(); // sets currentContent.content = original + transposition
+        contentToSend = this.currentContent.content as string;
+      } else {
+        contentToSend = this.originalContent;
+      }
+    } else {
+      contentToSend = this.currentContent.content as string;
+    }
 
     // Only send if we have valid content and locationId
     if (!contentToSend || !user?.locationId) {
@@ -1768,10 +1788,12 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
     const message: any = {
       type: this.currentContent.type,
       content: contentToSend,
+      rawContent: rawContentToSend,
       guid: this.currentContent.guid,
       page: this.currentContent.page,
       background_color: this.currentContent.background_color,
       font_color: this.currentContent.font_color,
+      css: this.currentContent.css,
       chordVisibility: this.chordDisplayState,
       chordTransposition: this.chordTransposition,
       locationId: user.locationId

@@ -1099,6 +1099,26 @@ const dbOps = {
     }
   },
 
+  getLocationChordState(locationId) {
+    const chordVisibility = this.getSetting(`location_${locationId}_chordVisibility`);
+    const chordTransposition = this.getSetting(`location_${locationId}_chordTransposition`);
+    const validVisibility = chordVisibility === 'everywhere' || chordVisibility === 'local' || chordVisibility === 'hidden'
+      ? chordVisibility : 'everywhere';
+    return {
+      chordVisibility: validVisibility,
+      chordTransposition: chordTransposition ? parseInt(chordTransposition, 10) : 0
+    };
+  },
+
+  setLocationChordState(locationId, chordVisibility, chordTransposition) {
+    if (chordVisibility) {
+      this.setSetting(`location_${locationId}_chordVisibility`, chordVisibility);
+    }
+    if (chordTransposition !== undefined && chordTransposition !== null) {
+      this.setSetting(`location_${locationId}_chordTransposition`, String(chordTransposition));
+    }
+  },
+
   // Page operations
   createPage(content = '', type = 'text', css = null) {
     const db = getDatabase();

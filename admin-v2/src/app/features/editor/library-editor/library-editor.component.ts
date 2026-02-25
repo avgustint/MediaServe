@@ -492,14 +492,14 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
       next: (usageInfo) => {
         if (usageInfo.isUsed) {
           const playlistNames = usageInfo.playlists.map(p => p.name).join(", ");
-          this.showErrorPopup(`Cannot delete library item "${item.name}". It is used in the following playlist(s): ${playlistNames}`);
+          this.showErrorPopup(`${this.translationService.translate('cannotDeleteItem')}. ${this.translationService.translate('itemUsedInPlaylistsDetail')} ${playlistNames}`);
           return;
         }
 
         // Show confirmation dialog
         this.itemToDeleteGuid = item.guid;
-        this.confirmDialogTitle = "Delete Library Item";
-        this.confirmDialogMessage = `Are you sure you want to delete library item "${item.name}"? This action cannot be undone.`;
+        this.confirmDialogTitle = this.translationService.translate('confirmDelete');
+        this.confirmDialogMessage = `${this.translationService.translate('confirmDeleteMessage')}`;
         this.showConfirmDialog = true;
       },
       error: (error) => {
@@ -577,6 +577,10 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
     this.backgroundColor = "";
     this.fontColor = "";
     this.cssProperties = "";
+    this.showRecentItems = true;
+    this.showSearchResults = false;
+    this.searchTerm = "";
+    this.searchResults = [];
     this.loadRecentItems();
   }
 
@@ -1506,8 +1510,8 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
 
     // Show confirmation dialog
     this.itemToDeleteGuid = this.editingItem.guid;
-    this.confirmDialogTitle = "Delete Library Item";
-    this.confirmDialogMessage = `Are you sure you want to delete library item "${this.editingItem.name}"? This action cannot be undone.`;
+    this.confirmDialogTitle = this.translationService.translate('confirmDelete');
+    this.confirmDialogMessage = `${this.translationService.translate('confirmDeleteMessage')}`;
     this.showConfirmDialog = true;
   }
 
@@ -1524,7 +1528,7 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
       next: (usageInfo) => {
         if (usageInfo.isUsed) {
           const playlistNames = usageInfo.playlists.map(p => p.name).join(", ");
-          this.showErrorPopup(`Cannot delete library item "${itemName}". It is used in the following playlist(s): ${playlistNames}`);
+          this.showErrorPopup(`${this.translationService.translate('cannotDeleteItem')}. ${this.translationService.translate('itemUsedInPlaylistsDetail')} ${playlistNames}`);
           this.closeConfirmDialog();
           return;
         }
