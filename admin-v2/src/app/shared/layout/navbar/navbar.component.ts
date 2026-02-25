@@ -69,7 +69,7 @@ export class NavbarComponent implements OnInit, OnDestroy {
   }
 
   shouldShowPlaylistButton(): boolean {
-    return this.hasViewEditorPermission() || this.hasViewSettingsPermission();
+    return this.userService.hasPermission('ViewPlaylist') || this.hasViewEditorPermission() || this.hasViewSettingsPermission();
   }
 
   navigateToPlaylist(): void {

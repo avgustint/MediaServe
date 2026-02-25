@@ -2,7 +2,7 @@
   <div class="buttons-grid">
     <button class="control-btn power-off-btn" (click)="powerOff()" [class.disabled]="getStatus('powerOff')?.status === 'processing'">
       <i class="fas fa-power-off"></i>
-      <span>Power Off</span>
+      <span>{{ 'powerOff' | translate }}</span>
       <div class="status-indicator" [ngClass]="getStatusClass('powerOff')" *ngIf="getStatus('powerOff')">
         <i [class]="getStatus('powerOff')?.status === 'processing' ? 'fas fa-spinner fa-spin' : 
                     getStatus('powerOff')?.status === 'success' ? 'fas fa-check' : 
@@ -12,7 +12,7 @@
     </button>
     <button class="control-btn power-on-btn" (click)="powerOn()" [class.disabled]="getStatus('powerOn')?.status === 'processing'">
       <i class="fas fa-toggle-on"></i>
-      <span>Power On</span>
+      <span>{{ 'powerOn' | translate }}</span>
       <div class="status-indicator" [ngClass]="getStatusClass('powerOn')" *ngIf="getStatus('powerOn')">
         <i [class]="getStatus('powerOn')?.status === 'processing' ? 'fas fa-spinner fa-spin' : 
                     getStatus('powerOn')?.status === 'success' ? 'fas fa-check' : 
@@ -22,7 +22,7 @@
     </button>
     <button class="control-btn volume-up-btn" (click)="volumeUp()" [class.disabled]="getStatus('volumeUp')?.status === 'processing'">
       <i class="fas fa-volume-up"></i>
-      <span>Volume Up</span>
+      <span>{{ 'volumeUp' | translate }}</span>
       <div class="status-indicator" [ngClass]="getStatusClass('volumeUp')" *ngIf="getStatus('volumeUp')">
         <i [class]="getStatus('volumeUp')?.status === 'processing' ? 'fas fa-spinner fa-spin' : 
                     getStatus('volumeUp')?.status === 'success' ? 'fas fa-check' : 
@@ -32,7 +32,7 @@
     </button>
     <button class="control-btn volume-down-btn" (click)="volumeDown()" [class.disabled]="getStatus('volumeDown')?.status === 'processing'">
       <i class="fas fa-volume-down"></i>
-      <span>Volume Down</span>
+      <span>{{ 'volumeDown' | translate }}</span>
       <div class="status-indicator" [ngClass]="getStatusClass('volumeDown')" *ngIf="getStatus('volumeDown')">
         <i [class]="getStatus('volumeDown')?.status === 'processing' ? 'fas fa-spinner fa-spin' : 
                     getStatus('volumeDown')?.status === 'success' ? 'fas fa-check' : 
@@ -42,4 +42,3 @@
     </button>
   </div>
 </div>
-

@@ -19,6 +19,11 @@ export interface TranslationKeys {
   editor: string;
   settings: string;
   display: string;
+  powerOff: string;
+  powerOn: string;
+  volumeUp: string;
+  volumeDown: string;
+  cecClientNotInstalled: string;
   logout: string;
   confirmLogout: string;
   logoutConfirmMessage: string;
@@ -393,6 +398,11 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     editor: 'Editor',
     settings: 'Settings',
     display: 'TV Remote',
+    powerOff: 'Power Off',
+    powerOn: 'Power On',
+    volumeUp: 'Volume Up',
+    volumeDown: 'Volume Down',
+    cecClientNotInstalled: 'cec-client not found. Please install the cec-utils package.',
     logout: 'Logout',
     confirmLogout: 'Confirm Logout',
     logoutConfirmMessage: 'Are you sure you want to logout?',
@@ -765,6 +775,11 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     editor: 'Urejevalnik',
     settings: 'Nastavitve',
     display: 'TV Daljinec',
+    powerOff: 'Izklopi',
+    powerOn: 'Vklopi',
+    volumeUp: 'Glasnost +',
+    volumeDown: 'Glasnost -',
+    cecClientNotInstalled: 'cec-client ni nameščen. Namestite paket cec-utils.',
     logout: 'Odjava',
     confirmLogout: 'Potrditev odjave',
     logoutConfirmMessage: 'Ali ste prepričani, da se želite odjaviti?',
@@ -1137,6 +1152,11 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     editor: 'Editor',
     settings: 'Impostazioni',
     display: 'Telecomando TV',
+    powerOff: 'Spegni',
+    powerOn: 'Accendi',
+    volumeUp: 'Volume +',
+    volumeDown: 'Volume -',
+    cecClientNotInstalled: 'cec-client non trovato. Installare il pacchetto cec-utils.',
     logout: 'Esci',
     confirmLogout: 'Conferma uscita',
     logoutConfirmMessage: 'Sei sicuro di voler uscire?',
