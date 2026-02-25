@@ -7,6 +7,7 @@ import { TagsService, Tag } from "../../editor/services/tags.service";
 import { TranslatePipe } from "../../../shared/pipes/translation.pipe";
 import { TranslationService } from "../../../core/services/translation.service";
 import { ViewportService } from "../../../core/services/viewport.service";
+import { RecentItemsService, RecentItem } from "../services/recent-items.service";
 import { Observable, Subject, Subscription, debounceTime, distinctUntilChanged, switchMap, of, forkJoin } from "rxjs";
 import { InputTextModule } from "primeng/inputtext";
 import { SelectModule } from "primeng/select";
@@ -45,18 +46,30 @@ export class SearchComponent implements OnInit, OnDestroy, AfterViewInit {
   // For PrimeNG Dropdown
   collectionOptions: Array<{ label: string; value: number | null }> = [];
 
+  recentItems: RecentItem[] = [];
+
   viewportInfo: any = { availableHeight: 0, keyboardHeight: 0 };
   private viewportSubscription?: Subscription;
+  private recentItemsSubscription?: Subscription;
 
   constructor(
     private playlistService: PlaylistService,
     private collectionsService: CollectionsService,
     private tagsService: TagsService,
     private translationService: TranslationService,
-    private viewportService: ViewportService
+    private viewportService: ViewportService,
+    private recentItemsService: RecentItemsService
   ) {}
 
+  get showRecentItems(): boolean {
+    return !this.showSearchResults && this.searchTerm.trim().length === 0 && !this.hasActiveFilters() && this.recentItems.length > 0;
+  }
+
   ngOnInit(): void {
+    this.recentItemsSubscription = this.recentItemsService.recentItems$.subscribe(items => {
+      this.recentItems = items;
+    });
+
     // Subscribe to viewport changes
     this.viewportSubscription = this.viewportService.viewportInfo$.subscribe(info => {
       this.viewportInfo = info;
@@ -137,6 +150,7 @@ export class SearchComponent implements OnInit, OnDestroy, AfterViewInit {
   ngOnDestroy(): void {
     this.searchSubscription?.unsubscribe();
     this.viewportSubscription?.unsubscribe();
+    this.recentItemsSubscription?.unsubscribe();
   }
 
   // Removed body append logic - search results are always displayed in component
@@ -317,21 +331,35 @@ export class SearchComponent implements OnInit, OnDestroy, AfterViewInit {
     this.searchTerm = "";
     this.showSearchResults = false;
     this.searchResults = [];
-    // Fetch the full item by GUID to ensure all pages are loaded correctly
-    // Search results may have incomplete data, so we need to fetch the complete item
+    this.recentItemsService.addItem(item);
     this.playlistService.getLibraryItemByGuid(item.guid).subscribe({
       next: (fullItem) => {
         if (fullItem) {
           this.itemClick.emit({ item: fullItem, page: 1 });
         } else {
-          // Fallback to using the search result item if full item fetch fails
           this.itemClick.emit({ item: item, page: 1 });
         }
       },
       error: (error) => {
         console.error("Error loading full library item:", error);
-        // Fallback to using the search result item if fetch fails
         this.itemClick.emit({ item: item, page: 1 });
+      }
+    });
+  }
+
+  onRecentItemSelect(recentItem: RecentItem): void {
+    this.recentItemsService.addItem(recentItem);
+    this.playlistService.getLibraryItemByGuid(recentItem.guid).subscribe({
+      next: (fullItem) => {
+        if (fullItem) {
+          this.itemClick.emit({ item: fullItem, page: 1 });
+        } else {
+          this.itemClick.emit({ item: { guid: recentItem.guid, name: recentItem.name, type: recentItem.type as any }, page: 1 });
+        }
+      },
+      error: (error) => {
+        console.error("Error loading library item:", error);
+        this.itemClick.emit({ item: { guid: recentItem.guid, name: recentItem.name, type: recentItem.type as any }, page: 1 });
       }
     });
   }

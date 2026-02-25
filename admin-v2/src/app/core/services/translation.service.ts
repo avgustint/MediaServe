@@ -192,6 +192,7 @@ export interface TranslationKeys {
   deletePlaylist: string;
   deleteItem: string;
   recentlyModified: string;
+  recentlySelected: string;
   modified: string;
   selectPlaylist: string;
   noPlaylistsFound: string;
@@ -572,6 +573,7 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     deletePlaylist: 'Delete Playlist',
     deleteItem: 'Delete item',
     recentlyModified: 'Recently Modified (Last 50)',
+    recentlySelected: 'Recently Selected',
     modified: 'Modified:',
     selectPlaylist: 'Select a playlist',
     noPlaylistsFound: 'No playlists found',
@@ -949,6 +951,7 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     deletePlaylist: 'Izbriši seznam predvajanja',
     deleteItem: 'Izbriši postavko',
     recentlyModified: 'Nedavno spremenjeno (zadnjih 50)',
+    recentlySelected: 'Nedavno izbrano',
     modified: 'Spremenjeno:',
     selectPlaylist: 'Izberite seznam predvajanja',
     noPlaylistsFound: 'Ni najdenih seznamov predvajanja',
@@ -1326,6 +1329,7 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     deletePlaylist: 'Elimina playlist',
     deleteItem: 'Elimina elemento',
     recentlyModified: 'Modificati di recente (ultimi 50)',
+    recentlySelected: 'Selezionati di recente',
     modified: 'Modificato:',
     selectPlaylist: 'Seleziona una playlist',
     noPlaylistsFound: 'Nessuna playlist trovata',

@@ -6,6 +6,7 @@ import { WebSocketService } from "../../../core/services/websocket.service";
 import { UserService } from "../../../core/services/user.service";
 import { ViewportService } from "../../../core/services/viewport.service";
 import { TranslationService } from "../../../core/services/translation.service";
+import { RecentItemsService, RecentItem } from "../services/recent-items.service";
 import { TranslatePipe } from "../../../shared/pipes/translation.pipe";
 import { Subscription } from "rxjs";
 
@@ -25,19 +26,26 @@ export class ManualComponent implements OnInit, OnDestroy {
   pages: LibraryContent[] = [];
   searchedGuid: string = ""; // Track the GUID that was searched to show error message
   
+  recentItems: RecentItem[] = [];
+
   viewportInfo: any = { availableHeight: 0, keyboardHeight: 0 };
   private viewportSubscription?: Subscription;
+  private recentItemsSubscription?: Subscription;
 
   constructor(
     private playlistService: PlaylistService,
     private websocketService: WebSocketService,
     private userService: UserService,
     private viewportService: ViewportService,
-    private translationService: TranslationService
+    private translationService: TranslationService,
+    private recentItemsService: RecentItemsService
   ) {}
 
   ngOnInit(): void {
-    // Subscribe to viewport changes
+    this.recentItemsSubscription = this.recentItemsService.recentItems$.subscribe(items => {
+      this.recentItems = items;
+    });
+
     this.viewportSubscription = this.viewportService.viewportInfo$.subscribe(info => {
       this.viewportInfo = info;
     });
@@ -45,6 +53,7 @@ export class ManualComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.viewportSubscription?.unsubscribe();
+    this.recentItemsSubscription?.unsubscribe();
   }
 
   onNumberClick(number: string): void {
@@ -144,6 +153,10 @@ export class ManualComponent implements OnInit, OnDestroy {
     }
   }
 
+
+  onRecentItemSelect(recentItem: RecentItem): void {
+    this.loadLibraryItem(recentItem.guid);
+  }
 
   loadLibraryItem(guid: number): void {
     this.playlistService.getLibraryItemByGuid(guid).subscribe({

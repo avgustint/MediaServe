@@ -11,6 +11,7 @@ import { TranslatePipe } from "../../../shared/pipes/translation.pipe";
 import { FormatTextPipe } from "../../../shared/pipes/format-text.pipe";
 import { UserService } from "../../../core/services/user.service";
 import { KeyboardCommandService } from "../../../core/services/keyboard-command.service";
+import { RecentItemsService } from "../services/recent-items.service";
 import { environment } from "../../../../environments/environment";
 import { Subscription } from "rxjs";
 import { filter, take } from "rxjs/operators";
@@ -115,6 +116,7 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
     private userService: UserService,
     private chordSettingsService: ChordSettingsService,
     private keyboardCommandService: KeyboardCommandService,
+    private recentItemsService: RecentItemsService,
     private cdr: ChangeDetectorRef
   ) {}
 
@@ -733,16 +735,10 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
         this.manualItemPages = [];
         this.playlistService.getLibraryItemByGuid(item.guid).subscribe({
           next: (fullItem) => {
-            if (fullItem && fullItem.type === 'text') {
-              if (Array.isArray(fullItem.content)) {
-                // Extract page numbers from content array
-                this.manualItemPages = fullItem.content.map((pageContent: any) => pageContent.page || 1);
-              } else {
-                // Single page item
-                this.manualItemPages = [1];
-              }
+            if (fullItem && Array.isArray(fullItem.content) && fullItem.content.length > 0) {
+              this.manualItemPages = fullItem.content.map((pageContent: any) => pageContent.page || 1);
             } else {
-              this.manualItemPages = [];
+              this.manualItemPages = [1];
             }
             console.log('onPlaylistItemClick - loaded pages from library:', this.manualItemPages);
           },
@@ -768,7 +764,7 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
         if (fullItem && fullItem.guid === this.currentItemGuid) {
           this.manualItem = fullItem;
           this.currentItemName = fullItem.name;
-          if (fullItem.type === 'text' && Array.isArray(fullItem.content)) {
+          if (Array.isArray(fullItem.content) && fullItem.content.length > 0) {
             this.manualItemPages = fullItem.content.map((pageContent: { page?: number }) => pageContent.page || 1);
           } else {
             this.manualItemPages = [1];
@@ -810,16 +806,19 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
   updateItemSelection(guid: number, page: number, item: LibraryItem, fromSync: boolean): void {
     this.isReceivingSelection = fromSync;
     
+    if (!fromSync) {
+      this.recentItemsService.addItem(item);
+    }
+
     // Set manualItem/manualItemPages for page buttons (needed on refresh when SelectLibraryItem received)
     this.manualItem = item;
     this.currentItemName = item.name;
-    if (item.type === 'text') {
-      // Prefer playlist item's pages (filtered selection) when available
-      this.manualItemPages = (item.pages && item.pages.length > 0)
-        ? item.pages
-        : (Array.isArray(item.content) ? item.content.map((p: { page?: number }) => p.page || 1) : [1]);
+    if (item.pages && item.pages.length > 0) {
+      this.manualItemPages = item.pages;
+    } else if (Array.isArray(item.content) && item.content.length > 0) {
+      this.manualItemPages = item.content.map((p: { page?: number }) => p.page || 1);
     } else {
-      this.manualItemPages = [];
+      this.manualItemPages = [1];
     }
     
     // If this is a new item OR a different page of the same item, reset originalContent tracking
@@ -904,16 +903,10 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
         this.manualItemPages = [];
         this.playlistService.getLibraryItemByGuid(event.item.guid).subscribe({
           next: (fullItem) => {
-            if (fullItem && fullItem.type === 'text') {
-              if (Array.isArray(fullItem.content)) {
-                // Extract page numbers from content array
-                this.manualItemPages = fullItem.content.map((pageContent: any) => pageContent.page || 1);
-              } else {
-                // Single page item
-                this.manualItemPages = [1];
-              }
+            if (fullItem && Array.isArray(fullItem.content) && fullItem.content.length > 0) {
+              this.manualItemPages = fullItem.content.map((pageContent: any) => pageContent.page || 1);
             } else {
-              this.manualItemPages = [];
+              this.manualItemPages = [1];
             }
           },
           error: (error) => {
@@ -942,27 +935,20 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
         if (fullItem) {
           // Store manual item details for navigation
           this.manualItem = fullItem;
-          if (fullItem.type === 'text') {
-            if (Array.isArray(fullItem.content)) {
-              // Extract page numbers from content array
-              this.manualItemPages = fullItem.content.map((pageContent: any) => pageContent.page || 1);
-            } else {
-              // Single page item
-              this.manualItemPages = [1];
-            }
+          if (Array.isArray(fullItem.content) && fullItem.content.length > 0) {
+            this.manualItemPages = fullItem.content.map((pageContent: any) => pageContent.page || 1);
           } else {
-            this.manualItemPages = [];
+            this.manualItemPages = [1];
           }
         }
       },
       error: (error) => {
         console.error("Error loading full library item:", error);
         this.manualItem = item;
-        // Fallback: extract pages from item if available
-        if (item.type === 'text' && Array.isArray(item.content)) {
+        if (Array.isArray(item.content) && item.content.length > 0) {
           this.manualItemPages = item.content.map((pageContent: any) => pageContent.page || 1);
         } else {
-          this.manualItemPages = [];
+          this.manualItemPages = [1];
         }
       }
     });
@@ -1021,7 +1007,7 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
     if (!currentItem) return false;
     
     // Check if has more pages
-    if (currentItem.type === 'text' && currentItem.pages && currentItem.pages.length > 0) {
+    if (currentItem.pages && currentItem.pages.length > 0) {
       const currentPageIndex = currentItem.pages.indexOf(this.currentPage || 1);
       if (currentPageIndex >= 0 && currentPageIndex < currentItem.pages.length - 1) {
         return true; // Has next page
@@ -1059,7 +1045,7 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
     if (!currentItem) return false;
     
     // Check if has previous pages
-    if (currentItem.type === 'text' && currentItem.pages && currentItem.pages.length > 0) {
+    if (currentItem.pages && currentItem.pages.length > 0) {
       const currentPageIndex = currentItem.pages.indexOf(this.currentPage || 1);
       if (currentPageIndex > 0) {
         return true; // Has previous page
@@ -1093,12 +1079,10 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
       }
       
       // Check if has more pages in current item (only if not using manualItemPages)
-      if (currentItem.type === 'text' && currentItem.pages && currentItem.pages.length > 0) {
-        // Only check currentItem.pages if we're not using manualItemPages
+      if (currentItem.pages && currentItem.pages.length > 0) {
         if (!(this.manualItem && this.manualItem.guid === this.currentItemGuid && this.manualItemPages.length > 0)) {
           const currentPageIndex = currentItem.pages.indexOf(this.currentPage || 1);
           if (currentPageIndex >= 0 && currentPageIndex < currentItem.pages.length - 1) {
-            // Go to next page
             const nextPage = currentItem.pages[currentPageIndex + 1];
             this.onPlaylistItemPageClick({ item: currentItem, page: nextPage });
             return;
@@ -1162,12 +1146,10 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
       }
       
       // Check if has previous pages in current item (only if not using manualItemPages)
-      if (currentItem.type === 'text' && currentItem.pages && currentItem.pages.length > 0) {
-        // Only check currentItem.pages if we're not using manualItemPages
+      if (currentItem.pages && currentItem.pages.length > 0) {
         if (!(this.manualItem && this.manualItem.guid === this.currentItemGuid && this.manualItemPages.length > 0)) {
           const currentPageIndex = currentItem.pages.indexOf(this.currentPage || 1);
           if (currentPageIndex > 0) {
-            // Go to previous page
             const prevPage = currentItem.pages[currentPageIndex - 1];
             this.onPlaylistItemPageClick({ item: currentItem, page: prevPage });
             return;
@@ -1178,8 +1160,7 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
       // Go to previous item in playlist
       if (this.currentItemIndex > 0) {
         const prevItem = this.playlistItems[this.currentItemIndex - 1];
-        // Get last page if text item, otherwise just click
-        if (prevItem.type === 'text' && prevItem.pages && prevItem.pages.length > 0) {
+        if (prevItem.pages && prevItem.pages.length > 0) {
           const lastPage = prevItem.pages[prevItem.pages.length - 1];
           this.onPlaylistItemPageClick({ item: prevItem, page: lastPage });
         } else {
@@ -1232,7 +1213,7 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
     }
     
     const currentItem = this.playlistItems.find(item => item.guid === this.currentItemGuid);
-    if (currentItem?.type === 'text' && currentItem.pages && currentItem.pages.length > 0) {
+    if (currentItem?.pages && currentItem.pages.length > 0) {
       return currentItem.pages;
     }
     

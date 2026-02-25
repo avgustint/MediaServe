@@ -352,3 +352,35 @@
   font-weight: 500;
 }
 
+.search-result-type {
+  font-size: 0.75rem;
+  color: #999;
+}
+
+.recent-items-section {
+  margin-top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+.recent-items-header {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.5rem;
+  padding: 0 0.25rem;
+}
+
+.recent-items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+

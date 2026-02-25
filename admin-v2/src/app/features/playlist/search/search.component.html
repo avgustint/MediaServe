@@ -114,6 +114,27 @@
       </div>
       </div>
     </div>
+
+    <!-- Recent Items -->
+    <div class="recent-items-section" *ngIf="showRecentItems">
+      <div class="recent-items-header">{{ 'recentlySelected' | translate }}</div>
+      <div class="recent-items-list">
+        <div
+          *ngFor="let item of recentItems"
+          class="search-result-item"
+          (click)="onRecentItemSelect(item)"
+        >
+          <div class="search-result-name">{{ item.name }}</div>
+          <div class="search-result-description" *ngIf="item.description">
+            {{ item.description }}
+          </div>
+          <div class="search-result-footer">
+            <div class="search-result-type">{{ item.type }}</div>
+            <div class="item-guid-badge">{{ item.guid }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 

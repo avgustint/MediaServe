@@ -10,29 +10,48 @@
     </div>
   </div>
 
-  <div class="content-scrollable">
-    <div class="keypad-container">
-      <div class="keypad-row">
-        <button class="keypad-button" (click)="onNumberClick('1')">1</button>
-        <button class="keypad-button" (click)="onNumberClick('2')">2</button>
-        <button class="keypad-button" (click)="onNumberClick('3')">3</button>
-      </div>
-      <div class="keypad-row">
-        <button class="keypad-button" (click)="onNumberClick('4')">4</button>
-        <button class="keypad-button" (click)="onNumberClick('5')">5</button>
-        <button class="keypad-button" (click)="onNumberClick('6')">6</button>
-      </div>
-      <div class="keypad-row">
-        <button class="keypad-button" (click)="onNumberClick('7')">7</button>
-        <button class="keypad-button" (click)="onNumberClick('8')">8</button>
-        <button class="keypad-button" (click)="onNumberClick('9')">9</button>
-      </div>
-      <div class="keypad-row">
-        <button class="keypad-button" (click)="onBackspaceClick()" [title]="'deleteLastDigit' | translate">C</button>
-        <button class="keypad-button" (click)="onNumberClick('0')">0</button>
+  <div class="keypad-container">
+    <div class="keypad-row">
+      <button class="keypad-button" (click)="onNumberClick('1')">1</button>
+      <button class="keypad-button" (click)="onNumberClick('2')">2</button>
+      <button class="keypad-button" (click)="onNumberClick('3')">3</button>
+    </div>
+    <div class="keypad-row">
+      <button class="keypad-button" (click)="onNumberClick('4')">4</button>
+      <button class="keypad-button" (click)="onNumberClick('5')">5</button>
+      <button class="keypad-button" (click)="onNumberClick('6')">6</button>
+    </div>
+    <div class="keypad-row">
+      <button class="keypad-button" (click)="onNumberClick('7')">7</button>
+      <button class="keypad-button" (click)="onNumberClick('8')">8</button>
+      <button class="keypad-button" (click)="onNumberClick('9')">9</button>
+    </div>
+    <div class="keypad-row">
+      <button class="keypad-button" (click)="onBackspaceClick()" [title]="'deleteLastDigit' | translate">C</button>
+      <button class="keypad-button" (click)="onNumberClick('0')">0</button>
       <button class="keypad-button enter-button" (click)="onEnterClick()" [title]="'enter' | translate">
         <i class="fas fa-arrow-right"></i>
       </button>
+    </div>
+  </div>
+
+  <!-- Recent Items -->
+  <div class="recent-items-section" *ngIf="recentItems.length > 0">
+    <div class="recent-items-header">{{ 'recentlySelected' | translate }}</div>
+    <div class="recent-items-list">
+      <div
+        *ngFor="let item of recentItems"
+        class="search-result-item"
+        (click)="onRecentItemSelect(item)"
+      >
+        <div class="search-result-name">{{ item.name }}</div>
+        <div class="search-result-description" *ngIf="item.description">
+          {{ item.description }}
+        </div>
+        <div class="search-result-footer">
+          <div class="search-result-type">{{ item.type }}</div>
+          <div class="item-guid-badge">{{ item.guid }}</div>
+        </div>
       </div>
     </div>
   </div>
