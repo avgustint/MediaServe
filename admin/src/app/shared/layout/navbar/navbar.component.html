@@ -99,9 +99,11 @@
       <button class="about-dialog-close" (click)="closeAboutDialog()" [attr.title]="'close' | translate">×</button>
     </div>
     <div class="about-dialog-body">
+      <p class="credits-version">{{ 'version' | translate }} {{ appVersion }}</p>
       <p>{{ 'creditsDevelopedBy' | translate }}</p>
       <p>{{ 'creditsSongsContributed' | translate }}</p>
       <p class="credits-date">{{ 'creditsDate' | translate }}</p>
+      <p class="credits-legal">{{ 'creditsLegalNotice' | translate }}</p>
     </div>
     <div class="about-dialog-footer">
       <button class="about-dialog-button" (click)="closeAboutDialog()">{{ 'close' | translate }}</button>

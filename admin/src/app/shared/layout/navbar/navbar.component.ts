@@ -7,6 +7,7 @@ import { WebSocketService } from '../../../core/services/websocket.service';
 import { TranslationService } from '../../../core/services/translation.service';
 import { TranslatePipe } from '../../pipes/translation.pipe';
 import { ConfirmDialogComponent } from '../../feedback/confirm-dialog/confirm-dialog.component';
+import { environment } from '../../../../environments/environment';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -22,7 +23,9 @@ export class NavbarComponent implements OnInit, OnDestroy {
   mobileMenuOpen: boolean = false;
   showLogoutConfirmDialog: boolean = false;
   showAboutDialog: boolean = false;
-  
+
+  readonly appVersion = environment.version;
+
   private userSubscription?: Subscription;
   private connectionStatusSubscription?: Subscription;
 

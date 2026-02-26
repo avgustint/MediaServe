@@ -36,7 +36,9 @@ export interface TranslationKeys {
   creditsDevelopedBy: string;
   creditsSongsContributed: string;
   creditsDate: string;
-  
+  creditsLegalNotice: string;
+  version: string;
+
   // Playlist
   manual: string;
   clear: string;
@@ -421,7 +423,9 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     creditsDevelopedBy: 'Developed by Avguštin Tomšič',
     creditsSongsContributed: 'Songs collection contributed by Jože Ilc',
     creditsDate: 'January 2026',
-    
+    creditsLegalNotice: 'The application can be freely used for non-commercial purposes.',
+    version: 'Version',
+
     // Playlist
     manual: 'Manual',
     clear: 'Clear',
@@ -804,7 +808,9 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     creditsDevelopedBy: 'Razvil Avguštin Tomšič',
     creditsSongsContributed: 'Zbirko pesmi je prispeval Jože Ilc',
     creditsDate: 'Januar 2026',
-    
+    creditsLegalNotice: 'Aplikacijo se lahko prosto uporablja v nekomercialne namene.',
+    version: 'Različica',
+
     // Playlist
     manual: 'Ročno',
     clear: 'Počisti',
@@ -1187,7 +1193,9 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     creditsDevelopedBy: 'Sviluppato da Avguštin Tomšič',
     creditsSongsContributed: 'Raccolta di canzoni contribuita da Jože Ilc',
     creditsDate: 'Gennaio 2026',
-    
+    creditsLegalNotice: "L'applicazione può essere utilizzata liberamente per scopi non commerciali.",
+    version: 'Versione',
+
     // Playlist
     manual: 'Manuale',
     clear: 'Cancella',

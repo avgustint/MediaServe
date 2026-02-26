@@ -3,7 +3,7 @@
 ## ✅ Completed (Foundation Complete)
 
 ### Infrastructure
-- ✅ Complete Angular project setup (admin-v2/)
+- ✅ Complete Angular project setup (admin/)
 - ✅ TypeScript & build configuration
 - ✅ Design system (variables, mixins, components, utilities)
 - ✅ All core services (API, Auth, User, WebSocket, Translation)

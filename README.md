@@ -7,7 +7,7 @@ A comprehensive media player system for displaying content on screens/TVs with a
 ```
 MediaServer/
 ├── server/          # Node.js backend server
-├── admin-v2/        # Angular admin web application
+├── admin/        # Angular admin web application
 ├── client/          # Angular client display application
 ├── shared-config.ts # Shared runtime configuration (auto-detects local vs deployment)
 └── deployment/      # Deployment scripts and service files
@@ -49,7 +49,7 @@ npm run install:all
 
 2. **Install admin dependencies**:
    ```bash
-   cd admin-v2
+   cd admin
    npm install
    ```
 
@@ -78,7 +78,7 @@ This will start:
    ```
    Server runs on `http://localhost:8080` by default.
 
-2. **Start the admin app** (from `admin-v2/` directory):
+2. **Start the admin app** (from `admin/` directory):
    ```bash
    npm start
    ```
@@ -211,7 +211,7 @@ npm start
 
 ```bash
 # Admin
-cd admin-v2 && npm run build
+cd admin && npm run build
 
 # Client
 cd client && npm run build
@@ -258,7 +258,7 @@ For Raspberry Pi deployment with kiosk mode, auto-start services, and Chromium f
 ## Documentation
 
 - [Server Documentation](./server/README.md) - API endpoints, WebSocket protocol, database schema
-- [Admin Documentation](./admin-v2/README.md) - Admin application features and architecture
+- [Admin Documentation](./admin/README.md) - Admin application features and architecture
 - [Client Documentation](./client/README.md) - Client display application
 - [Raspberry Pi Deployment](./deployment/raspberry-pi/README.md) - Production deployment guide
 

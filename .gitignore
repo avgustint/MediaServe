@@ -28,5 +28,5 @@ server/data/*.db-wal
 *.backup
 
 # Angular build artifacts (individual project dist folders are kept)
-admin-v2/.angular/
+admin/.angular/
 client/.angular/

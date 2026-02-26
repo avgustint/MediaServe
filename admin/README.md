@@ -94,7 +94,7 @@ Runs on `http://localhost:4200` by default.
 npm run build
 ```
 
-Output: `dist/media-player-admin-v2/`
+Output: `dist/media-player-admin/`
 
 ## Architecture
 

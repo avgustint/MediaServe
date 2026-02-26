@@ -3,7 +3,7 @@
   "version": 1,
   "newProjectRoot": "projects",
   "projects": {
-    "media-player-admin-v2": {
+    "media-player-admin": {
       "projectType": "application",
       "schematics": {
         "@schematics/angular:component": {
@@ -17,7 +17,7 @@
         "build": {
           "builder": "@angular-devkit/build-angular:application",
           "options": {
-            "outputPath": "dist/media-player-admin-v2",
+            "outputPath": "dist/media-player-admin",
             "index": "src/index.html",
             "browser": "src/main.ts",
             "polyfills": [
@@ -74,10 +74,10 @@
           "builder": "@angular-devkit/build-angular:dev-server",
           "configurations": {
             "production": {
-              "buildTarget": "media-player-admin-v2:build:production"
+              "buildTarget": "media-player-admin:build:production"
             },
             "development": {
-              "buildTarget": "media-player-admin-v2:build:development"
+              "buildTarget": "media-player-admin:build:development"
             }
           },
           "defaultConfiguration": "development"

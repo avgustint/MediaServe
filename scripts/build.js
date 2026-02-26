@@ -155,15 +155,15 @@ const serverJsPath = path.join(serverDistDir, 'server.js');
 if (fs.existsSync(serverJsPath)) {
   let serverJs = fs.readFileSync(serverJsPath, 'utf8');
   // Update admin app path to point to dist/admin/browser
-  // Note: Angular build outputs to dist/media-player-admin-v2 which gets copied to dist/admin
-  // So the final path is dist/admin/browser (not dist/admin/media-player-admin-v2/browser)
+  // Note: Angular build outputs to dist/media-player-admin which gets copied to dist/admin
+  // So the final path is dist/admin/browser (not dist/admin/media-player-admin/browser)
   serverJs = serverJs.replace(
-    /path\.join\(__dirname, '\.\.\/admin-v2\/dist\/media-player-admin-v2\/browser'\)/g,
+    /path\.join\(__dirname, '\.\.\/admin\/dist\/media-player-admin\/browser'\)/g,
     "path.join(__dirname, '../admin/browser')"
   );
   // Also handle case where it was already updated to wrong path
   serverJs = serverJs.replace(
-    /path\.join\(__dirname, '\.\.\/admin\/media-player-admin-v2\/browser'\)/g,
+    /path\.join\(__dirname, '\.\.\/admin\/media-player-admin\/browser'\)/g,
     "path.join(__dirname, '../admin/browser')"
   );
   fs.writeFileSync(serverJsPath, serverJs);
@@ -172,7 +172,7 @@ if (fs.existsSync(serverJsPath)) {
 
 // Build Admin App
 console.log('\n📦 Building admin app...');
-const adminDir = path.join(ROOT_DIR, 'admin-v2');
+const adminDir = path.join(ROOT_DIR, 'admin');
 
 // Generate admin environment files with build-time config
 // Use config values if provided, otherwise use defaults
@@ -188,8 +188,12 @@ const devAutoLoginPassword = config.admin.autoLoginPassword !== undefined ? conf
 const devAutoLoginLocationId = config.admin.autoLoginLocationId !== undefined ? config.admin.autoLoginLocationId : 1;
 const devAutoLoginTimeout = config.admin.autoLoginTimeout !== undefined ? config.admin.autoLoginTimeout : 10;
 
+const adminPkg = JSON.parse(fs.readFileSync(path.join(adminDir, 'package.json'), 'utf8'));
+const adminVersion = adminPkg.version || '0.0.0';
+
 const adminEnvDev = `export const environment = {
   production: false,
+  version: '${adminVersion}',
   apiUrl: '${config.admin.apiUrl}',
   wsUrl: '${config.admin.wsUrl}',
   autoLoginUsername: '${devAutoLoginUsername}',
@@ -201,6 +205,7 @@ const adminEnvDev = `export const environment = {
 
 const adminEnvProd = `export const environment = {
   production: true,
+  version: '${adminVersion}',
   apiUrl: '${config.admin.apiUrl}',
   wsUrl: '${config.admin.wsUrl}',
   autoLoginUsername: '${autoLoginUsername}',
@@ -235,7 +240,7 @@ try {
 }
 
 // Copy admin build output
-const adminBuildOutput = path.join(adminDir, 'dist/media-player-admin-v2');
+const adminBuildOutput = path.join(adminDir, 'dist/media-player-admin');
 if (fs.existsSync(adminBuildOutput)) {
   copyDirectory(adminBuildOutput, adminDistDir);
   console.log('  ✓ Copied admin build output');

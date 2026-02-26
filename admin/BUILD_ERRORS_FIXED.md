@@ -1,7 +1,7 @@
 # Build Errors Fixed
 
 ## Summary
-Fixed all major build errors related to import paths and syntax issues in the admin-v2 application.
+Fixed all major build errors related to import paths and syntax issues in the admin application.
 
 ## Fixes Applied
 

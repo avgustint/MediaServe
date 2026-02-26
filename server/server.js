@@ -45,7 +45,7 @@ if (!fs.existsSync(videosDir)) {
 const data = loadData();
 
 // Serve admin app static files (before API routes to allow Angular routes to work)
-const adminAppPath = path.join(__dirname, '../admin-v2/dist/media-player-admin-v2/browser');
+const adminAppPath = path.join(__dirname, '../admin/dist/media-player-admin/browser');
 app.use(express.static(adminAppPath));
 
 // Serve video files as static files

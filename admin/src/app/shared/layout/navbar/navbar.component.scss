@@ -408,10 +408,21 @@
     margin-top: var(--spacing-md);
   }
 
+  .credits-version {
+    font-weight: var(--font-weight-semibold);
+  }
+
   .credits-date {
     margin-top: var(--spacing-lg);
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
+  }
+
+  .credits-legal {
+    margin-top: var(--spacing-md);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    font-style: italic;
   }
 }
 

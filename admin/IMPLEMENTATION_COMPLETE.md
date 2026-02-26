@@ -103,7 +103,7 @@
 ## 📂 **Project Structure**
 
 ```
-admin-v2/
+admin/
 ├── src/
 │   ├── app/
 │   │   ├── core/                    ✅ Complete

@@ -6,7 +6,7 @@
 ```bash
 npm test
 ```
-Runs server tests and admin-v2 tests.
+Runs server tests and admin tests.
 
 ### Run Individual Test Suites
 
@@ -19,12 +19,12 @@ npm run test:server
 **Admin app tests** (Karma + Jasmine):
 ```bash
 npm run test:admin
-# or: cd admin-v2 && npm test
+# or: cd admin && npm test
 ```
 
 For CI/headless environments where ChromeHeadless may fail to start:
 ```bash
-cd admin-v2 && npm test -- --browsers=ChromeHeadlessCI
+cd admin && npm test -- --browsers=ChromeHeadlessCI
 ```
 
 ## Test Structure
@@ -34,7 +34,7 @@ cd admin-v2 && npm test -- --browsers=ChromeHeadlessCI
 - Test files: `*.test.js` (e.g. `config.test.js`, `utils/password.test.js`)
 - No additional dependencies required
 
-### Admin (`admin-v2/`)
+### Admin (`admin/`)
 - Uses Karma + Jasmine
 - Test files: `*.spec.ts` next to source files
 - Key test files:

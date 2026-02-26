@@ -1,4 +1,4 @@
-# Import Path Rules for admin-v2
+# Import Path Rules for admin
 
 ## Path Rules Based on Directory Depth
 
