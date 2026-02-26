@@ -29,12 +29,6 @@ systemctl enable client-server.service || echo -e "${RED}Failed to enable client
 echo -e "${GREEN}Enabling kiosk.service...${NC}"
 systemctl enable kiosk.service || echo -e "${RED}Failed to enable kiosk.service${NC}"
 
-# Check if numlock service exists and enable it
-if [ -f /etc/systemd/system/numlock.service ]; then
-    echo -e "${GREEN}Enabling numlock.service...${NC}"
-    systemctl enable numlock.service || echo -e "${YELLOW}Failed to enable numlock.service (may not be needed)${NC}"
-fi
-
 # Reload systemd
 echo -e "${GREEN}Reloading systemd daemon...${NC}"
 systemctl daemon-reload
@@ -44,7 +38,7 @@ echo -e "${GREEN}Services enabled successfully!${NC}"
 echo -e "${GREEN}========================================${NC}"
 echo ""
 echo -e "${YELLOW}Enabled services:${NC}"
-systemctl list-unit-files | grep -E "(mediaserver|client-server|kiosk|numlock)" | grep enabled || echo "No enabled services found"
+systemctl list-unit-files | grep -E "(mediaserver|client-server|kiosk)" | grep enabled || echo "No enabled services found"
 echo ""
 echo -e "${YELLOW}Services will now start automatically on boot.${NC}"
 

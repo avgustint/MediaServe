@@ -141,13 +141,12 @@
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  
-  // For text containers, allow overflow to show chords above text
+
   &.text-container {
-    overflow-y: auto; // Allow vertical scroll if needed, but show chords
+    overflow-y: auto;
     overflow-x: hidden;
-    align-items: center; // Center content vertically
-    justify-content: center; // Center content horizontally
+    align-items: center;
+    justify-content: center;
   }
 }
 
@@ -175,11 +174,7 @@
   transition: opacity 400ms ease-in-out;
 }
 
-.text-page.page-0 {
-  opacity: 0;
-  z-index: 0;
-}
-
+.text-page.page-0,
 .text-page.page-1 {
   opacity: 0;
   z-index: 0;
@@ -197,8 +192,6 @@
   z-index: 0;
 }
 
-// Removed animation keyframes - using CSS transition instead for smoother performance
-
 .text-content {
   color: #fff;
   text-align: center;
@@ -209,8 +202,8 @@
   max-height: 98%;
   line-height: 1.2; // Base line height
   font-weight: 500;
-  display: block; // Ensure block display for proper measurement
-  overflow: hidden; // Prevent text from overflowing container
+  display: block;
+  overflow: hidden;
   opacity: 0;
   will-change: opacity, font-size;
   transition: opacity 200ms ease-in-out;

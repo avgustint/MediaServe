@@ -60,6 +60,15 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+
+  &.nav-brand-clickable {
+    cursor: pointer;
+    transition: opacity var(--transition-base);
+
+    &:hover {
+      opacity: 0.9;
+    }
+  }
 }
 
 .reload-button {
@@ -370,5 +379,52 @@
     font-size: 0.6rem;
     padding: 2px 4px;
   }
+}
+
+/* About / Credits Dialog */
+.about-dialog-overlay {
+  @include modal-overlay;
+  z-index: var(--z-index-modal);
+}
+
+.about-dialog-content {
+  @include modal-content;
+}
+
+.about-dialog-header {
+  @include modal-header;
+  background-color: var(--color-primary);
+  color: var(--color-text-inverse);
+}
+
+.about-dialog-close {
+  @include modal-close;
+}
+
+.about-dialog-body {
+  @include modal-body;
+
+  p + p {
+    margin-top: var(--spacing-md);
+  }
+
+  .credits-date {
+    margin-top: var(--spacing-lg);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+  }
+}
+
+.about-dialog-footer {
+  padding: var(--spacing-lg);
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.about-dialog-button {
+  @include button-base;
+  min-width: 80px;
+  @include button-secondary;
 }
 

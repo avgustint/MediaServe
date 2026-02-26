@@ -4,7 +4,7 @@
  * 
  * Configuration is determined by hostname:
  * - 'localhost' or '127.0.0.1': Local development (localhost:8080, client:4200, admin:4201)
- * - Any other hostname (including 192.168.0.100): Raspberry Pi deployment (192.168.0.100:5000)
+ * - Any other hostname (including mediaplayer.local): Raspberry Pi deployment (mediaplayer.local:5000)
  */
 
 interface ServerConfig {
@@ -24,11 +24,11 @@ const configs: { local: ServerConfig; raspberry: ServerConfig } = {
     wsUrl: 'ws://localhost:8080'
   },
   raspberry: {
-    serverHost: '192.168.0.100',
+    serverHost: 'mediaplayer.local',
     serverPort: 5000,
     clientPort: 5001,
-    apiUrl: 'http://192.168.0.100:5000',
-    wsUrl: 'ws://192.168.0.100:5000'
+    apiUrl: 'http://mediaplayer.local:5000',
+    wsUrl: 'ws://mediaplayer.local:5000'
   }
 };
 

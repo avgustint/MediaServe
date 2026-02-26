@@ -24,14 +24,12 @@ function isAllowedOrigin(origin) {
     'http://127.0.0.1:5000',
     'http://127.0.0.1:5001',
     'http://127.0.0.1:5002',
-    'http://192.168.0.100',
-    'http://192.168.0.100:4200',
-    'http://192.168.0.100:4201',
-    'http://192.168.0.100:5000',
-    'http://192.168.0.100:5001',
-    'http://192.168.68.119',
-    'http://192.168.68.119:5001',
-    'http://192.168.68.119:5002',
+    'http://mediaplayer.local',
+    'http://mediaplayer.local:4200',
+    'http://mediaplayer.local:4201',
+    'http://mediaplayer.local:5000',
+    'http://mediaplayer.local:5001',
+    'http://mediaplayer.local:5002',
   ];
   
   // Check exact match
@@ -42,7 +40,7 @@ function isAllowedOrigin(origin) {
   // Check if origin matches any allowed pattern (with any port)
   // This allows cross-hostname requests (e.g., localhost to fixed IP)
   const originHost = normalizedOrigin.replace(/^https?:\/\//, '').split(':')[0];
-  const allowedHosts = ['localhost', '127.0.0.1', '192.168.0.100', '192.168.68.119'];
+  const allowedHosts = ['localhost', '127.0.0.1', 'mediaplayer.local'];
   
   if (allowedHosts.includes(originHost)) {
     return true;
@@ -79,10 +77,10 @@ function corsMiddleware(req, res, next) {
   const origin = req.headers.origin;
   
   // Always allow CORS for localhost and fixed IP origins
-  // This enables cross-hostname access (e.g., localhost:4200 to 192.168.0.100:5000)
+  // This enables cross-hostname access (e.g., localhost:4200 to mediaplayer.local:5000)
   if (origin) {
     const originHost = origin.toLowerCase().replace(/^https?:\/\//, '').split(':')[0];
-    const allowedHosts = ['localhost', '127.0.0.1', '192.168.0.100', '192.168.68.119'];
+    const allowedHosts = ['localhost', '127.0.0.1', 'mediaplayer.local'];
     
     if (allowedHosts.includes(originHost)) {
     res.setHeader('Access-Control-Allow-Origin', origin);

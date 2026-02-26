@@ -41,78 +41,6 @@ fi
 # Wait a bit more to ensure X server is fully initialized
 sleep 2
 
-# Enable Num Lock - try multiple methods for reliability
-echo "Enabling Num Lock..."
-NUM_LOCK_ENABLED=false
-
-# Method 1: setleds (console/TTY level) - do this first for OS-level keyboard listener
-if command -v setleds &> /dev/null; then
-    # Try different TTY devices and methods
-    for tty in /dev/tty1 /dev/tty2 /dev/tty3 /dev/console /dev/tty; do
-        if [ -e "$tty" ]; then
-            # Method 1a: Direct setleds with input redirection
-            if setleds +num < "$tty" 2>/dev/null; then
-                echo "Num Lock enabled using setleds on $tty (method 1)"
-                NUM_LOCK_ENABLED=true
-                break
-            fi
-            # Method 1b: Using echo to send setleds command
-            if echo "+num" | setleds -F +num 2>/dev/null; then
-                echo "Num Lock enabled using setleds (method 2)"
-                NUM_LOCK_ENABLED=true
-                break
-            fi
-            # Method 1c: Try with explicit TTY
-            if [ -w "$tty" ]; then
-                setleds -D +num < "$tty" 2>/dev/null || setleds +num < "$tty" 2>/dev/null && {
-                    echo "Num Lock enabled using setleds on $tty (method 3)"
-                    NUM_LOCK_ENABLED=true
-                    break
-                }
-            fi
-        fi
-    done
-fi
-
-# Method 2: numlockx (X11 utility) - for X11 applications
-if command -v numlockx &> /dev/null; then
-    # Try multiple times in case X server needs more time
-    for i in 1 2 3 4 5; do
-        if DISPLAY=:0 numlockx on 2>/dev/null; then
-            echo "Num Lock enabled using numlockx (attempt $i)"
-            NUM_LOCK_ENABLED=true
-            break
-        fi
-        sleep 1
-    done
-fi
-
-# Method 3: xdotool (if numlockx didn't work) - X11 fallback
-if command -v xdotool &> /dev/null; then
-    # Try multiple times with delay
-    for i in 1 2 3; do
-        if DISPLAY=:0 xdotool key Num_Lock 2>/dev/null; then
-            sleep 0.5
-            # Verify it's on by checking state (optional)
-            if DISPLAY=:0 xdotool key Num_Lock 2>/dev/null; then
-                echo "Num Lock enabled using xdotool (attempt $i)"
-                NUM_LOCK_ENABLED=true
-                break
-            fi
-        fi
-        sleep 1
-    done
-fi
-
-if [ "$NUM_LOCK_ENABLED" = false ]; then
-    echo "Warning: Num Lock could not be enabled."
-    echo "Install numlockx with: sudo apt install numlockx"
-    echo "Or install xdotool with: sudo apt install xdotool"
-    echo "Or ensure setleds is available (usually pre-installed)"
-else
-    echo "Num Lock successfully enabled"
-fi
-
 # Wait for servers to be ready
 # Use localhost when running on the Pi (change to Pi's IP if needed for network access)
 CLIENT_URL="http://localhost:5001"
@@ -395,12 +323,6 @@ CHROMIUM_FLAGS=(
 
 echo "Starting Chromium (client only, fullscreen)..."
 echo "Client URL: $CLIENT_URL"
-
-# Enable Num Lock one more time after a short delay (in case it didn't work earlier)
-# Try both console/TTY level and X11 level
-(sleep 3 && \
-  (for tty in /dev/tty1 /dev/tty2 /dev/tty3 /dev/console; do [ -e "$tty" ] && setleds +num < "$tty" 2>/dev/null && break; done || true) && \
-  (DISPLAY=:0 numlockx on 2>/dev/null || DISPLAY=:0 xdotool key Num_Lock 2>/dev/null || true)) &
 
 # Launch client in kiosk mode (fullscreen, no browser UI)
 "$CHROMIUM_CMD" \

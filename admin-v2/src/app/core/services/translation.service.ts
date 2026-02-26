@@ -31,6 +31,11 @@ export interface TranslationKeys {
   connecting: string;
   disconnected: string;
   reload: string;
+  about: string;
+  creditsTitle: string;
+  creditsDevelopedBy: string;
+  creditsSongsContributed: string;
+  creditsDate: string;
   
   // Playlist
   manual: string;
@@ -411,6 +416,11 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     connecting: 'Connecting...',
     disconnected: 'Disconnected',
     reload: 'Reload',
+    about: 'About',
+    creditsTitle: 'Credits',
+    creditsDevelopedBy: 'Developed by Avguštin Tomšič',
+    creditsSongsContributed: 'Songs collection contributed by Jože Ilc',
+    creditsDate: 'January 2026',
     
     // Playlist
     manual: 'Manual',
@@ -789,6 +799,11 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     connecting: 'Povezovanje...',
     disconnected: 'Ni povezano',
     reload: 'Osveži',
+    about: 'O aplikaciji',
+    creditsTitle: 'O programu',
+    creditsDevelopedBy: 'Razvil Avguštin Tomšič',
+    creditsSongsContributed: 'Zbirko pesmi je prispeval Jože Ilc',
+    creditsDate: 'Januar 2026',
     
     // Playlist
     manual: 'Ročno',
@@ -1167,6 +1182,11 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     connecting: 'Connessione...',
     disconnected: 'Disconnesso',
     reload: 'Ricarica',
+    about: 'Informazioni',
+    creditsTitle: 'Crediti',
+    creditsDevelopedBy: 'Sviluppato da Avguštin Tomšič',
+    creditsSongsContributed: 'Raccolta di canzoni contribuita da Jože Ilc',
+    creditsDate: 'Gennaio 2026',
     
     // Playlist
     manual: 'Manuale',

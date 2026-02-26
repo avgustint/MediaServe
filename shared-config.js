@@ -4,7 +4,7 @@
  * 
  * Configuration is determined by NODE_ENV or DEPLOYMENT_TARGET environment variable:
  * - 'development' or 'local': Local development (localhost:8080, client:4200, admin:4201)
- * - 'production' or 'raspberry': Raspberry Pi deployment (192.168.0.100:5000)
+ * - 'production' or 'raspberry': Raspberry Pi deployment (mediaplayer.local:5000)
  */
 
 // Determine deployment target
@@ -21,11 +21,11 @@ const configs = {
     wsUrl: 'ws://localhost:8080'
   },
   raspberry: {
-    serverHost: '192.168.0.100',
+    serverHost: 'mediaplayer.local',
     serverPort: 5000,
     clientPort: 5001,
-    apiUrl: 'http://192.168.0.100:5000',
-    wsUrl: 'ws://192.168.0.100:5000'
+    apiUrl: 'http://mediaplayer.local:5000',
+    wsUrl: 'ws://mediaplayer.local:5000'
   }
 };
 
@@ -45,7 +45,7 @@ if (typeof module !== 'undefined' && module.exports) {
         if (hostname === 'localhost' || hostname === '127.0.0.1') {
           return configs.local;
         }
-        // For any other hostname (including 192.168.0.100), use raspberry config
+        // For any other hostname (including mediaplayer.local), use raspberry config
         return configs.raspberry;
       }
       return configs.local;

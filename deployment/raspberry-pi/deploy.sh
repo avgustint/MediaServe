@@ -314,9 +314,7 @@ echo -e "${GREEN}Step 3: Installing systemd services...${NC}"
 scp -o ControlMaster=auto -o ControlPath="$SSH_CONTROL_PATH" "$SCRIPT_DIR/mediaserver.service" "$TARGET:/tmp/"
 scp -o ControlMaster=auto -o ControlPath="$SSH_CONTROL_PATH" "$SCRIPT_DIR/client-server.service" "$TARGET:/tmp/"
 scp -o ControlMaster=auto -o ControlPath="$SSH_CONTROL_PATH" "$SCRIPT_DIR/kiosk.service" "$TARGET:/tmp/"
-scp -o ControlMaster=auto -o ControlPath="$SSH_CONTROL_PATH" "$SCRIPT_DIR/numlock.service" "$TARGET:/tmp/" 2>/dev/null || true
 # Install services (requires sudo)
-# Note: numlock.service is enabled but not started during deployment to avoid blocking (it will start on boot)
 echo "Installing and enabling services..."
 ssh -o ControlMaster=auto -o ControlPath="$SSH_CONTROL_PATH" -o ConnectTimeout=30 "$TARGET" bash << 'EOF' || true
 set +e  # Don't exit on errors, continue anyway
@@ -326,8 +324,6 @@ echo "Copying service files..."
 sudo cp /tmp/mediaserver.service /etc/systemd/system/
 sudo cp /tmp/client-server.service /etc/systemd/system/
 sudo cp /tmp/kiosk.service /etc/systemd/system/
-sudo cp /tmp/numlock.service /etc/systemd/system/ 2>/dev/null || true
-
 # Reload systemd (with timeout to prevent hanging)
 echo "Reloading systemd daemon..."
 timeout 10 sudo systemctl daemon-reload || echo "Warning: daemon-reload timed out or failed"
@@ -337,8 +333,6 @@ echo "Enabling services..."
 sudo systemctl enable mediaserver.service
 sudo systemctl enable client-server.service
 sudo systemctl enable kiosk.service
-sudo systemctl enable numlock.service 2>/dev/null || true
-
 # Note: Services are enabled but not started during deployment
 # They will start automatically on boot, or can be started manually
 # This prevents blocking during deployment

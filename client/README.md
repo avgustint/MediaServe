@@ -1,25 +1,27 @@
-# MediaServer - Client Application
+# MediaServer Client
 
-Angular fullscreen display application that receives content via WebSocket and displays it on a connected display or TV. Designed for kiosk mode and digital signage.
+Angular fullscreen display application that receives content via WebSocket and renders it on a connected screen or TV. Designed for digital signage, kiosk mode, and live presentation displays.
 
-## 📋 Features
+## Features
 
-- **Fullscreen Display**: Optimized for fullscreen presentation
-- **WebSocket Connection**: Real-time content delivery with auto-reconnect
-- **Multiple Content Types**: Supports text, images (base64), and URLs
-- **Connection Status Indicator**: Visual feedback for connection state
-- **Loading Animations**: Smooth loading states
-- **Auto-reconnect**: Automatically reconnects on connection loss
-- **Responsive Content**: Content scales to fit screen size
+- **Content Types**: Text (with chord annotations), images, URLs (iframe), embedded iframes (paste embed code), and videos
+- **Smooth Transitions**: Slide animations between text pages; fade transitions for media content
+- **Custom CSS Styling**: Per-item and per-page CSS properties applied via server (background color, font color, custom styles)
+- **Chord Display**: Renders chord annotations above text lines; visibility controlled by admin (show/hide); transposition applied server-side
+- **Location-Based Routing**: Supports multi-display setups where each screen receives content for its assigned location
+- **Auto-Reconnect**: Automatically reconnects to WebSocket server after disconnection with exponential backoff
+- **Connection Status Indicator**: Visual dot indicator (green = connected, red = disconnected)
+- **Loading State**: Animated spinner shown when not connected
+- **Location Selector**: Choose which location this display belongs to (or auto-select via configuration)
+- **Responsive Scaling**: Content scales to fit the display
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 
 - Node.js v18 or higher
-- npm or yarn
-- Angular CLI v17 or higher
-- MediaServer backend running on `http://localhost:8080`
+- Angular CLI v19 or higher
+- MediaServer backend running
 
 ### Installation
 
@@ -33,7 +35,7 @@ npm install
 npm start
 ```
 
-The application will be available at `http://localhost:4201` (different port from admin to avoid conflicts).
+Runs on `http://localhost:4201`.
 
 ### Production Build
 
@@ -43,16 +45,18 @@ npm run build
 
 Output: `dist/media-player/`
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 client/
 ├── src/
 │   ├── app/
-│   │   ├── app.component.ts          # Main component
-│   │   ├── app.component.html        # Display template
-│   │   ├── app.component.scss        # Styles
-│   │   └── websocket.service.ts       # WebSocket service
+│   │   ├── app.component.ts          # Main component (content display logic)
+│   │   ├── app.component.html        # Display template with all content types
+│   │   ├── app.component.scss        # Styles including transitions
+│   │   ├── websocket.service.ts      # WebSocket connection and message handling
+│   │   ├── format-text.pipe.ts       # Text formatting with chord parsing
+│   │   └── api.config.ts             # API/WebSocket URL configuration
 │   ├── index.html
 │   ├── main.ts
 │   └── styles.css
@@ -61,271 +65,110 @@ client/
 └── tsconfig.json
 ```
 
-## 🎯 Features
+## Content Types
 
-### Content Display
+### Text
+- Rendered as HTML with automatic font sizing
+- Chord annotations displayed above text lines (when enabled by admin)
+- Supports multi-page text items with slide transitions between pages
+- Custom CSS properties (background color, font color, etc.) applied from server
 
-The application displays three types of content:
-
-#### Text Content
-- Centered on screen
-- Font size automatically adjusts to fit content
-- Fullscreen display
-
-#### Image Content
-- Base64 encoded images
+### Image
+- Base64-encoded images or image URLs
 - Scales to fit screen while maintaining aspect ratio
-- Supports PNG, JPEG, GIF, and other formats
+- Supports PNG, JPEG, GIF, WebP, and other formats
+- Multi-page image items supported with page navigation
 
-#### URL Content
-- Displays websites in an iframe
-- Fullscreen iframe
-- Supports any web-accessible URL
+### URL
+- Displays external websites in a fullscreen iframe
+- Supports autoplay, encrypted media, and picture-in-picture
 
-### Connection Management
+### Embedded iFrame
+- Renders pasted embed code (e.g., YouTube embeds, maps, widgets)
+- Displayed in a sandboxed wrapper
 
-- **Auto-connect**: Connects to WebSocket on application start
-- **Auto-reconnect**: Automatically reconnects after 5 seconds on disconnect
-- **Connection Status**: Visual indicator (green/red dot) in bottom-left corner
-- **Loading State**: Shows loading spinner when not connected or connection dropped
+### Video
+- Plays video files served by the MediaServer backend
+- Native video controls (play, pause, seek, volume)
+- Custom CSS styling support
 
-### Connection Status Indicator
-
-A small circular dot in the bottom-left corner indicates connection status:
-- **Green**: Connected to WebSocket server
-- **Red**: Disconnected or connecting
-
-## 🔌 WebSocket Protocol
+## WebSocket Protocol
 
 ### Connection
 
-Connects to `ws://localhost:8080` (or configured server URL).
+Connects to the server WebSocket endpoint (auto-detected via `shared-config.ts`).
 
-### Message Format
+### Incoming Messages
 
-The application expects JSON messages with the following structure:
+| Type | Description |
+|---|---|
+| `text` | Text content with optional chords and CSS |
+| `image` | Image content (base64 or URL) with optional CSS |
+| `url` | URL to display in iframe |
+| `iframe` | Embedded HTML/iframe code |
+| `video` | Video file URL |
+| `DisplayVisibleState` | Show/hide content on this display |
+| `LocationsList` | Available locations for selection |
 
-```json
-{
-  "type": "text" | "image" | "url",
-  "content": "content string"
-}
-```
+### Outgoing Messages
 
-### Message Types
+| Type | Description |
+|---|---|
+| `ClientConnect` | Sent on connection with location ID |
+| `SelectLocation` | Select a location for this display |
 
-#### Text Message
-```json
-{
-  "type": "text",
-  "content": "Hello, World!"
-}
-```
+### Message Fields
 
-#### Image Message (with data URI)
-```json
-{
-  "type": "image",
-  "content": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA..."
-}
-```
+Content messages include:
+- `content`: The content to display
+- `css`: Optional CSS properties object (`{ "background-color": "#000", ... }`)
+- `chordVisibility`: Chord display state (`local`, `everywhere`, `hidden`)
+- `contentVisible`: Whether content should be visible on this display
+- `guid`: Library item GUID
+- `page`: Current page number
 
-#### Image Message (base64 only)
-```json
-{
-  "type": "image",
-  "content": "iVBORw0KGgoAAAANSUhEUgAA..."
-}
-```
+## Configuration
 
-The application automatically handles both formats.
+### Runtime Configuration
 
-#### URL Message
-```json
-{
-  "type": "url",
-  "content": "https://example.com"
-}
-```
+The client uses `shared-config.ts` to auto-detect the server URL based on hostname:
+- `localhost`: Connects to `ws://localhost:8080`
+- Other hostnames: Connects to the same host on port 5000
 
-## 🔧 Configuration
+### Auto-Login Location
 
-### WebSocket URL
+Set `AUTO_LOGIN_LOCATION_ID` in `api.config.ts` (or via `build.config.js` for production builds) to automatically select a location without showing the location picker. Set to `0` to show the picker.
 
-The WebSocket URL is configured in `src/app/websocket.service.ts`:
-
-```typescript
-private wsUrl = 'ws://localhost:8080';
-```
-
-To change the server URL, modify this value.
-
-### Reconnection Delay
-
-The reconnection delay is set to 5 seconds. To change:
-
-```typescript
-// In websocket.service.ts
-this.reconnectTimeout = setTimeout(() => this.connect(), 5000);
-```
-
-### Port
-
-Default port is `4201`. To change:
-
-```bash
-ng serve --port 4202
-```
-
-Or modify `package.json` scripts:
-
-```json
-{
-  "scripts": {
-    "start": "ng serve --port 4202"
-  }
-}
-```
-
-## 🎨 Styling
-
-### Content Display
-
-- **Text**: White text on black background, centered, auto-sizing font
-- **Image**: Centered, max-width/height 100%, maintains aspect ratio
-- **URL**: Fullscreen iframe, no borders
-
-### Connection Status
-
-- **Dot**: 12px diameter, positioned bottom-left (20px from edges)
-- **Green**: `#4CAF50` when connected
-- **Red**: `#F44336` when disconnected/connecting
-
-### Loading Spinner
-
-- Centered on screen
-- Animated CSS spinner
-- Only shown when not connected or connection dropped
-
-## 🖥️ Kiosk Mode Setup
+## Kiosk Mode
 
 For production use as a digital signage display:
 
-### Chrome Kiosk Mode (Linux)
-
 ```bash
-chromium-browser --kiosk --disable-infobars http://localhost:4201
+chromium-browser --kiosk --autoplay-policy=no-user-gesture-required http://localhost:4201
 ```
 
-### Chrome Kiosk Mode (Windows)
+For Raspberry Pi deployment with auto-start services, see the [Raspberry Pi Deployment Guide](../deployment/raspberry-pi/README.md).
 
-```bash
-chrome.exe --kiosk --disable-infobars http://localhost:4201
-```
+## Troubleshooting
 
-### Auto-start on Boot
+### No content displayed
+- Check the connection status indicator (bottom-left dot)
+- Verify the server is running
+- Ensure a location is selected (check browser console)
+- Verify content is being sent from the admin app
 
-Create a systemd service (Linux) or startup script (Windows) to:
-1. Start the Angular app (or serve built files)
-2. Launch browser in kiosk mode
+### Content not styled correctly
+- CSS properties are sent per-item and per-page from the server
+- Check that the library item or page has CSS defined in the admin editor
 
-### Fullscreen API
+### Chords not showing
+- Chord visibility is controlled by the admin app
+- Check the chord display mode in the admin projection view
 
-The application can use the Fullscreen API for true fullscreen:
+### Video not playing
+- Ensure autoplay policy allows playback (kiosk mode flag: `--autoplay-policy=no-user-gesture-required`)
+- Check that the video file exists on the server
 
-```typescript
-// Request fullscreen
-document.documentElement.requestFullscreen();
-```
-
-## 🏗️ Building for Production
-
-```bash
-npm run build
-```
-
-Output: `dist/media-player/`
-
-### Serving Production Build
-
-You can serve the production build using:
-
-```bash
-# Using http-server
-npx http-server dist/media-player -p 4201
-
-# Using serve
-npx serve -s dist/media-player -p 4201
-
-# Using nginx
-# Configure nginx to serve dist/media-player/
-```
-
-## 🔄 Auto-reconnect Behavior
-
-The application automatically reconnects when:
-- WebSocket connection is closed
-- WebSocket connection errors occur
-- Initial connection fails
-
-Reconnection happens after a 5-second delay to avoid overwhelming the server.
-
-## 🐛 Troubleshooting
-
-### No Content Displayed
-
-- Check WebSocket connection status (green/red dot)
-- Verify server is running on port 8080
-- Check browser console for errors
-- Verify content is being sent from server/admin
-
-### Connection Issues
-
-- Verify server WebSocket is running
-- Check network connectivity
-- Review browser console for WebSocket errors
-- Verify WebSocket URL in `websocket.service.ts`
-
-### Image Not Displaying
-
-- Verify image is valid base64
-- Check image format is supported (PNG, JPEG, GIF)
-- Review browser console for image loading errors
-- Ensure data URI format is correct
-
-### URL Not Loading
-
-- Verify URL is accessible
-- Check for CORS issues
-- Ensure URL uses HTTPS if required
-- Review browser console for iframe errors
-
-### Build Errors
-
-- Check Node.js and Angular CLI versions
-- Clear `node_modules` and reinstall
-- Verify TypeScript version compatibility
-
-## 📦 Dependencies
-
-### Main Dependencies
-
-- `@angular/*`: Angular framework (v17)
-- `rxjs`: Reactive programming for WebSocket observables
-
-### Dev Dependencies
-
-- `@angular/cli`: Angular CLI
-- `@angular-devkit/build-angular`: Build tools
-- `typescript`: TypeScript compiler
-
-## 🔐 Security Considerations
-
-- The client app does not require authentication (public display)
-- Content is received from trusted server via WebSocket
-- URLs are displayed in iframes (sandboxed)
-- No user input or sensitive data handling
-
-## 📄 License
+## License
 
 ISC

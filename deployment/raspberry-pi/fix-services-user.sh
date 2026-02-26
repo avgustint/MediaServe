@@ -10,7 +10,7 @@ CURRENT_GROUP=$(id -gn)
 echo "Updating service files to use user: $CURRENT_USER, group: $CURRENT_GROUP"
 
 SERVICES_DIR="/etc/systemd/system"
-SERVICE_FILES=("mediaserver.service" "client-server.service" "kiosk.service" "numlock.service" "keyboard-listener.service")
+SERVICE_FILES=("mediaserver.service" "client-server.service" "kiosk.service" "keyboard-listener.service")
 
 for service in "${SERVICE_FILES[@]}"; do
     SERVICE_PATH="$SERVICES_DIR/$service"
@@ -45,6 +45,5 @@ echo "Next steps:"
 echo "  sudo systemctl restart mediaserver"
 echo "  sudo systemctl restart client-server"
 echo "  sudo systemctl restart kiosk"
-echo "  sudo systemctl restart numlock"
 echo "  sudo systemctl restart keyboard-listener  # If configured"
 

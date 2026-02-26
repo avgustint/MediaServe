@@ -102,8 +102,8 @@ export class WebSocketService {
     let url = this.getWsUrl();
     
     // Generate fallback URL: if url contains fixed IP, fallback to localhost
-    if (url.includes('192.168.0.100')) {
-      this.fallbackUrl = url.replace('192.168.0.100', 'localhost');
+    if (url.includes('mediaplayer.local')) {
+      this.fallbackUrl = url.replace('mediaplayer.local', 'localhost');
     } else {
       this.fallbackUrl = null;
     }

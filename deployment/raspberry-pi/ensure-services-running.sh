@@ -25,7 +25,6 @@ systemctl daemon-reload
 
 # Enable and start services
 SERVICES=("mediaserver.service" "client-server.service" "kiosk.service")
-OPTIONAL_SERVICES=("numlock.service")
 
 for service in "${SERVICES[@]}"; do
     if [ -f "/etc/systemd/system/$service" ]; then
@@ -43,15 +42,6 @@ for service in "${SERVICES[@]}"; do
         fi
     else
         echo -e "${YELLOW}Warning: $service not found in /etc/systemd/system/${NC}"
-    fi
-done
-
-# Handle optional services
-for service in "${OPTIONAL_SERVICES[@]}"; do
-    if [ -f "/etc/systemd/system/$service" ]; then
-        echo -e "${GREEN}Enabling and starting $service (optional)...${NC}"
-        systemctl enable "$service" 2>/dev/null || true
-        systemctl start "$service" 2>/dev/null || true
     fi
 done
 

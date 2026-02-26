@@ -259,6 +259,10 @@ const clientDir = path.join(ROOT_DIR, 'client');
 const clientAutoLoginLocationId = config.client.autoLoginLocationId !== undefined ? config.client.autoLoginLocationId : 0;
 const clientApiConfig = `export const SERVER_BASE_URL = "${config.client.apiUrl}";
 export const AUTO_LOGIN_LOCATION_ID = ${clientAutoLoginLocationId};
+
+export function getServerBaseUrlRuntime(): string {
+  return SERVER_BASE_URL;
+}
 `;
 
 const clientApiConfigPath = path.join(clientDir, 'src/app/api.config.ts');

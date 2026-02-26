@@ -45,8 +45,8 @@ export class WebSocketService {
     if (url) {
       this.wsUrl = url;
       // Generate fallback URL: if url contains fixed IP, fallback to localhost
-      if (url.includes('192.168.0.100')) {
-        this.fallbackUrl = url.replace('192.168.0.100', 'localhost');
+      if (url.includes('mediaplayer.local')) {
+        this.fallbackUrl = url.replace('mediaplayer.local', 'localhost');
       } else {
         this.fallbackUrl = null;
       }
@@ -55,8 +55,8 @@ export class WebSocketService {
       const wsUrlValue = this.getWsUrlValue();
       this.wsUrl = wsUrlValue;
       // Generate fallback URL: if url contains fixed IP, fallback to localhost
-      if (wsUrlValue.includes('192.168.0.100')) {
-        this.fallbackUrl = wsUrlValue.replace('192.168.0.100', 'localhost');
+      if (wsUrlValue.includes('mediaplayer.local')) {
+        this.fallbackUrl = wsUrlValue.replace('mediaplayer.local', 'localhost');
       } else {
         this.fallbackUrl = null;
       }

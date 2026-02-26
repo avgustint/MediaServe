@@ -1,32 +1,35 @@
 # MediaServer
 
-A comprehensive media player system for displaying content on displays/TVs with a web-based administration interface. The system consists of three main components: a Node.js server, an Angular admin application, and an Angular client application.
+A comprehensive media player system for displaying content on screens/TVs with a web-based administration interface. The system consists of three main components: a Node.js server, an Angular admin application, and an Angular client display application.
 
-## 🏗️ Architecture
+## Architecture
 
 ```
 MediaServer/
 ├── server/          # Node.js backend server
-├── admin/           # Angular admin web application
-└── client/          # Angular client display application
+├── admin-v2/        # Angular admin web application
+├── client/          # Angular client display application
+├── shared-config.ts # Shared runtime configuration (auto-detects local vs deployment)
+└── deployment/      # Deployment scripts and service files
+    └── raspberry-pi/
 ```
 
 ### System Overview
 
-- **Server**: Node.js/Express server with SQLite database, WebSocket support, and REST API endpoints for managing users, roles, permissions, playlists, and library items. Supports HDMI CEC commands for TV control.
+- **Server**: Node.js/Express server with SQLite database, WebSocket support, and REST API. Manages users, roles, permissions, playlists, library items, collections, tags, locations, and HDMI CEC commands for TV control. Supports multi-location content delivery and real-time synchronization across multiple admin and client instances.
 
-- **Admin**: Angular web application for authenticated users to manage playlists, library items, users, roles, and permissions. Features real-time synchronization across multiple admin instances.
+- **Admin**: Angular web application for authenticated users to manage playlists, library items (text, images, URLs, videos, iframes), collections, tags, users, roles, permissions, and locations. Features real-time synchronization across multiple admin instances, multi-language support (English, Slovenian, Italian), chord display and transposition for text content, content visibility control, recently selected items history, and TV remote control (CEC).
 
-- **Client**: Angular fullscreen display application that receives content via WebSocket and displays it on a connected display/TV. Shows text, images, and URLs with automatic reconnection.
+- **Client**: Angular fullscreen display application that receives content via WebSocket and displays it on a connected screen/TV. Supports text (with chord annotations), images, URLs, embedded iframes, and videos with smooth page transitions, auto-reconnect, custom CSS styling per item/page, and location-based content routing.
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 
 - **Node.js** v18 or higher
-- **npm** or **yarn**
-- **Angular CLI** v17 or higher (for admin and client apps)
-- **SQLite3** (included via better-sqlite3)
+- **npm**
+- **Angular CLI** v19 or higher
+- **SQLite3** (included via `better-sqlite3`)
 - **HDMI CEC** tools (optional, for TV control via `cec-client`)
 
 ### Installation
@@ -92,109 +95,98 @@ This will start:
 - **Username**: `admin`
 - **Password**: `admin`
 
-⚠️ **Important**: Change the default admin password in production!
+**Important**: Change the default admin password in production!
 
-## 📋 Features
+## Features
 
 ### Server Features
 - SQLite database for data persistence
-- RESTful API for CRUD operations
-- WebSocket server for real-time communication
-- User authentication and authorization
-- Role-based access control (RBAC)
-- Permission system
-- Playlist and library item management
-- HDMI CEC integration for TV control
-- Multi-client synchronization
+- RESTful API for CRUD operations on all entities
+- WebSocket server for real-time bidirectional communication
+- User authentication and session management
+- Role-based access control (RBAC) with fine-grained permissions
+- Library item management with multi-page support (text, image, URL, video, iframe)
+- Per-item and per-page CSS styling
+- Playlist management with per-item page selection
+- Collection and tag management for organizing library items
+- Location-based content routing (multi-display support)
+- HDMI CEC integration for TV power and volume control
+- Multi-admin synchronization (playlist, item, and page selections)
+- Content visibility control (hide/show content on displays)
+- Chord transposition support for text content
+- Video file upload and serving
+- Library item duplication
 
 ### Admin Features
 - User authentication with session management
-- Playlist management and viewing
-- Library item editor (text, images, URLs)
-- Playlist editor
-- User management
-- Role and permission management
-- Display control (TV power and volume)
-- User profile management
-- Multi-language support (i18n)
-- Real-time synchronization across admin instances
+- Three content selection modes: Playlist, Search (with filters), and Numpad (GUID entry)
+- Library item editor supporting text, images, URLs, videos, and embedded iframes
+- Multi-page library items with drag-and-drop page ordering
+- Per-item and per-page CSS property editor
+- Chord annotation support with display modes (local, everywhere, hidden) and transposition
+- Playlist editor with item ordering and per-item page selection
+- Collection management for grouping library items
+- Tag management with multi-tag filtering
+- Advanced search with collection and tag filters
+- Recently selected items history (persisted, last 20)
+- Content preview with fullscreen mode
+- Content visibility toggle (hide/show on audience display)
+- User, role, and permission management
+- Location management for multi-display setups
+- TV remote control (power on/off, volume up/down via HDMI CEC)
+- User profile management (name, email, password, language)
+- Multi-language support (English, Slovenian, Italian)
+- Real-time synchronization across multiple admin instances
+- Responsive design for desktop, tablet, and mobile
+- Keyboard navigation support (arrow keys for page/item navigation)
+- Auto-login support for kiosk deployments
 
 ### Client Features
-- Fullscreen content display
-- WebSocket connection with auto-reconnect
-- Support for text, images (base64), and URLs
+- Fullscreen content display optimized for digital signage
+- Content types: text (with optional chords), images, URLs, embedded iframes, videos
+- Smooth slide transitions between pages and content changes
+- Custom CSS styling support (per-item and per-page properties)
+- Chord visibility control (show/hide based on admin settings)
+- Location-based content routing (auto-select or manual location picker)
+- WebSocket connection with automatic reconnect
 - Connection status indicator
 - Loading animations
+- Auto-login location support for kiosk deployments
 - Responsive content scaling
 
-## 🔧 Configuration
+## Configuration
+
+### Shared Configuration
+
+The project uses `shared-config.ts` (for Angular apps) and `shared-config.js` (for the server) to automatically detect the runtime environment based on hostname:
+- `localhost` / `127.0.0.1`: Uses local development ports (server: 8080, admin: 4200, client: 4201)
+- Any other hostname: Uses deployment ports (server: 5000, client: 5001)
 
 ### Server Configuration
 
-The server can be configured via environment variables:
+The server can be configured via environment variables or `server/config.js`:
 
-- `PORT`: Server port (default: `8080`)
-
-Example:
-```bash
-PORT=3000 npm start
-```
+| Variable | Default | Description |
+|---|---|---|
+| `PORT` | `8080` | Server port |
+| `NODE_ENV` | `development` | Environment mode |
+| `CORS_ORIGIN` | dev origins | Comma-separated allowed origins |
+| `BODY_SIZE_LIMIT` | `50mb` | Max request body size |
 
 ### Database
 
-The server uses SQLite database located at `server/data/mediaserver.db`. The database is automatically initialized on first run with:
-- Default admin user
-- Default roles (admin, user)
-- Default permissions
-- Database schema
+The server uses SQLite located at `server/data/mediaserver.db`. Automatically initialized on first run with default admin user, roles, and permissions.
 
-### CORS Configuration
-
-The server is configured to allow requests from:
-- Admin app: `http://localhost:4200`
-- Client app: `http://localhost:4201`
-
-Modify CORS settings in `server/httpEndpoints.js` if using different ports or domains.
-
-## 📚 Documentation
-
-For detailed documentation on each component, see:
-
-- [Server Documentation](./server/README.md) - Complete server API and WebSocket documentation
-- [Admin Documentation](./admin/README.md) - Admin application features and usage
-- [Client Documentation](./client/README.md) - Client application setup and configuration
-
-## 🔐 Security
-
-- Passwords are hashed using MD5 (client-side) before sending to server
-- Session-based authentication
-- Role-based access control
-- Permission-based route guards
-- CORS protection
-- SQL injection protection via parameterized queries
-
-## 🌐 WebSocket Protocol
-
-The system uses WebSocket for real-time communication. See [Server Documentation](./server/README.md) for detailed message formats and protocol specification.
-
-## 📦 Building for Production
+## Building for Production
 
 **Option 1: Build all projects together (recommended)**
-
-This builds all projects and prepares a unified `dist/` folder ready for deployment:
 
 ```bash
 npm run build
 ```
 
-This will:
-- Build the admin Angular app with production configuration
-- Build the client Angular app with production configuration  
-- Copy server files to `dist/server/`
-- Generate configuration files from `build.config.js`
-- Create a ready-to-deploy `dist/` folder
+This builds admin and client apps with production configuration, copies server files, and generates configuration from `build.config.js`. To clean and rebuild:
 
-To clean and rebuild:
 ```bash
 npm run build:clean
 ```
@@ -217,32 +209,18 @@ npm start
 
 **Option 2: Build projects individually**
 
-### Server
-The server runs directly with Node.js - no build step required.
-
-### Admin
 ```bash
-cd admin-v2
-npm run build
-```
-Output: `admin-v2/dist/media-player-admin-v2/`
+# Admin
+cd admin-v2 && npm run build
 
-### Client
-```bash
-cd client
-npm run build
+# Client
+cd client && npm run build
 ```
-Output: `client/dist/media-player/`
 
 ### Build Configuration
 
-You can customize build settings by editing `build.config.js` in the root directory:
+Customize production settings in `build.config.js`:
 
-- Override API URLs for production
-- Set server ports and CORS origins
-- Configure environment-specific settings
-
-Example `build.config.js`:
 ```javascript
 module.exports = {
   server: {
@@ -252,48 +230,64 @@ module.exports = {
     corsCredentials: false
   },
   admin: {
-    apiUrl: 'http://your-production-server.com:8080',
-    wsUrl: 'ws://your-production-server.com:8080'
+    apiUrl: 'http://your-server:8080',
+    wsUrl: 'ws://your-server:8080'
   },
   client: {
-    apiUrl: 'http://your-production-server.com:8080',
-    wsUrl: 'ws://your-production-server.com:8080'
+    apiUrl: 'http://your-server:8080',
+    wsUrl: 'ws://your-server:8080'
   }
 };
 ```
 
-## 🐛 Troubleshooting
+## Deployment
+
+For Raspberry Pi deployment with kiosk mode, auto-start services, and Chromium fullscreen display, see the detailed guide:
+
+- **[Raspberry Pi Deployment Guide](./deployment/raspberry-pi/README.md)**
+
+## Security
+
+- Passwords are hashed (MD5 client-side) before transmission
+- Session-based authentication with server-side session storage
+- Role-based access control with fine-grained permissions
+- Permission-based route guards in admin app
+- CORS protection with configurable origins
+- SQL injection protection via parameterized queries
+
+## Documentation
+
+- [Server Documentation](./server/README.md) - API endpoints, WebSocket protocol, database schema
+- [Admin Documentation](./admin-v2/README.md) - Admin application features and architecture
+- [Client Documentation](./client/README.md) - Client display application
+- [Raspberry Pi Deployment](./deployment/raspberry-pi/README.md) - Production deployment guide
+
+## Troubleshooting
 
 ### Server won't start
-- Check if port 8080 is already in use
+- Check if the configured port is already in use
 - Verify Node.js version (v18+)
-- Check database file permissions
+- Check database file permissions in `server/data/`
 
 ### Admin app can't connect
-- Verify server is running on port 8080
-- Check CORS configuration
-- Verify API endpoints in browser console
+- Verify server is running
+- Check CORS configuration in `server/config.js`
+- Check browser console for errors
 
 ### Client not displaying content
-- Check WebSocket connection status
-- Verify server is running
-- Check browser console for errors
-- Ensure content is being sent via WebSocket
+- Check WebSocket connection status indicator (green = connected)
+- Verify server is running and content is being sent
+- Ensure the correct location is selected (if using multi-location)
 
 ### TV control not working
-- Verify `cec-client` is installed and accessible
-- Check HDMI CEC connection
+- Verify `cec-client` is installed (`sudo apt install cec-utils`)
+- Check HDMI CEC connection and TV settings
 - Verify user has `ViewDisplay` permission
 
-## 📝 License
+### Pages not showing for non-text items
+- Ensure library items have multiple pages defined in the editor
+- Page navigation works for all content types (text, image, URL, video, iframe)
+
+## License
 
 ISC
-
-## 🤝 Contributing
-
-This is a private project. For issues or feature requests, contact the project maintainer.
-
-## 📞 Support
-
-For support, check the individual component READMEs or contact the development team.
-

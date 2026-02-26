@@ -21,6 +21,7 @@ export class NavbarComponent implements OnInit, OnDestroy {
   connectionStatus: "connecting" | "connected" | "disconnected" = "disconnected";
   mobileMenuOpen: boolean = false;
   showLogoutConfirmDialog: boolean = false;
+  showAboutDialog: boolean = false;
   
   private userSubscription?: Subscription;
   private connectionStatusSubscription?: Subscription;
@@ -144,5 +145,14 @@ export class NavbarComponent implements OnInit, OnDestroy {
 
   reloadApp(): void {
     window.location.reload();
+  }
+
+  openAboutDialog(): void {
+    this.showAboutDialog = true;
+    this.closeMobileMenu();
+  }
+
+  closeAboutDialog(): void {
+    this.showAboutDialog = false;
   }
 }

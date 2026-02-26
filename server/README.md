@@ -1,23 +1,29 @@
 # MediaServer - Server
 
-Node.js backend server for the MediaServer system. Provides REST API endpoints, WebSocket server, SQLite database management, and HDMI CEC integration for TV control.
+Node.js backend server for the MediaServer system. Provides REST API endpoints, WebSocket server for real-time communication, SQLite database management, video file serving, and HDMI CEC integration for TV control.
 
-## 📋 Features
+## Features
 
-- **RESTful API**: Complete CRUD operations for users, roles, permissions, playlists, and library items
+- **RESTful API**: Complete CRUD operations for users, roles, permissions, playlists, library items, collections, tags, locations, and pages
 - **WebSocket Server**: Real-time bidirectional communication with admin and client applications
-- **SQLite Database**: Persistent data storage with automatic schema initialization
+- **SQLite Database**: Persistent data storage with automatic schema initialization and migrations
 - **Authentication & Authorization**: Session-based auth with role-based access control (RBAC)
-- **Permission System**: Fine-grained permission management
-- **HDMI CEC Integration**: TV control via `cec-client` commands
-- **Multi-client Synchronization**: Real-time sync of selections across admin instances
+- **Permission System**: Fine-grained permission management with route-level enforcement
+- **Multi-Location Support**: Content routing to specific displays via location assignments
+- **HDMI CEC Integration**: TV control via `cec-client` commands (power, volume)
+- **Multi-Admin Synchronization**: Real-time sync of playlist, item, page, and chord selections across admin instances
+- **Content Visibility Control**: Show/hide content on displays without losing the current selection
+- **CSS Merging**: Per-item and per-page CSS properties merged and delivered to clients
+- **Chord Transposition**: Server-side chord transposition for text content
+- **Video File Serving**: Upload and serve video files from the `data/videos/` directory
+- **Library Item Duplication**: Deep copy of items including all pages
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 
 - Node.js v18 or higher
-- npm or yarn
+- npm
 - SQLite3 (included via `better-sqlite3`)
 - HDMI CEC tools (optional, for TV control)
 
@@ -33,7 +39,7 @@ npm install
 npm start
 ```
 
-The server will start on port `8080` by default. You can change the port using the `PORT` environment variable:
+The server starts on port `8080` by default. Override with the `PORT` environment variable:
 
 ```bash
 PORT=3000 npm start
@@ -43,492 +49,262 @@ PORT=3000 npm start
 
 On first run, the server automatically:
 - Creates the SQLite database at `data/mediaserver.db`
-- Initializes all tables (users, roles, permissions, library_items, playlists, etc.)
+- Initializes all tables
 - Creates default admin user (username: `admin`, password: `admin`)
-- Creates default roles (admin, user)
-- Creates default permissions
+- Creates default roles (admin, user) and permissions
 - Assigns permissions to roles
 
-⚠️ **Security**: Change the default admin password immediately!
+**Important**: Change the default admin password immediately.
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 server/
 ├── server.js              # Main server entry point
-├── httpEndpoints.js       # REST API endpoints
+├── config.js              # Server configuration (ports, CORS, etc.)
+├── httpEndpoints.js       # REST API route registration
 ├── websocketHandler.js    # WebSocket server and message handling
-├── database.js            # Database initialization and setup
+├── database.js            # Database initialization, schema, and migrations
 ├── dbOperations.js        # Database CRUD operations
-├── dataLoader.js          # Data loading utilities
+├── duplicateLibraryItem.js # Library item duplication logic
+├── routes/
+│   ├── auth.js            # Authentication endpoints
+│   ├── users.js           # User management
+│   ├── roles.js           # Role management
+│   ├── permissions.js     # Permission management
+│   ├── library.js         # Library item CRUD
+│   ├── pages.js           # Page management for library items
+│   ├── playlist.js        # Legacy playlist endpoints
+│   ├── playlists.js       # Playlist CRUD
+│   ├── collections.js     # Collection management
+│   ├── tags.js            # Tag management
+│   ├── locations.js       # Location management
+│   ├── keyboard.js        # Keyboard shortcut endpoints
+│   └── settings.js        # General settings
 ├── data/
-│   └── mediaserver.db     # SQLite database file
+│   ├── mediaserver.db     # SQLite database
+│   └── videos/            # Uploaded video files
 └── package.json
 ```
 
-## 🔌 API Endpoints
+## API Endpoints
 
 ### Authentication
 
-#### `POST /login`
-Authenticate a user and create a session.
-
-**Request Body:**
-```json
-{
-  "username": "admin",
-  "password": "hashed_password_md5"
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "sessionId": "session_guid",
-  "user": {
-    "guid": "user_guid",
-    "username": "admin",
-    "name": "Administrator",
-    "email": "admin@example.com",
-    "role": {
-      "guid": "role_guid",
-      "name": "admin",
-      "is_admin": 1
-    },
-    "permissions": ["ViewPlaylist", "ViewEditor", ...],
-    "locale": "en"
-  }
-}
-```
-
-#### `GET /me`
-Get current user information (requires session cookie).
-
-**Response:** Same as `/login` user object.
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/login` | Authenticate user, create session |
+| `GET` | `/me` | Get current user info (requires session) |
 
 ### Users
 
-#### `GET /users`
-Get all users (admin only).
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/users` | List all users (admin only) |
+| `GET` | `/users?username=x` | Get user by username |
+| `POST` | `/users` | Create user (admin only) |
+| `PUT` | `/users/:guid` | Update user (admin or self) |
+| `DELETE` | `/users/:guid` | Delete user (admin only) |
 
-#### `GET /users?username=username`
-Get user by username.
+### Roles & Permissions
 
-#### `POST /users`
-Create a new user (admin only).
-
-**Request Body:**
-```json
-{
-  "username": "newuser",
-  "password": "hashed_password_md5",
-  "name": "New User",
-  "email": "user@example.com",
-  "role": "role_guid",
-  "locale": "en"
-}
-```
-
-#### `PUT /users/:guid`
-Update a user (admin only, or own profile).
-
-**Request Body:** (all fields optional)
-```json
-{
-  "name": "Updated Name",
-  "email": "newemail@example.com",
-  "password": "new_hashed_password_md5",
-  "currentPassword": "current_hashed_password_md5",
-  "role": "role_guid",
-  "locale": "en"
-}
-```
-
-#### `DELETE /users/:guid`
-Delete a user (admin only).
-
-### Roles
-
-#### `GET /roles`
-Get all roles.
-
-#### `GET /roles/:guid`
-Get role by GUID.
-
-#### `POST /roles`
-Create a new role (admin only).
-
-**Request Body:**
-```json
-{
-  "name": "Role Name",
-  "is_admin": 0
-}
-```
-
-#### `PUT /roles/:guid`
-Update a role (admin only).
-
-**Request Body:**
-```json
-{
-  "name": "Updated Role Name"
-}
-```
-
-#### `DELETE /roles/:guid`
-Delete a role (admin only, cannot delete admin role).
-
-#### `GET /roles/:guid/permissions`
-Get permissions for a role.
-
-#### `PUT /roles/:guid/permissions`
-Update permissions for a role (admin only).
-
-**Request Body:**
-```json
-{
-  "permissions": ["permission_guid1", "permission_guid2", ...]
-}
-```
-
-### Permissions
-
-#### `GET /permissions`
-Get all permissions.
-
-#### `POST /permissions`
-Create a new permission (admin only).
-
-**Request Body:**
-```json
-{
-  "name": "PermissionName",
-  "description": "Permission description"
-}
-```
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/roles` | List all roles |
+| `GET` | `/roles/:guid` | Get role by GUID |
+| `POST` | `/roles` | Create role (admin only) |
+| `PUT` | `/roles/:guid` | Update role (admin only) |
+| `DELETE` | `/roles/:guid` | Delete role (admin only) |
+| `GET` | `/roles/:guid/permissions` | Get role permissions |
+| `PUT` | `/roles/:guid/permissions` | Update role permissions (admin only) |
+| `GET` | `/permissions` | List all permissions |
+| `POST` | `/permissions` | Create permission (admin only) |
 
 ### Library Items
 
-#### `GET /library`
-Get all library items.
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/library` | List all library items (summary) |
+| `GET` | `/library/search?q=term` | Search library items by name |
+| `GET` | `/library/:guid` | Get full library item with pages |
+| `POST` | `/library` | Create library item |
+| `PUT` | `/library/:guid` | Update library item |
+| `DELETE` | `/library/:guid` | Delete library item |
+| `POST` | `/library/:guid/duplicate` | Duplicate library item |
 
-#### `GET /library/:guid`
-Get library item by GUID.
+### Pages
 
-#### `POST /library`
-Create a new library item (requires permission).
-
-**Request Body:**
-```json
-{
-  "name": "Item Name",
-  "type": "text" | "image" | "url",
-  "content": "content string",
-  "pages": [
-    {
-      "content": "page 1 content"
-    },
-    {
-      "content": "page 2 content"
-    }
-  ]
-}
-```
-
-#### `PUT /library/:guid`
-Update a library item (requires permission).
-
-**Request Body:** Same as POST, all fields optional.
-
-#### `DELETE /library/:guid`
-Delete a library item (requires permission).
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/pages/library-item/:guid` | Get pages for a library item |
+| `POST` | `/pages` | Create a page |
+| `PUT` | `/pages/:guid` | Update a page |
+| `DELETE` | `/pages/:guid` | Delete a page |
 
 ### Playlists
 
-#### `GET /playlists`
-Get all playlists.
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/playlists` | List all playlists |
+| `GET` | `/playlists/search?q=term` | Search playlists |
+| `GET` | `/playlists/:guid` | Get playlist by GUID |
+| `POST` | `/playlists` | Create playlist |
+| `PUT` | `/playlists/:guid` | Update playlist |
+| `DELETE` | `/playlists/:guid` | Delete playlist |
+| `GET` | `/playlist/items?guid=x` | Get playlist items (optimized) |
 
-#### `GET /playlists/search?q=search_term`
-Search playlists by name.
+### Collections
 
-#### `GET /playlists/:guid`
-Get playlist by GUID.
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/collections` | List all collections |
+| `GET` | `/collections/:guid` | Get collection with items |
+| `POST` | `/collections` | Create collection |
+| `PUT` | `/collections/:guid` | Update collection |
+| `DELETE` | `/collections/:guid` | Delete collection |
+| `GET` | `/collections/:guid/items` | Get collection items |
+| `POST` | `/collections/:guid/items` | Add items to collection |
+| `DELETE` | `/collections/:guid/items/:itemGuid` | Remove item from collection |
 
-#### `POST /playlists`
-Create a new playlist (requires permission).
+### Tags
 
-**Request Body:**
-```json
-{
-  "name": "Playlist Name",
-  "items": ["library_item_guid1", "library_item_guid2", ...]
-}
-```
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/tags` | List all tags |
+| `GET` | `/tags/:guid` | Get tag |
+| `POST` | `/tags` | Create tag |
+| `PUT` | `/tags/:guid` | Update tag |
+| `DELETE` | `/tags/:guid` | Delete tag |
+| `GET` | `/library/:guid/tags` | Get tags for library item |
+| `POST` | `/library/:guid/tags` | Set tags for library item |
 
-#### `PUT /playlists/:guid`
-Update a playlist (requires permission).
+### Locations
 
-**Request Body:**
-```json
-{
-  "name": "Updated Playlist Name",
-  "items": ["library_item_guid1", "library_item_guid2", ...]
-}
-```
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/locations` | List all locations |
+| `GET` | `/locations/:guid` | Get location |
+| `POST` | `/locations` | Create location |
+| `PUT` | `/locations/:guid` | Update location |
+| `DELETE` | `/locations/:guid` | Delete location |
 
-#### `DELETE /playlists/:guid`
-Delete a playlist (requires permission).
+### Videos
 
-#### `GET /playlist?guid=playlist_guid`
-Get playlist items (legacy endpoint).
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/upload/video` | Upload video file |
+| `GET` | `/videos/:filename` | Serve video file |
 
-#### `GET /playlist/items?guid=playlist_guid`
-Get optimized playlist items.
-
-## 🔌 WebSocket Protocol
+## WebSocket Protocol
 
 ### Connection
 
-Connect to `ws://localhost:8080` (or your server URL).
+Connect to `ws://<server-host>:<port>` (default: `ws://localhost:8080`).
 
-### Message Types
+### Client-to-Server Messages
 
-#### From Client to Server
+| Type | Description | Key Fields |
+|---|---|---|
+| `ClientConnect` | Register as admin or display client | `clientType`, `locationId` |
+| `Change` | Change displayed content | `guid`, `page`, `locationId`, `chordVisibility`, `chordTransposition` |
+| `SelectPlaylist` | Sync playlist selection | `guid`, `locationId` |
+| `SelectLibraryItem` | Sync item selection | `guid`, `page`, `locationId` |
+| `SelectLocation` | Client selects a location | `locationId` |
+| `SetDisplayVisible` | Show/hide content on display | `visible`, `locationId` |
+| `Action` | HDMI CEC command | `actionType` (`powerOn`, `powerOff`, `volumeUp`, `volumeDown`) |
+| `Clear` | Clear the display | `locationId` |
 
-##### `Change`
-Request to change displayed content.
+### Server-to-Client Messages
 
-```json
-{
-  "type": "Change",
-  "guid": "library_item_guid",
-  "page": 1
-}
-```
+| Type | Description | Key Fields |
+|---|---|---|
+| `text` | Text content | `content`, `css`, `guid`, `page`, `chordVisibility`, `contentVisible` |
+| `image` | Image content | `content`, `css`, `guid`, `page`, `contentVisible` |
+| `url` | URL content | `content`, `css`, `guid`, `contentVisible` |
+| `iframe` | Embedded iframe | `content`, `css`, `guid`, `contentVisible` |
+| `video` | Video content | `content`, `css`, `guid`, `contentVisible` |
+| `SelectPlaylist` | Playlist sync (admin only) | `guid` |
+| `SelectLibraryItem` | Item sync (admin only) | `guid`, `page` |
+| `DisplayVisibleState` | Visibility state update | `contentVisible` |
+| `LocationsList` | Available locations | `locations` |
+| `ActionResponse` | CEC command result | `actionType`, `status`, `message` |
 
-##### `SelectPlaylist`
-Select a playlist (admin only, syncs across instances).
+### Content Delivery
 
-```json
-{
-  "type": "SelectPlaylist",
-  "guid": "playlist_guid"
-}
-```
-
-##### `SelectLibraryItem`
-Select a library item (admin only, syncs across instances).
-
-```json
-{
-  "type": "SelectLibraryItem",
-  "guid": "library_item_guid",
-  "page": 1
-}
-```
-
-##### `Action`
-Send HDMI CEC command to TV (admin only, requires `ViewDisplay` permission).
-
-```json
-{
-  "type": "Action",
-  "actionType": "powerOn" | "powerOff" | "volumeUp" | "volumeDown"
-}
-```
-
-##### `Clear`
-Clear the display.
-
-```json
-{
-  "type": "Clear"
-}
-```
-
-#### From Server to Client
-
-##### `text`
-Display text content.
-
-```json
-{
-  "type": "text",
-  "content": "Text to display"
-}
-```
-
-##### `image`
-Display image (base64 encoded).
-
-```json
-{
-  "type": "image",
-  "content": "data:image/png;base64,iVBORw0KGgo..."
-}
-```
-
-##### `url`
-Display URL in iframe.
-
-```json
-{
-  "type": "url",
-  "content": "https://example.com"
-}
-```
-
-##### `SelectPlaylist`
-Sync playlist selection (admin only).
-
-```json
-{
-  "type": "SelectPlaylist",
-  "guid": "playlist_guid"
-}
-```
-
-##### `SelectLibraryItem`
-Sync library item selection (admin only).
-
-```json
-{
-  "type": "SelectLibraryItem",
-  "guid": "library_item_guid",
-  "page": 1
-}
-```
-
-### Client Types
-
-The server distinguishes between:
-- **Admin clients**: Receive sync messages (`SelectPlaylist`, `SelectLibraryItem`) and can send `Action` messages
-- **Display clients**: Receive content messages (`text`, `image`, `url`)
+When a `Change` message is received:
+1. Server loads the library item and its pages from the database
+2. CSS properties are merged (item-level + page-level, page overrides item)
+3. For text content, chord transposition is applied if requested
+4. Content is sent to all display clients for the matching location
+5. Content state is cached per location for new client connections
 
 ### Initial State Sync
 
-When a new admin client connects, the server automatically sends:
-1. `SelectPlaylist` message (if a playlist is selected)
-2. `SelectLibraryItem` message (if an item is selected)
-3. `Change` message with current content (if content is being displayed)
+When a new client connects, the server sends:
+1. `LocationsList` with available locations
+2. Current content for the client's location (if any)
+3. For admin clients: current playlist selection, item selection, and visibility state
 
-## 🗄️ Database Schema
+## Database Schema
 
-### Tables
+### Core Tables
+- **users**: User accounts with role assignment and locale preference
+- **roles**: User roles with admin flag
+- **permissions**: System permissions (ViewPlaylist, ViewEditor, ViewSettings, ViewDisplay, etc.)
+- **role_permissions**: Role-to-permission mappings
 
-- **users**: User accounts
-- **roles**: User roles
-- **permissions**: System permissions
-- **role_permissions**: Role-permission mappings
-- **library_items**: Content library items
-- **library_item_pages**: Multi-page library item content
+### Content Tables
+- **library_items**: Library items (name, description, type, CSS, author)
+- **pages**: Individual content pages (content, type, CSS)
+- **library_item_pages**: Item-to-page mappings with ordering
+
+### Organization Tables
 - **playlists**: Playlist definitions
-- **playlist_items**: Playlist-item mappings
+- **playlist_items**: Playlist-to-item mappings with ordering and per-item page selection
+- **collections**: Content collections (title, year, description)
+- **collection_items**: Collection-to-item mappings
+- **tags**: Categorization tags
+- **library_item_tags**: Item-to-tag mappings
 
-See `database.js` for complete schema definitions.
+### System Tables
+- **locations**: Display locations for multi-screen setups
+- **settings**: Key-value system settings
 
-## 🔐 Authentication & Authorization
+## HDMI CEC Integration
 
-### Session Management
+TV control via `cec-client`:
 
-- Sessions are stored in memory (session ID → user GUID mapping)
-- Session cookies are sent to clients on successful login
-- Sessions expire on server restart (in-memory storage)
+| Action | CEC Command |
+|---|---|
+| Power On | `echo "on 0" \| cec-client -s -d 1` |
+| Power Off | `echo "standby 0" \| cec-client -s -d 1` |
+| Volume Up | `echo "volup" \| cec-client -s -d 1` |
+| Volume Down | `echo "voldown" \| cec-client -s -d 1` |
 
-### Permission System
+Requires `cec-utils` package: `sudo apt install cec-utils`
 
-Permissions control access to:
-- Routes in admin app (via `permissionGuard`)
-- API endpoints (checked in `httpEndpoints.js`)
-- Features (checked via `UserService.hasPermission()`)
+## Configuration
 
-### Default Permissions
+Server configuration via `config.js` and environment variables:
 
-- `ViewPlaylist`: View playlists
-- `ViewLibraryEditor`: Edit library items
-- `ViewPlaylistEditor`: Edit playlists
-- `ViewSettings`: Access settings
-- `ViewDisplay`: Access display control
-- And more...
+| Setting | Default | Description |
+|---|---|---|
+| `PORT` | `8080` | Server listening port |
+| `NODE_ENV` | `development` | Environment mode |
+| `CORS_ORIGIN` | dev origins | Allowed CORS origins (comma-separated) |
+| `CORS_CREDENTIALS` | `false` | Allow credentials in CORS |
+| `BODY_SIZE_LIMIT` | `50mb` | Max request body size |
+| `CACHE_ENABLED` | `true` | Enable response caching |
+| `CACHE_TTL` | `300000` | Cache TTL in milliseconds |
 
-## 📺 HDMI CEC Integration
-
-The server supports TV control via HDMI CEC using the `cec-client` command.
-
-### Supported Actions
-
-- `powerOn`: Turn TV on
-- `powerOff`: Turn TV off
-- `volumeUp`: Increase volume
-- `volumeDown`: Decrease volume
-
-### Requirements
-
-- `cec-client` must be installed and accessible in PATH
-- HDMI CEC must be enabled on the TV
-- Proper HDMI connection
-
-### Implementation
-
-Commands are executed via `child_process.exec()` in `websocketHandler.js`.
-
-## 🔧 Configuration
-
-### Environment Variables
-
-- `PORT`: Server port (default: `8080`)
-
-### CORS
-
-CORS is configured to allow:
-- Origin: `http://localhost:4200` (admin app)
-- Methods: `GET, POST, PUT, DELETE, OPTIONS`
-- Headers: `Content-Type`
-- Credentials: `true`
-
-Modify `setCorsHeaders()` in `httpEndpoints.js` for different origins.
-
-## 🐛 Troubleshooting
-
-### Database Issues
-
-- **Database locked**: Ensure only one server instance is running
-- **Schema errors**: Delete `data/mediaserver.db` and restart (will recreate)
-- **Migration issues**: Check `database.js` for schema changes
-
-### WebSocket Issues
-
-- **Connection refused**: Check server is running and port is correct
-- **Messages not received**: Check message format matches protocol
-- **Sync not working**: Verify admin client is authenticated
-
-### HDMI CEC Issues
-
-- **Command not found**: Install `cec-client` package
-- **No response**: Check HDMI CEC connection and TV settings
-- **Permission denied**: Check `cec-client` executable permissions
-
-## 📝 Development
-
-### Adding New Endpoints
-
-1. Add route handler in `httpEndpoints.js`
-2. Add database operations in `dbOperations.js` if needed
-3. Update this README with endpoint documentation
-
-### Adding New WebSocket Messages
-
-1. Add message handler in `websocketHandler.js`
-2. Update message type in client/admin services
-3. Update this README with message format
-
-## 📦 Dependencies
+## Dependencies
 
 - `better-sqlite3`: SQLite database driver
-- `ws`: WebSocket server implementation
+- `ws`: WebSocket server
+- `dotenv`: Environment variable loading
+- `xlsx`: Excel file processing
+- `multer`: File upload handling (videos)
 
-## 📄 License
+## License
 
 ISC
