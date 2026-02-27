@@ -174,7 +174,7 @@ export class LoginComponent implements OnInit, OnDestroy {
       },
       error: (error) => {
         console.error('Error loading locations:', error);
-        this.error = this.translationService.translate('errorLoadingLocations') || 'Error loading locations';
+        this.error = this.translationService.translate('errorLoadingLocations');
         this.loadingLocations = false;
       }
     });

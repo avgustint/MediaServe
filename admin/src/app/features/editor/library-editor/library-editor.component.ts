@@ -506,7 +506,7 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
       },
       error: (error) => {
         console.error("Error checking library item usage:", error);
-        this.showErrorPopup("Error checking library item usage. Please try again.");
+        this.showErrorPopup(this.translationService.translate('errorCheckingLibraryItemUsage'));
       }
     });
   }
@@ -988,7 +988,7 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
           },
           error: (error) => {
             console.error("Error updating page:", error);
-            this.showErrorPopup("Error updating page. Please try again.");
+            this.showErrorPopup(this.translationService.translate('errorUpdatingPage'));
           }
         });
       } else {
@@ -1107,9 +1107,8 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
     this.pageToRemoveGuid = pageRef.pageGuid;
     this.pageToRemoveOrderNumber = pageRef.orderNumber;
     
-    this.confirmDialogTitle = this.translationService.translate('removePage') || 'Remove Page';
-    this.confirmDialogMessage = this.translationService.translate('confirmRemovePage') || 
-      `Are you sure you want to remove this page from the song? You need to save the item for the change to be permanent.`;
+    this.confirmDialogTitle = this.translationService.translate('removePage');
+    this.confirmDialogMessage = this.translationService.translate('confirmRemovePage');
     this.showConfirmPageRemoveDialog = true;
   }
   
@@ -1274,7 +1273,7 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
       },
       error: (error) => {
         console.error("Error updating page:", error);
-        this.showErrorPopup("Error updating page. Please try again.");
+        this.showErrorPopup(this.translationService.translate('errorUpdatingPage'));
       }
     });
   }
@@ -1338,13 +1337,13 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
           this.pageDialogVideoUrl = response.url.startsWith('/') ? response.url : response.url;
           this.pageDialogVideoUploading = false;
         } else {
-          this.showErrorPopup('Failed to upload video');
+          this.showErrorPopup(this.translationService.translate('failedToUploadVideo'));
           this.pageDialogVideoUploading = false;
         }
       },
       error: (error) => {
         console.error('Video upload error:', error);
-        this.showErrorPopup(error.error?.message || 'Failed to upload video');
+        this.showErrorPopup(error.error?.message || this.translationService.translate('failedToUploadVideo'));
         this.pageDialogVideoUploading = false;
       }
     });
@@ -1366,7 +1365,7 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
       return;
     }
     if (this.pageReferences.length === 0) {
-      this.showErrorPopup("Please add at least one page");
+      this.showErrorPopup(this.translationService.translate('pleaseAddAtLeastOnePage'));
       return;
     }
 
@@ -1383,11 +1382,11 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
         if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
           cssObj = parsed;
         } else {
-          this.showErrorPopup("CSS properties must be a valid JSON object");
+          this.showErrorPopup(this.translationService.translate('cssMustBeValidJsonObject'));
           return;
         }
       } catch (e) {
-        this.showErrorPopup("CSS properties must be valid JSON format");
+        this.showErrorPopup(this.translationService.translate('cssMustBeValidJsonFormat'));
         return;
       }
     }
@@ -1442,7 +1441,7 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
         },
         error: (error) => {
           console.error("Error creating temporal pages:", error);
-          this.showErrorPopup("Error creating pages. Please try again.");
+          this.showErrorPopup(this.translationService.translate('errorCreatingPages'));
         }
       });
       return;
@@ -1471,7 +1470,7 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
         },
         error: (error) => {
           console.error("Error creating library item:", error);
-          this.showErrorPopup("Error creating library item. Please try again.");
+          this.showErrorPopup(this.translationService.translate('errorCreatingLibraryItem'));
         }
       });
     } else if (this.editingItem) {
@@ -1510,7 +1509,7 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
         },
         error: (error) => {
           console.error("Error updating library item:", error);
-          this.showErrorPopup("Error updating library item. Please try again.");
+          this.showErrorPopup(this.translationService.translate('errorUpdatingLibraryItem'));
         }
       });
     }
@@ -1567,14 +1566,14 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
             console.error("Error deleting library item:", error);
             // Reload on error to restore correct state
             this.loadRecentItems();
-            this.showErrorPopup("Error deleting library item. Please try again.");
+            this.showErrorPopup(this.translationService.translate('errorDeletingLibraryItem'));
             this.closeConfirmDialog();
           }
         });
       },
       error: (error) => {
         console.error("Error checking library item usage:", error);
-        this.showErrorPopup("Error checking library item usage. Please try again.");
+        this.showErrorPopup(this.translationService.translate('errorCheckingLibraryItemUsage'));
         this.closeConfirmDialog();
       }
     });

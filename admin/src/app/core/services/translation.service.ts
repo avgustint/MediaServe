@@ -146,6 +146,23 @@ export interface TranslationKeys {
   error: string;
   errorOccurred: string;
   pleaseTryAgain: string;
+  pleaseAddAtLeastOnePage: string;
+  cssMustBeValidJsonObject: string;
+  cssMustBeValidJsonFormat: string;
+  errorCheckingLibraryItemUsage: string;
+  errorUpdatingPage: string;
+  failedToUploadVideo: string;
+  errorCreatingPages: string;
+  errorCreatingLibraryItem: string;
+  errorUpdatingLibraryItem: string;
+  errorDeletingLibraryItem: string;
+  notAuthenticated: string;
+  errorLoadingSettings: string;
+  noPermissionToEditSettings: string;
+  errorSavingSettings: string;
+  errorDeletingPlaylist: string;
+  errorCreatingPlaylist: string;
+  errorUpdatingPlaylist: string;
   
   // Additional UI Elements
   waitingForContent: string;
@@ -543,6 +560,23 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     error: 'Error',
     errorOccurred: 'An error occurred',
     pleaseTryAgain: 'Please try again.',
+    pleaseAddAtLeastOnePage: 'Please add at least one page',
+    cssMustBeValidJsonObject: 'CSS properties must be a valid JSON object',
+    cssMustBeValidJsonFormat: 'CSS properties must be valid JSON format',
+    errorCheckingLibraryItemUsage: 'Error checking library item usage. Please try again.',
+    errorUpdatingPage: 'Error updating page. Please try again.',
+    failedToUploadVideo: 'Failed to upload video',
+    errorCreatingPages: 'Error creating pages. Please try again.',
+    errorCreatingLibraryItem: 'Error creating library item. Please try again.',
+    errorUpdatingLibraryItem: 'Error updating library item. Please try again.',
+    errorDeletingLibraryItem: 'Error deleting library item. Please try again.',
+    notAuthenticated: 'Not authenticated',
+    errorLoadingSettings: 'Error loading settings',
+    noPermissionToEditSettings: 'You don\'t have permission to edit settings',
+    errorSavingSettings: 'Error saving settings',
+    errorDeletingPlaylist: 'Error deleting playlist. Please try again.',
+    errorCreatingPlaylist: 'Error creating playlist. Please try again.',
+    errorUpdatingPlaylist: 'Error updating playlist. Please try again.',
     
     // Additional UI Elements
     waitingForContent: 'Waiting for content from WebSocket...',
@@ -937,6 +971,23 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     error: 'Napaka',
     errorOccurred: 'Prišlo je do napake',
     pleaseTryAgain: 'Poskusite znova.',
+    pleaseAddAtLeastOnePage: 'Prosimo, dodajte vsaj eno stran',
+    cssMustBeValidJsonObject: 'Lastnosti CSS morajo biti veljaven predmet JSON',
+    cssMustBeValidJsonFormat: 'Lastnosti CSS morajo biti v veljavni obliki JSON',
+    errorCheckingLibraryItemUsage: 'Napaka pri preverjanju uporabe knjižnične postavke. Poskusite znova.',
+    errorUpdatingPage: 'Napaka pri posodabljanju strani. Poskusite znova.',
+    failedToUploadVideo: 'Nalaganje videoposnetka ni uspelo',
+    errorCreatingPages: 'Napaka pri ustvarjanju strani. Poskusite znova.',
+    errorCreatingLibraryItem: 'Napaka pri ustvarjanju knjižnične postavke. Poskusite znova.',
+    errorUpdatingLibraryItem: 'Napaka pri posodabljanju knjižnične postavke. Poskusite znova.',
+    errorDeletingLibraryItem: 'Napaka pri brisanju knjižnične postavke. Poskusite znova.',
+    notAuthenticated: 'Ni overjeno',
+    errorLoadingSettings: 'Napaka pri nalaganju nastavitev',
+    noPermissionToEditSettings: 'Nimate dovoljenja za urejanje nastavitev',
+    errorSavingSettings: 'Napaka pri shranjevanju nastavitev',
+    errorDeletingPlaylist: 'Napaka pri brisanju seznama predvajanja. Poskusite znova.',
+    errorCreatingPlaylist: 'Napaka pri ustvarjanju seznama predvajanja. Poskusite znova.',
+    errorUpdatingPlaylist: 'Napaka pri posodabljanju seznama predvajanja. Poskusite znova.',
     
     // Additional UI Elements
     waitingForContent: 'Čakanje na vsebino iz WebSocket...',
@@ -1331,6 +1382,23 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     error: 'Errore',
     errorOccurred: 'Si è verificato un errore',
     pleaseTryAgain: 'Riprova.',
+    pleaseAddAtLeastOnePage: 'Aggiungi almeno una pagina',
+    cssMustBeValidJsonObject: 'Le proprietà CSS devono essere un oggetto JSON valido',
+    cssMustBeValidJsonFormat: 'Le proprietà CSS devono essere in formato JSON valido',
+    errorCheckingLibraryItemUsage: 'Errore nel controllo dell\'utilizzo dell\'elemento. Riprova.',
+    errorUpdatingPage: 'Errore nell\'aggiornamento della pagina. Riprova.',
+    failedToUploadVideo: 'Caricamento video non riuscito',
+    errorCreatingPages: 'Errore nella creazione delle pagine. Riprova.',
+    errorCreatingLibraryItem: 'Errore nella creazione dell\'elemento. Riprova.',
+    errorUpdatingLibraryItem: 'Errore nell\'aggiornamento dell\'elemento. Riprova.',
+    errorDeletingLibraryItem: 'Errore nell\'eliminazione dell\'elemento. Riprova.',
+    notAuthenticated: 'Non autenticato',
+    errorLoadingSettings: 'Errore nel caricamento delle impostazioni',
+    noPermissionToEditSettings: 'Non hai il permesso di modificare le impostazioni',
+    errorSavingSettings: 'Errore nel salvataggio delle impostazioni',
+    errorDeletingPlaylist: 'Errore nell\'eliminazione della playlist. Riprova.',
+    errorCreatingPlaylist: 'Errore nella creazione della playlist. Riprova.',
+    errorUpdatingPlaylist: 'Errore nell\'aggiornamento della playlist. Riprova.',
     
     // Additional UI Elements
     waitingForContent: 'In attesa di contenuto da WebSocket...',

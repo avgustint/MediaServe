@@ -96,7 +96,7 @@ export class UserEditorComponent implements OnInit {
       },
       error: (error) => {
         console.error("Error loading data:", error);
-        this.showErrorPopup("Error loading data. Please try again.");
+        this.showErrorPopup(this.translationService.translate('errorLoadingData'));
       }
     });
   }

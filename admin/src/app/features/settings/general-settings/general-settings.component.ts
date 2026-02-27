@@ -5,6 +5,7 @@ import { SettingsService } from "../services/settings.service";
 import { PlaylistService, LibraryItem } from "../../playlist/services/playlist.service";
 import { UserService } from "../../../core/services/user.service";
 import { AuthService } from "../../../core/services/auth.service";
+import { TranslationService } from "../../../core/services/translation.service";
 import { TranslatePipe } from "../../../shared/pipes/translation.pipe";
 import { ErrorPopupComponent } from "../../../shared/feedback/error-popup/error-popup.component";
 import { Subject, debounceTime, distinctUntilChanged, switchMap, of } from "rxjs";
@@ -52,7 +53,8 @@ export class GeneralSettingsComponent implements OnInit {
     private settingsService: SettingsService,
     private playlistService: PlaylistService,
     private userService: UserService,
-    private authService: AuthService
+    private authService: AuthService,
+    private translationService: TranslationService
   ) {}
 
   ngOnInit(): void {
@@ -99,7 +101,7 @@ export class GeneralSettingsComponent implements OnInit {
     this.loading = true;
     const username = this.authService.getStoredUsername();
     if (!username) {
-      this.showErrorPopup("Not authenticated");
+      this.showErrorPopup(this.translationService.translate('notAuthenticated'));
       this.loading = false;
       return;
     }
@@ -118,7 +120,7 @@ export class GeneralSettingsComponent implements OnInit {
       },
       error: (error) => {
         console.error("Error loading settings:", error);
-        this.showErrorPopup("Error loading settings");
+        this.showErrorPopup(this.translationService.translate('errorLoadingSettings'));
         this.loading = false;
       }
     });
@@ -156,14 +158,14 @@ export class GeneralSettingsComponent implements OnInit {
 
   saveSettings(): void {
     if (!this.hasEditPermission()) {
-      this.showErrorPopup("You don't have permission to edit settings");
+      this.showErrorPopup(this.translationService.translate('noPermissionToEditSettings'));
       return;
     }
 
     this.saving = true;
     const username = this.authService.getStoredUsername();
     if (!username) {
-      this.showErrorPopup("Not authenticated");
+      this.showErrorPopup(this.translationService.translate('notAuthenticated'));
       this.saving = false;
       return;
     }
@@ -182,7 +184,7 @@ export class GeneralSettingsComponent implements OnInit {
       },
       error: (error) => {
         console.error("Error saving settings:", error);
-        this.showErrorPopup("Error saving settings");
+        this.showErrorPopup(this.translationService.translate('errorSavingSettings'));
         this.saving = false;
       }
     });

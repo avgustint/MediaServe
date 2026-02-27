@@ -257,7 +257,7 @@ export class CollectionsEditorComponent implements OnInit, OnDestroy, AfterViewC
     if (this.collectionToDeleteGuid !== null) {
       this.collectionsService.deleteCollection(this.collectionToDeleteGuid).subscribe({
         next: () => {
-          this.showSuccessToast(this.translationService.translate('collectionDeleted') || 'Collection deleted');
+          this.showSuccessToast(this.translationService.translate('collectionDeleted'));
           this.closeConfirmDialog();
           // Clear viewing collection if it was the deleted one
           if (this.viewingCollection && this.viewingCollection.guid === this.collectionToDeleteGuid) {

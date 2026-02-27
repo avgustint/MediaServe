@@ -203,7 +203,7 @@ export class PlaylistEditorComponent implements OnInit, OnDestroy, AfterViewChec
         console.error("Error deleting playlist:", error);
         // Reload on error to restore correct state
         this.loadRecentPlaylists();
-        this.showErrorPopup("Error deleting playlist. Please try again.");
+        this.showErrorPopup(this.translationService.translate('errorDeletingPlaylist'));
         this.closeConfirmDialog();
       }
     });
@@ -586,7 +586,7 @@ export class PlaylistEditorComponent implements OnInit, OnDestroy, AfterViewChec
 
   savePlaylist(): void {
     if (!this.playlistName.trim()) {
-      this.showErrorPopup("Please enter a name for the playlist");
+      this.showErrorPopup(this.translationService.translate('pleaseEnterNameForPlaylist'));
       return;
     }
 
@@ -611,7 +611,7 @@ export class PlaylistEditorComponent implements OnInit, OnDestroy, AfterViewChec
       },
         error: (error) => {
           console.error("Error creating playlist:", error);
-          this.showErrorPopup("Error creating playlist. Please try again.");
+          this.showErrorPopup(this.translationService.translate('errorCreatingPlaylist'));
         }
       });
     } else if (this.editingPlaylist) {
@@ -629,7 +629,7 @@ export class PlaylistEditorComponent implements OnInit, OnDestroy, AfterViewChec
       },
         error: (error) => {
           console.error("Error updating playlist:", error);
-          this.showErrorPopup("Error updating playlist. Please try again.");
+          this.showErrorPopup(this.translationService.translate('errorUpdatingPlaylist'));
         }
       });
     }
