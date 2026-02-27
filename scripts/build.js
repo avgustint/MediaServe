@@ -118,6 +118,13 @@ serverDirsToCopy.forEach(dir => {
   }
 });
 
+// Resolve CORS origins: use cors-allowed-hosts when corsOrigin is null/empty
+let corsOrigin = config.server.corsOrigin;
+if (corsOrigin == null || (Array.isArray(corsOrigin) && corsOrigin.length === 0)) {
+  const corsAllowedHosts = require(path.join(ROOT_DIR, 'cors-allowed-hosts.js'));
+  corsOrigin = corsAllowedHosts.buildCorsOrigins();
+}
+
 // Generate server config.js with build-time overrides
 const serverConfigTemplate = `require('dotenv').config();
 
@@ -126,7 +133,7 @@ module.exports = {
   nodeEnv: process.env.NODE_ENV || '${config.server.nodeEnv}',
   
   cors: {
-    origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : ${JSON.stringify(config.server.corsOrigin)},
+    origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : ${JSON.stringify(corsOrigin)},
     credentials: process.env.CORS_CREDENTIALS === 'true' || ${config.server.corsCredentials}
   },
   
@@ -191,11 +198,14 @@ const devAutoLoginTimeout = config.admin.autoLoginTimeout !== undefined ? config
 const adminPkg = JSON.parse(fs.readFileSync(path.join(adminDir, 'package.json'), 'utf8'));
 const adminVersion = adminPkg.version || '0.0.0';
 
-const adminEnvDev = `export const environment = {
+// Use shared-config getters for apiUrl/wsUrl so app works from any host (mediaplayer.local, localhost, IP, Tailscale)
+const adminEnvDev = `import { getApiUrl, getWsUrl } from '../../../shared-config';
+
+export const environment = {
   production: false,
   version: '${adminVersion}',
-  apiUrl: '${config.admin.apiUrl}',
-  wsUrl: '${config.admin.wsUrl}',
+  get apiUrl() { return getApiUrl(); },
+  get wsUrl() { return getWsUrl(); },
   autoLoginUsername: '${devAutoLoginUsername}',
   autoLoginPassword: '${devAutoLoginPassword}',
   autoLoginLocationId: ${devAutoLoginLocationId},
@@ -203,11 +213,13 @@ const adminEnvDev = `export const environment = {
 };
 `;
 
-const adminEnvProd = `export const environment = {
+const adminEnvProd = `import { getApiUrl, getWsUrl } from '../../../shared-config';
+
+export const environment = {
   production: true,
   version: '${adminVersion}',
-  apiUrl: '${config.admin.apiUrl}',
-  wsUrl: '${config.admin.wsUrl}',
+  get apiUrl() { return getApiUrl(); },
+  get wsUrl() { return getWsUrl(); },
   autoLoginUsername: '${autoLoginUsername}',
   autoLoginPassword: '${autoLoginPassword}',
   autoLoginLocationId: ${autoLoginLocationId},
@@ -260,14 +272,23 @@ if (fs.existsSync(adminEnvProdPath + '.backup')) {
 console.log('\n📦 Building client app...');
 const clientDir = path.join(ROOT_DIR, 'client');
 
-// Generate client api.config.ts with build-time config
+// Generate client api.config.ts - use shared-config for dynamic hostname (works from any allowed host)
 const clientAutoLoginLocationId = config.client.autoLoginLocationId !== undefined ? config.client.autoLoginLocationId : 0;
-const clientApiConfig = `export const SERVER_BASE_URL = "${config.client.apiUrl}";
-export const AUTO_LOGIN_LOCATION_ID = ${clientAutoLoginLocationId};
+const clientApiConfig = `import { getApiUrl, getWsUrl } from '../../../shared-config';
 
 export function getServerBaseUrlRuntime(): string {
-  return SERVER_BASE_URL;
+  return getApiUrl();
 }
+
+export const SERVER_BASE_URL = {
+  get value() { return getApiUrl(); }
+};
+
+export const WS_BASE_URL = {
+  get value() { return getWsUrl(); }
+};
+
+export const AUTO_LOGIN_LOCATION_ID = ${clientAutoLoginLocationId};
 `;
 
 const clientApiConfigPath = path.join(clientDir, 'src/app/api.config.ts');

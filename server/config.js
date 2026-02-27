@@ -1,5 +1,6 @@
 require('dotenv').config();
 const sharedConfig = require('../shared-config.js');
+const corsAllowedHosts = require('../cors-allowed-hosts');
 
 module.exports = {
   // Use port from shared config (8080 for local, 5000 for raspberry)
@@ -8,8 +9,8 @@ module.exports = {
   nodeEnv: process.env.NODE_ENV || 'development',
   
   cors: {
-    // Allow multiple dev origins by default (admin, client display, etc.)
-    origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : ['http://localhost:4200', 'http://localhost:4201', 'http://127.0.0.1:4200', 'http://127.0.0.1:4201', 'http://192.168.68.119:4200', 'http://192.168.68.119:4201'],
+    // Origins from CORS_ORIGIN env, or built from cors-allowed-hosts.js
+    origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : corsAllowedHosts.buildCorsOrigins(),
     credentials: process.env.CORS_CREDENTIALS === 'true'
   },
   

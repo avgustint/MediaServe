@@ -1,14 +1,17 @@
 /**
  * Shared configuration for MediaServer
  * Used by server, admin, and client apps
- * 
+ *
  * Configuration is determined by NODE_ENV or DEPLOYMENT_TARGET environment variable:
  * - 'development' or 'local': Local development (localhost:8080, client:4200, admin:4201)
- * - 'production' or 'raspberry': Raspberry Pi deployment (mediaplayer.local:5000)
+ * - 'production' or 'raspberry': Raspberry Pi deployment (default mediaplayer.local:5000)
+ *
+ * CORS: Allowed hosts in cors-allowed-hosts.js (mediaplayer.local, localhost, 127.0.0.1,
+ * 192.168.0.100, 100.84.31.66). Angular apps use dynamic hostname when accessed from any of these.
  */
 
 // Determine deployment target
-const deploymentTarget = process.env.DEPLOYMENT_TARGET || 
+const deploymentTarget = process.env.DEPLOYMENT_TARGET ||
                         (process.env.NODE_ENV === 'production' ? 'raspberry' : 'local');
 
 // Configuration for each deployment target

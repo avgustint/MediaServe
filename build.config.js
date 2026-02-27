@@ -78,12 +78,15 @@ const configs = {
    * Uses hostname 'mediaplayer.local' (mDNS) and ports 5000/5001
    * Note: mediaplayer.local works from other computers on the network (requires Avahi)
    * On the Raspberry Pi itself, both mediaplayer and mediaplayer.local work
+   *
+   * CORS: Uses hosts from cors-allowed-hosts.js (mediaplayer.local, localhost, 127.0.0.1,
+   * 192.168.0.100, 100.84.31.66). App works from any of these, including Tailscale.
    */
   'raspberry-pi': {
     server: {
       port: 5000,
       nodeEnv: 'production',
-      corsOrigin: [], // Allow all origins by default on Pi
+      corsOrigin: null, // null = use cors-allowed-hosts.js
       corsCredentials: false
     },
     admin: {
