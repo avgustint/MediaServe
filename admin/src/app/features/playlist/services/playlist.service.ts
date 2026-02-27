@@ -14,6 +14,7 @@ export interface LibraryContent {
   page: number;
   type?: 'text' | 'image' | 'url' | 'video' | 'iframe';
   content: string;
+  duration?: number | null;
 }
 
 export interface LibraryItem {
@@ -23,6 +24,7 @@ export interface LibraryItem {
   guid: number;
   description?: string;
   pages?: number[];
+  duration?: number | null;
   modified?: string;
   background_color?: string;
   font_color?: string;

@@ -3,11 +3,14 @@ import { Observable, Subject, BehaviorSubject } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
 export interface WebSocketMessage {
-  type: 'text' | 'image' | 'url' | 'video' | 'iframe' | 'SelectPlaylist' | 'SelectLibraryItem' | 'ActionResponse' | 'KeyboardCommand' | 'UrlPlayPause' | 'DisplayVisibleState';
+  type: 'text' | 'image' | 'url' | 'video' | 'iframe' | 'SelectPlaylist' | 'SelectLibraryItem' | 'ActionResponse' | 'KeyboardCommand' | 'UrlPlayPause' | 'DisplayVisibleState' | 'AutoplayStarted' | 'AutoplayHideDelayStarted' | 'AutoplayStopped';
   content?: string;
   rawContent?: string; // Untransposed original, sent alongside transposed content in chord updates
   guid?: number;
   page?: number;
+  duration?: number | null; // Autoplay duration in seconds for current page
+  endAt?: number; // Unix ms when autoplay countdown ends
+  totalSeconds?: number; // Total duration for current autoplay tick
   background_color?: string;
   font_color?: string;
   css?: { [key: string]: string }; // CSS custom properties object

@@ -125,6 +125,20 @@
         />
       </div>
 
+      <div class="form-group">
+        <label for="itemDuration">{{ 'autoplayDurationSeconds' | translate }}</label>
+        <input
+          id="itemDuration"
+          type="number"
+          pInputText
+          [(ngModel)]="itemDuration"
+          min="0"
+          [placeholder]="'autoplayDurationPlaceholder' | translate"
+          styleClass="w-full"
+        />
+        <small class="form-hint">{{ 'autoplayDurationHelp' | translate }}</small>
+      </div>
+
       <!-- Content Pages - All items use pages with per-page type -->
       <div class="form-group">
         <label>{{ 'contentPages' | translate }}</label>
@@ -431,6 +445,19 @@
                 styleClass="w-full"
               ></textarea>
               <p class="form-help">{{ 'pageCssOverridesItem' | translate }}</p>
+            </div>
+            <div class="form-group form-group-duration">
+              <label for="pageDialogDuration">{{ 'autoplayDurationSeconds' | translate }}</label>
+              <input
+                id="pageDialogDuration"
+                type="number"
+                pInputText
+                [(ngModel)]="pageDialogDuration"
+                min="0"
+                [placeholder]="'autoplayDurationPlaceholder' | translate"
+                styleClass="w-full"
+              />
+              <small class="form-hint">{{ 'autoplayDurationPageHelp' | translate }}</small>
             </div>
           </div>
         </p-tabpanel>

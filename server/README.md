@@ -11,6 +11,7 @@ Node.js backend server for the MediaServer system. Provides REST API endpoints, 
 - **Permission System**: Fine-grained permission management with route-level enforcement
 - **Multi-Location Support**: Content routing to specific displays via location assignments
 - **HDMI CEC Integration**: TV control via `cec-client` commands (power, volume)
+- **Autoplay**: Server-side countdown timer for automatic page advancement; per-item and per-page duration (seconds); playlist page order support; configurable hide delay after last page; resets on manual page/item change
 - **Multi-Admin Synchronization**: Real-time sync of playlist, item, page, and chord selections across admin instances
 - **Content Visibility Control**: Show/hide content on displays without losing the current selection
 - **CSS Merging**: Per-item and per-page CSS properties merged and delivered to clients
@@ -211,6 +212,8 @@ Connect to `ws://<server-host>:<port>` (default: `ws://localhost:8080`).
 | `SelectLibraryItem` | Sync item selection | `guid`, `page`, `locationId` |
 | `SelectLocation` | Client selects a location | `locationId` |
 | `SetDisplayVisible` | Show/hide content on display | `visible`, `locationId` |
+| `AutoplayStart` | Start autoplay countdown | `locationId` |
+| `AutoplayStop` | Stop autoplay countdown | `locationId` |
 | `Action` | HDMI CEC command | `actionType` (`powerOn`, `powerOff`, `volumeUp`, `volumeDown`) |
 | `Clear` | Clear the display | `locationId` |
 
@@ -226,8 +229,19 @@ Connect to `ws://<server-host>:<port>` (default: `ws://localhost:8080`).
 | `SelectPlaylist` | Playlist sync (admin only) | `guid` |
 | `SelectLibraryItem` | Item sync (admin only) | `guid`, `page` |
 | `DisplayVisibleState` | Visibility state update | `contentVisible` |
+| `AutoplayStarted` | Autoplay sync (admin only) | `endAt`, `totalSeconds`, `remainingSeconds` |
+| `AutoplayStopped` | Autoplay stopped sync (admin only) | — |
 | `LocationsList` | Available locations | `locations` |
 | `ActionResponse` | CEC command result | `actionType`, `status`, `message` |
+
+### Autoplay
+
+When an admin sends `AutoplayStart` for an item with duration set:
+1. Server starts a countdown timer (duration in seconds from item or page override)
+2. On expiry: advances to next page (using playlist page order when item is from a playlist)
+3. On last page expiry: waits `autoplayHideDelaySeconds` (from settings), then hides content on all displays
+4. Autoplay resets when admin manually changes page or selects a different item
+5. On admin connect, server sends `AutoplayStarted` if autoplay is currently running
 
 ### Content Delivery
 
@@ -254,8 +268,8 @@ When a new client connects, the server sends:
 - **role_permissions**: Role-to-permission mappings
 
 ### Content Tables
-- **library_items**: Library items (name, description, type, CSS, author)
-- **pages**: Individual content pages (content, type, CSS)
+- **library_items**: Library items (name, description, type, CSS, author, duration)
+- **pages**: Individual content pages (content, type, CSS, duration)
 - **library_item_pages**: Item-to-page mappings with ordering
 
 ### Organization Tables
@@ -268,7 +282,7 @@ When a new client connects, the server sends:
 
 ### System Tables
 - **locations**: Display locations for multi-screen setups
-- **settings**: Key-value system settings
+- **settings**: Key-value system settings (e.g. `autoplayHideDelaySeconds` — seconds to wait after last page before hiding content)
 
 ## HDMI CEC Integration
 

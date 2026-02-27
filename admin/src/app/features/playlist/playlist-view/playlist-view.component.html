@@ -181,6 +181,46 @@
           <div class="waiting-message">{{ 'waitingForContent' | translate }}</div>
         </div>
 
+        <!-- Autoplay button - bottom right, only when item has duration -->
+        <button
+          *ngIf="showAutoplayButton"
+          type="button"
+          class="autoplay-button"
+          [class.playing]="autoplayPlaying"
+          (click)="onAutoplayButtonClick()"
+          [attr.title]="autoplayPlaying ? ('autoplayPause' | translate) : ('autoplayStart' | translate)"
+          [attr.aria-label]="autoplayPlaying ? ('autoplayPause' | translate) : ('autoplayStart' | translate)"
+        >
+          <i class="fas" [class.fa-play]="!autoplayPlaying" [class.fa-pause]="autoplayPlaying"></i>
+        </button>
+
+        <!-- Autoplay countdown overlay - center -->
+        <div *ngIf="autoplayPlaying" class="autoplay-countdown-overlay">
+          <div class="autoplay-countdown-content">
+            <div class="autoplay-countdown-time">{{ autoplayRemainingSeconds }}</div>
+            <div class="autoplay-countdown-progress">
+              <div
+                class="autoplay-countdown-progress-bar"
+                [style.width.%]="autoplayTotalSeconds > 0 ? (100 * autoplayRemainingSeconds / autoplayTotalSeconds) : 100"
+              ></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Autoplay hide delay overlay - after last page, before content is hidden -->
+        <div *ngIf="autoplayHideDelayEndAt != null" class="autoplay-countdown-overlay autoplay-hide-delay-overlay">
+          <div class="autoplay-countdown-content">
+            <div class="autoplay-hide-delay-label">{{ 'autoplayHidingOnScreenAfter' | translate }}</div>
+            <div class="autoplay-countdown-time">{{ autoplayHideDelayRemainingSeconds }}</div>
+            <div class="autoplay-countdown-progress">
+              <div
+                class="autoplay-countdown-progress-bar"
+                [style.width.%]="autoplayHideDelayTotalSeconds > 0 ? (100 * autoplayHideDelayRemainingSeconds / autoplayHideDelayTotalSeconds) : 100"
+              ></div>
+            </div>
+          </div>
+        </div>
+
         <!-- Overlay when content is hidden from display (not visible to audience) -->
         <div *ngIf="!contentVisible" class="content-hidden-overlay" [attr.aria-label]="'contentHiddenFromDisplay' | translate">
           <span class="content-hidden-label">{{ 'contentHiddenFromDisplay' | translate }}</span>

@@ -32,6 +32,10 @@ router.put('/', authMiddleware, requirePermission('EditGeneralSettings'), asyncH
   if (req.body.defaultBlankPage !== undefined) {
     dbOps.setSetting('defaultBlankPage', req.body.defaultBlankPage || '');
   }
+  if (req.body.autoplayHideDelaySeconds !== undefined) {
+    const val = req.body.autoplayHideDelaySeconds;
+    dbOps.setSetting('autoplayHideDelaySeconds', val === null || val === '' ? '5' : String(Math.max(0, parseInt(val, 10) || 5)));
+  }
 
   const allSettings = dbOps.getAllSettings();
   res.json(allSettings);

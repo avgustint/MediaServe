@@ -15,6 +15,7 @@ Content preview with:
 - Live preview of the content being displayed on the audience screen
 - Page navigation buttons for multi-page items (all content types)
 - Content visibility toggle (show/hide on audience display without losing selection)
+- **Autoplay**: Start/pause button (bottom-right) when item has duration set; animated countdown overlay; automatic page advancement; content hides after last page with configurable delay; resets on manual page/item change; uses playlist page order when item is from a playlist
 - Fullscreen preview mode
 - Chord display controls (show locally, show everywhere, hide) with transposition (+/- semitones)
 - Prev/next navigation across pages and playlist items
@@ -22,6 +23,7 @@ Content preview with:
 ### Library Editor
 - Create and edit library items: text, image, URL, video, and embedded iframe types
 - Multi-page support with drag-and-drop page ordering
+- **Autoplay duration**: Optional duration in seconds per item (default) and per page (override); enables automatic page advancement when playing; empty = no autoplay
 - Per-item and per-page CSS property editor (background color, font color, custom styles)
 - Chord annotations in text content (parsed and rendered automatically)
 - Description and author fields
@@ -48,7 +50,7 @@ Content preview with:
 - **Role Management**: Create and edit roles with admin flag.
 - **Permission Management**: Assign permissions to roles (ViewPlaylist, ViewEditor, ViewSettings, ViewDisplay, etc.)
 - **Location Management**: Create and manage locations for multi-display setups.
-- **General Settings**: System-wide configuration.
+- **General Settings**: System-wide configuration including autoplay hide delay (seconds to wait after last page before hiding content).
 
 ### Display / TV Remote
 - Power on/off via HDMI CEC

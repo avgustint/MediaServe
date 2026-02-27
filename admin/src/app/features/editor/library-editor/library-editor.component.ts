@@ -50,6 +50,7 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
   itemName: string = "";
   itemDescription: string = "";
   itemAuthor: string = "";
+  itemDuration: number | null = null; // Autoplay duration in seconds (null = no autoplay)
 
   // Page Manage Dialog - type and type-specific fields
   pageDialogType: "text" | "image" | "url" | "video" | "iframe" = "text";
@@ -67,6 +68,7 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
   pageDialogVideoUploading: boolean = false;
   pageDialogIframeContent: string = "";
   pageDialogCssProperties: string = "";
+  pageDialogDuration: number | null = null; // Override autoplay duration for this page (null = use item default)
   pageDialogImageHeight100: boolean = true; // Default height 100% for image pages
   pageDialogImageWidth100: boolean = false;
   
@@ -515,6 +517,7 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
     this.itemName = item.name;
     this.itemDescription = item.description || "";
     this.itemAuthor = item.author || "";
+    this.itemDuration = (item as LibraryItem & { duration?: number | null }).duration ?? null;
 
     if (item.tags && Array.isArray(item.tags)) {
       this.selectedTagGuids = item.tags.map((t: { guid: number; name: string; description?: string }) => t.guid);
@@ -554,6 +557,7 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
     this.itemName = "";
     this.itemDescription = "";
     this.itemAuthor = "";
+    this.itemDuration = null;
     this.textPages = [];
     this.pageReferences = [];
     this.allAvailablePages = [];
@@ -570,6 +574,7 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
     this.itemName = "";
     this.itemDescription = "";
     this.itemAuthor = "";
+    this.itemDuration = null;
     this.textPages = [];
     this.pageReferences = [];
     this.selectedTagGuids = [];
@@ -628,6 +633,7 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
     this.pageDialogVideoUrl = '';
     this.pageDialogIframeContent = '';
     this.pageDialogCssProperties = '';
+    this.pageDialogDuration = null;
     this.pageDialogImageHeight100 = true;
     this.pageDialogImageWidth100 = false;
     if (pageIndex >= 0 && pageIndex < this.pageReferences.length) {
@@ -656,6 +662,9 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
       } else if (this.pageDialogType === 'image') {
         this.pageDialogImageHeight100 = true;
         this.pageDialogImageWidth100 = false;
+      }
+      if (page) {
+        this.pageDialogDuration = (page as Page & { duration?: number | null }).duration ?? null;
       }
       this.activeTabIndex = 0;
     } else {
@@ -709,6 +718,7 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
     this.pageDialogVideoUrl = '';
     this.pageDialogIframeContent = '';
     this.pageDialogCssProperties = '';
+    this.pageDialogDuration = null;
     this.pageDialogImageHeight100 = true;
     this.pageDialogImageWidth100 = false;
     this.activeTabIndex = 0;
@@ -967,7 +977,7 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
       const ref = this.pageReferences[this.editingPageIndex];
       if (typeof ref.pageGuid === 'number' && ref.pageGuid > 0) {
         const pageCss = this.getPageDialogCssForSave();
-        this.pagesService.updatePage(ref.pageGuid, content, this.pageDialogType, pageCss).subscribe({
+        this.pagesService.updatePage(ref.pageGuid, content, this.pageDialogType, pageCss, this.pageDialogDuration).subscribe({
           next: (updatedPage) => {
             ref.page = { ...updatedPage, type: this.pageDialogType, css: pageCss ?? undefined };
             const idx = this.allAvailablePages.findIndex(p => p.guid === ref.pageGuid);
@@ -1002,6 +1012,7 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
         content: content,
         type: this.pageDialogType,
         css: pageCss ?? undefined,
+        duration: this.pageDialogDuration ?? undefined,
         isTemporal: true
       };
       
@@ -1387,7 +1398,8 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
       background_color: this.backgroundColor.trim() || undefined,
       font_color: this.fontColor.trim() || undefined,
       css: cssObj,
-      author: authorForPayload
+      author: authorForPayload,
+      duration: this.itemDuration != null && this.itemDuration > 0 ? this.itemDuration : null
     };
 
     const sortedPageReferences = [...this.pageReferences].sort((a, b) => a.orderNumber - b.orderNumber);
@@ -1407,7 +1419,7 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
 
     if (temporalPagesWithOrder.length > 0) {
       const createObservables = temporalPagesWithOrder.map(({ page }) =>
-        this.pagesService.createPage(page.content || '', page.type || 'text', page.css)
+        this.pagesService.createPage(page.content || '', page.type || 'text', page.css, page.duration ?? undefined)
       );
       forkJoin(createObservables).subscribe({
         next: (newPages) => {
@@ -1469,7 +1481,7 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
       const authorForUpdate = itemData.author !== undefined ? itemData.author : (this.itemAuthor ? this.itemAuthor.trim() || '' : '');
       
       // Build updatedItem explicitly to ensure author is always included
-      const updatedItem: LibraryItem & { pageGuids?: number[]; tagGuids?: number[] } = {
+      const updatedItem: LibraryItem & { pageGuids?: number[]; tagGuids?: number[]; duration?: number | null } = {
         guid: this.editingItem.guid,
         name: itemData.name !== undefined ? itemData.name : this.editingItem.name,
         type: this.editingItem.type,
@@ -1481,6 +1493,7 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
         modified: itemData.modified || new Date().toISOString(),
         // Explicitly set author to ensure it's included in payload even if null
         author: authorForUpdate,
+        duration: itemData.duration !== undefined ? itemData.duration : (this.editingItem as LibraryItem & { duration?: number | null }).duration ?? null,
         // Include pageGuids and tagGuids if they exist
         ...(itemData.pageGuids !== undefined && { pageGuids: itemData.pageGuids }),
         ...(itemData.tagGuids !== undefined && { tagGuids: itemData.tagGuids })

@@ -107,6 +107,7 @@ This will start:
 - Role-based access control (RBAC) with fine-grained permissions
 - Library item management with multi-page support (text, image, URL, video, iframe)
 - Per-item and per-page CSS styling
+- **Autoplay**: Server-side countdown timer for automatic page advancement; supports per-item and per-page duration, playlist page order, and configurable hide delay after last page
 - Playlist management with per-item page selection
 - Collection and tag management for organizing library items
 - Location-based content routing (multi-display support)
@@ -122,6 +123,7 @@ This will start:
 - Three content selection modes: Playlist, Search (with filters), and Numpad (GUID entry)
 - Library item editor supporting text, images, URLs, videos, and embedded iframes
 - Multi-page library items with drag-and-drop page ordering
+- **Autoplay duration**: Per-item and per-page duration in seconds (optional); enables automatic page advancement when playing
 - Per-item and per-page CSS property editor
 - Chord annotation support with display modes (local, everywhere, hidden) and transposition
 - Playlist editor with item ordering and per-item page selection
@@ -131,6 +133,7 @@ This will start:
 - Recently selected items history (persisted, last 20)
 - Content preview with fullscreen mode
 - Content visibility toggle (hide/show on audience display)
+- **Autoplay**: Start/pause button for items with duration; animated countdown overlay; automatic page advancement and content hide after last page
 - User, role, and permission management
 - Location management for multi-display setups
 - TV remote control (power on/off, volume up/down via HDMI CEC)

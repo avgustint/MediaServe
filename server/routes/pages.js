@@ -42,11 +42,13 @@ router.get('/library-item/:libraryItemGuid', (req, res, next) => {
         css = undefined;
       }
     }
+    const duration = page.duration != null && !isNaN(parseInt(page.duration, 10)) ? parseInt(page.duration, 10) : null;
     return {
       guid: page.guid,
       content: page.content || '',
       type: page.type || 'text',
-      css
+      css,
+      duration
     };
   });
   res.json(formattedPages);
@@ -73,7 +75,8 @@ router.post('/', authMiddleware, requirePermission('ManagePages'), asyncHandler(
   const content = req.body.content || '';
   const type = req.body.type || 'text';
   const css = req.body.css !== undefined ? req.body.css : null;
-  const newPage = dbOps.createPage(content, type, css);
+  const duration = req.body.duration !== undefined ? req.body.duration : null;
+  const newPage = dbOps.createPage(content, type, css, duration);
   res.json(newPage);
 }));
 
@@ -97,7 +100,8 @@ router.put('/:guid', validateGuid, authMiddleware, requirePermission('ManagePage
     ? String(rawType).trim() 
     : (existingPage.type || 'text');
   const css = req.body.css !== undefined ? req.body.css : existingPage.css;
-  const updatedPage = dbOps.updatePage(guid, content, type, css);
+  const duration = req.body.duration !== undefined ? req.body.duration : existingPage.duration;
+  const updatedPage = dbOps.updatePage(guid, content, type, css, duration);
   res.json(updatedPage);
 }));
 

@@ -88,6 +88,18 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
         return;
       }
 
+      // When server says content is hidden, clear display immediately if this isn't a content message.
+      // (Content messages with isBlankPage/empty content are handled below and will clear normally.)
+      const msg = message as { contentVisible?: boolean; type?: string };
+      if (msg.contentVisible === false && !msg.type) {
+        this.clearDisplayContent();
+        return;
+      }
+      if (msg.type === 'DisplayVisibleState' && msg.contentVisible === false) {
+        this.clearDisplayContent();
+        return;
+      }
+
       // Always update chord visibility first (before updating content)
       // Prefer chordVisibility (3-state): show only when 'everywhere'
       // Fall back to chordsVisible for legacy messages
@@ -230,6 +242,16 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
     this.connectionStatusSubscription?.unsubscribe();
     this.websocketService.disconnect();
     window.removeEventListener("resize", this.resizeHandler);
+  }
+
+  private clearDisplayContent(): void {
+    this.currentContent = null;
+    this.currentTextContent = null;
+    this.nextTextContent = null;
+    this.isTextReady = false;
+    this.isTextTransitioning = false;
+    this.activeTextPageIndex = 0;
+    this.cdr.detectChanges();
   }
 
   private initializeLocation(): void {

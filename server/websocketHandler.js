@@ -47,6 +47,230 @@ function setupWebSocket(server, library) {
     dbOps.setLocationContentVisible(locationId, visible);
   }
 
+  // Autoplay state per location: { guid, page, duration, endAt, timer, hideDelayTimer, playlistPages }
+  const autoplayState = new Map();
+  // Hide delay phase: { timer } - allows cancelling when user changes page/item
+  const hideDelayByLocation = new Map();
+
+  function broadcastToLocation(locationId, msg) {
+    const msgJson = JSON.stringify(msg);
+    clients.forEach((client) => {
+      const clientLocationId = clientLocations.get(client);
+      if (client.readyState === WebSocket.OPEN && clientLocationId === locationId) {
+        try {
+          client.send(msgJson);
+        } catch (e) {
+          clients.delete(client);
+          clientLocations.delete(client);
+        }
+      }
+    });
+  }
+
+  function stopAutoplayForLocation(locationId) {
+    const state = autoplayState.get(locationId);
+    if (state) {
+      if (state.timer) clearTimeout(state.timer);
+      if (state.hideDelayTimer) clearTimeout(state.hideDelayTimer);
+      autoplayState.delete(locationId);
+    }
+    const hideDelay = hideDelayByLocation.get(locationId);
+    if (hideDelay) {
+      if (hideDelay.timer) clearTimeout(hideDelay.timer);
+      hideDelayByLocation.delete(locationId);
+    }
+    broadcastToLocation(locationId, { type: 'AutoplayStopped', locationId });
+    console.log(`Autoplay stopped for location ${locationId}`);
+  }
+
+  function startAutoplayForLocation(locationId, playlistPagesFromClient) {
+    const locationState = locationStates.get(locationId) || {};
+    const guid = locationState.currentLibraryItemGuid ?? dbOps.getLocationLastItem(locationId)?.guid;
+    const page = locationState.currentLibraryItemPage ?? dbOps.getLocationLastItem(locationId)?.page ?? 1;
+    if (!guid) return;
+
+    const rawItem = dbOps.getLibraryItem(guid);
+    const matchingItem = rawItem ? dbOps.formatLibraryItem(rawItem) : null;
+    if (!matchingItem || !Array.isArray(matchingItem.content)) return;
+
+    const pageNum = typeof page === 'string' ? parseInt(page, 10) : (page ?? 1);
+    const pageItem = matchingItem.content.find(p => (typeof p.page === 'string' ? parseInt(p.page, 10) : p.page) === pageNum);
+    const duration = pageItem?.duration ?? matchingItem.duration ?? null;
+    if (duration == null || duration <= 0) return;
+
+    let orderedPages = [];
+    // Prefer playlistPages from client (admin sends when item from playlist with specific pages)
+    if (playlistPagesFromClient && Array.isArray(playlistPagesFromClient) && playlistPagesFromClient.length > 0) {
+      orderedPages = playlistPagesFromClient.map(p => typeof p === 'string' ? parseInt(p, 10) : p).filter(n => !isNaN(n));
+    }
+    if (orderedPages.length === 0) {
+      const playlistGuid = locationState.currentPlaylistGuid;
+      if (playlistGuid) {
+        const playlistItems = dbOps.getPlaylistItems(playlistGuid);
+        const currentItem = playlistItems?.find(pi => pi.guid === guid);
+        if (currentItem?.pages && Array.isArray(currentItem.pages) && currentItem.pages.length > 0) {
+          orderedPages = currentItem.pages;
+        }
+      }
+    }
+    if (orderedPages.length === 0) {
+      orderedPages = matchingItem.content.map((p, i) => typeof p.page === 'string' ? parseInt(p.page, 10) : (p.page ?? i + 1));
+    }
+
+    stopAutoplayForLocation(locationId);
+    const endAt = Date.now() + duration * 1000;
+    const state = { guid, page: pageNum, duration, endAt, playlistPages: orderedPages };
+    autoplayState.set(locationId, state);
+
+    broadcastToLocation(locationId, {
+      type: 'AutoplayStarted',
+      locationId,
+      endAt,
+      totalSeconds: duration,
+      page: pageNum,
+      guid
+    });
+
+    function scheduleNextTick(locId) {
+      const s = autoplayState.get(locId);
+      if (!s || s.timer) return;
+      const delay = Math.max(0, s.endAt - Date.now());
+      s.timer = setTimeout(() => {
+        s.timer = null;
+        if (!autoplayState.has(locId)) return;
+        advanceAutoplayOrHide(locId, s.guid, s.page, s.playlistPages);
+      }, delay);
+    }
+
+    function advanceAutoplayOrHide(locId, curGuid, curPage, orderedPages) {
+      const locState = locationStates.get(locId) || {};
+      const rawItem = dbOps.getLibraryItem(curGuid);
+      const fmt2 = rawItem ? dbOps.formatLibraryItem(rawItem) : null;
+      if (!fmt2) {
+        stopAutoplayForLocation(locId);
+        return;
+      }
+      const idx = orderedPages.indexOf(curPage);
+      const nextPage = idx >= 0 && idx < orderedPages.length - 1 ? orderedPages[idx + 1] : null;
+
+      if (nextPage != null) {
+        const nextPageItem = fmt2.content.find(p => (typeof p.page === 'string' ? parseInt(p.page, 10) : p.page) === nextPage);
+        const nextDuration = nextPageItem?.duration ?? fmt2.duration ?? null;
+        if (nextDuration != null && nextDuration > 0) {
+          locState.currentLibraryItemGuid = curGuid;
+          locState.currentLibraryItemPage = nextPage;
+          locationStates.set(locId, locState);
+          dbOps.setLocationLastItem(locId, curGuid, nextPage);
+
+          const nextContent = fmt2.content.find(p => (typeof p.page === 'string' ? parseInt(p.page, 10) : p.page) === nextPage);
+          const pageType = nextContent?.type || fmt2.type || 'text';
+          let content = nextContent?.content ?? '';
+          const pageCss = nextContent?.css;
+          let mergedCss = fmt2.css || undefined;
+          if (pageCss && typeof pageCss === 'object' && Object.keys(pageCss).length > 0) {
+            mergedCss = { ...(mergedCss || {}), ...pageCss };
+          }
+          const settings = dbOps.getAllSettings();
+          const chordVisibility = locState.chordVisibility || 'everywhere';
+          const clientsShowChords = chordsVisibleForClients(chordVisibility);
+          if (pageType === 'text' && typeof content === 'string' && !clientsShowChords) {
+            content = content.replace(/<chord\b[^>]*>.*?<\/chord>/gi, '');
+          }
+          const locationContentData = {
+            type: pageType,
+            content,
+            guid: curGuid,
+            page: nextPage,
+            duration: nextDuration,
+            background_color: fmt2.background_color || settings.defaultBackgroundColor || '#000000',
+            font_color: fmt2.font_color || settings.defaultFontColor || '#FFFFFF',
+            chord_font_color: settings.defaultChordFontColor || '#FFD700',
+            css: mergedCss,
+            chordVisibility,
+            chordsVisible: clientsShowChords,
+            chordTransposition: locState.chordTransposition ?? 0,
+            contentVisible: getContentVisible(locId)
+          };
+          locationContent.set(locId, locationContentData);
+          broadcastToLocation(locId, locationContentData);
+
+          const nextEndAt = Date.now() + nextDuration * 1000;
+          const nextState = { guid: curGuid, page: nextPage, duration: nextDuration, endAt: nextEndAt, playlistPages: orderedPages };
+          autoplayState.set(locId, nextState);
+          broadcastToLocation(locId, {
+            type: 'AutoplayStarted',
+            locationId: locId,
+            endAt: nextEndAt,
+            totalSeconds: nextDuration,
+            page: nextPage,
+            guid: curGuid
+          });
+          scheduleNextTick(locId);
+          return;
+        }
+      }
+
+      autoplayState.delete(locId);
+      const hideDelay = parseInt(dbOps.getAllSettings().autoplayHideDelaySeconds || '5', 10) || 5;
+      const hideDelayEndAt = Date.now() + hideDelay * 1000;
+      broadcastToLocation(locId, {
+        type: 'AutoplayHideDelayStarted',
+        locationId: locId,
+        endAt: hideDelayEndAt,
+        totalSeconds: hideDelay
+      });
+      const hideDelayTimer = setTimeout(() => {
+        hideDelayByLocation.delete(locId);
+        setContentVisible(locId, false);
+        broadcastToLocation(locId, { type: 'AutoplayStopped', locationId: locId });
+        const settings = dbOps.getAllSettings();
+        const defaultBlankPageGuid = settings.defaultBlankPage;
+        if (defaultBlankPageGuid && defaultBlankPageGuid.trim() !== '') {
+          const defaultBlankPageGuidNum = parseInt(defaultBlankPageGuid, 10);
+          const rawBlankPageItem = dbOps.getLibraryItem(defaultBlankPageGuidNum);
+          const formattedItem = rawBlankPageItem ? dbOps.formatLibraryItem(rawBlankPageItem) : null;
+          if (formattedItem) {
+            let blankPageContent = '';
+            let blankPageCss = undefined;
+            const blankPageArray = formattedItem.content;
+            const blankPageType = formattedItem.type || 'text';
+            if (Array.isArray(blankPageArray) && blankPageArray.length > 0) {
+              blankPageContent = blankPageArray[0].content || '';
+              blankPageCss = blankPageArray[0].css;
+            } else if (typeof blankPageArray === 'string') {
+              blankPageContent = blankPageArray;
+            }
+            let mergedBlankCss = formattedItem.css || undefined;
+            if (blankPageCss && typeof blankPageCss === 'object' && Object.keys(blankPageCss).length > 0) {
+              mergedBlankCss = { ...(mergedBlankCss || {}), ...blankPageCss };
+            }
+            const locContentData = {
+              type: blankPageType,
+              content: blankPageContent,
+              guid: defaultBlankPageGuidNum,
+              page: 1,
+              background_color: formattedItem.background_color || settings.defaultBackgroundColor || '#000000',
+              font_color: formattedItem.font_color || settings.defaultFontColor || '#FFFFFF',
+              chord_font_color: settings.defaultChordFontColor || '#FFD700',
+              css: mergedBlankCss,
+              contentVisible: false,
+              isBlankPage: true
+            };
+            locationContent.set(locId, locContentData);
+            broadcastToLocation(locId, locContentData);
+          }
+        } else {
+          const minimalBlank = buildMinimalBlankContent(locId);
+          locationContent.set(locId, minimalBlank);
+          broadcastToLocation(locId, minimalBlank);
+        }
+      }, hideDelay * 1000);
+      hideDelayByLocation.set(locId, { timer: hideDelayTimer });
+    }
+
+    scheduleNextTick(locationId);
+  }
+
   /** Resolve chordVisibility from message. Supports chordVisibility (3-state) or legacy chordsVisible (boolean). */
   function resolveChordVisibility(msg) {
     if (msg.chordVisibility === 'everywhere' || msg.chordVisibility === 'local' || msg.chordVisibility === 'hidden') {
@@ -58,6 +282,27 @@ function setupWebSocket(server, library) {
   /** chordsVisible for clients: true only when everywhere */
   function chordsVisibleForClients(chordVisibility) {
     return chordVisibility === 'everywhere';
+  }
+
+  /** Build minimal blank content when no default blank page is configured. Display clients need
+   *  a proper content message (with type) to clear the screen; {} or { contentVisible: false } are ignored. */
+  function buildMinimalBlankContent(locationId) {
+    const settings = dbOps.getAllSettings();
+    const savedChordState = dbOps.getLocationChordState(locationId);
+    return {
+      type: 'text',
+      content: '',
+      guid: 0,
+      page: 1,
+      background_color: settings.defaultBackgroundColor || '#000000',
+      font_color: settings.defaultFontColor || '#FFFFFF',
+      chord_font_color: settings.defaultChordFontColor || '#FFD700',
+      chordVisibility: savedChordState?.chordVisibility || 'everywhere',
+      chordsVisible: chordsVisibleForClients(savedChordState?.chordVisibility || 'everywhere'),
+      chordTransposition: savedChordState?.chordTransposition ?? 0,
+      contentVisible: false,
+      isBlankPage: true
+    };
   }
 
   // Helper to normalize IP addresses
@@ -302,6 +547,9 @@ function setupWebSocket(server, library) {
           }
           lastChangeByLocation.set(locationId, { key: changeKey, at: now });
           
+          // Manual page/item change - reset autoplay
+          stopAutoplayForLocation(locationId);
+          
           // Store location for this client
           clientLocations.set(ws, locationId);
           
@@ -318,8 +566,9 @@ function setupWebSocket(server, library) {
               ? (typeof message.page === 'string' ? parseInt(message.page, 10) : message.page)
               : 1;
 
-            // Content is always array of { page, type, content, css }; get type, content, css from selected page
+            // Content is always array of { page, type, content, css, duration }; get type, content, css, duration from selected page
             let pageCss = undefined;
+            let pageDuration = null;
             if (Array.isArray(matchingItemContent) && matchingItemContent.length > 0) {
               const pageItem = matchingItemContent.find(item => {
                 const itemPage = typeof item.page === 'string' ? parseInt(item.page, 10) : item.page;
@@ -329,9 +578,12 @@ function setupWebSocket(server, library) {
                 pageType = pageItem.type || 'text';
                 matchingItemContent = pageItem.content !== undefined && pageItem.content !== null ? pageItem.content : '';
                 pageCss = pageItem.css;
+                pageDuration = pageItem.duration ?? matchingItem.duration ?? null;
               } else {
-                pageType = matchingItemContent[0]?.type || 'text';
-                matchingItemContent = matchingItemContent[0]?.content || '';
+                const firstPage = matchingItemContent[0];
+                pageType = firstPage?.type || 'text';
+                matchingItemContent = firstPage?.content || '';
+                pageDuration = firstPage?.duration ?? matchingItem.duration ?? null;
               }
             } else if (typeof matchingItemContent === 'string') {
               matchingItemContent = matchingItemContent || '';
@@ -389,6 +641,7 @@ function setupWebSocket(server, library) {
               content: finalContentForClients,
               guid: message.guid,
               page: requestedPageNum,
+              duration: pageDuration,
               background_color: backgroundColor,
               font_color: fontColor,
               chord_font_color: chordFontColor,
@@ -486,6 +739,9 @@ function setupWebSocket(server, library) {
           // Store location for this client
           clientLocations.set(ws, locationId);
           
+          // Stop autoplay whenever visibility is toggled (Hide or Unhide)
+          stopAutoplayForLocation(locationId);
+          
           // visible: true = show content, false = show blank page. Clear means visible=false
           const visible = message.type === 'Clear' ? false : (message.visible !== false);
           
@@ -523,6 +779,7 @@ function setupWebSocket(server, library) {
                 let pageType = matchingItem.type;
                 const requestedPageNum = page ?? 1;
                 let pageCssRestore = undefined;
+                let pageDurationRestore = null;
                 if (Array.isArray(matchingItemContent) && matchingItemContent.length > 0) {
                   const pageItem = matchingItemContent.find(item => {
                     const itemPage = typeof item.page === 'string' ? parseInt(item.page, 10) : item.page;
@@ -532,9 +789,12 @@ function setupWebSocket(server, library) {
                     pageType = pageItem.type || 'text';
                     matchingItemContent = pageItem.content !== undefined && pageItem.content !== null ? pageItem.content : '';
                     pageCssRestore = pageItem.css;
+                    pageDurationRestore = pageItem.duration ?? matchingItem.duration ?? null;
                   } else {
-                    pageType = matchingItemContent[0]?.type || 'text';
-                    matchingItemContent = matchingItemContent[0]?.content || '';
+                    const firstPage = matchingItemContent[0];
+                    pageType = firstPage?.type || 'text';
+                    matchingItemContent = firstPage?.content || '';
+                    pageDurationRestore = firstPage?.duration ?? matchingItem.duration ?? null;
                   }
                 } else if (typeof matchingItemContent === 'string') {
                   matchingItemContent = matchingItemContent || '';
@@ -563,6 +823,7 @@ function setupWebSocket(server, library) {
                   content: finalContent,
                   guid: guid,
                   page: requestedPageNum,
+                  duration: pageDurationRestore,
                   background_color: backgroundColor,
                   font_color: fontColor,
                   chord_font_color: chordFontColor,
@@ -664,23 +925,27 @@ function setupWebSocket(server, library) {
                 });
                 console.log(`Broadcasted default blank page to clients for location ${locationId}`);
               } else {
-                locationContent.delete(locationId);
+                const minimalBlank = buildMinimalBlankContent(locationId);
+                locationContent.set(locationId, minimalBlank);
+                const minimalBlankJson = JSON.stringify(minimalBlank);
                 clients.forEach((client) => {
                   const clientLocationId = clientLocations.get(client);
                   if (client.readyState === WebSocket.OPEN && clientLocationId === locationId) {
-                    try { client.send(JSON.stringify({})); } catch (e) { clients.delete(client); clientLocations.delete(client); }
+                    try { client.send(minimalBlankJson); } catch (e) { clients.delete(client); clientLocations.delete(client); }
                   }
                 });
               }
             } else {
-              locationContent.delete(locationId);
+              const minimalBlank = buildMinimalBlankContent(locationId);
+              locationContent.set(locationId, minimalBlank);
+              const minimalBlankJson = JSON.stringify(minimalBlank);
               clients.forEach((client) => {
                 const clientLocationId = clientLocations.get(client);
                 if (client.readyState === WebSocket.OPEN && clientLocationId === locationId) {
-                  try { client.send(JSON.stringify({})); } catch (e) { clients.delete(client); clientLocations.delete(client); }
+                  try { client.send(minimalBlankJson); } catch (e) { clients.delete(client); clientLocations.delete(client); }
                 }
               });
-              console.log(`Broadcasted empty content to clients for location ${locationId}`);
+              console.log(`Broadcasted blank page to clients for location ${locationId}`);
             }
           }
           return; // Done processing SetDisplayVisible - prevent fall-through to other handlers
@@ -740,16 +1005,77 @@ function setupWebSocket(server, library) {
             } catch (err) {
               console.error('Error sending DisplayVisibleState to admin:', err);
             }
+            // Send autoplay state for restore on refresh
+            const apState = autoplayState.get(adminLocationId);
+            if (apState && ws.readyState === WebSocket.OPEN) {
+              try {
+                ws.send(JSON.stringify({
+                  type: 'AutoplayStarted',
+                  locationId: adminLocationId,
+                  endAt: apState.endAt,
+                  totalSeconds: apState.duration,
+                  page: apState.page,
+                  guid: apState.guid
+                }));
+              } catch (err) {
+                console.error('Error sending AutoplayState to admin:', err);
+              }
+            }
             // Re-send admin-version content (with chords) because the connection handler sent
             // the client-version (chords stripped) before this client was marked as admin.
-            const adminContent = locationContent.get(adminLocationId);
+            // When contentVisible is false, locationContent has the blank page. For admin preview
+            // we need the last selected library item - fetch and send it only to this admin (ws).
+            let adminContent = locationContent.get(adminLocationId);
+            if (!contentVisible && adminContent && adminContent.isBlankPage) {
+              const lastItem = locationState.currentLibraryItemGuid != null
+                ? { guid: locationState.currentLibraryItemGuid, page: locationState.currentLibraryItemPage ?? 1 }
+                : dbOps.getLocationLastItem(adminLocationId);
+              if (lastItem) {
+                const rawItemForPreview = dbOps.getLibraryItem(lastItem.guid);
+                const matchingForPreview = rawItemForPreview ? dbOps.formatLibraryItem(rawItemForPreview) : null;
+                if (matchingForPreview && Array.isArray(matchingForPreview.content)) {
+                  const pageNum = lastItem.page ?? 1;
+                  const pageItem = matchingForPreview.content.find(p => (typeof p.page === 'string' ? parseInt(p.page, 10) : p.page) === pageNum);
+                  const pg = pageItem || matchingForPreview.content[0];
+                  if (pg) {
+                    const settings = dbOps.getAllSettings();
+                    const chordVis = locationState.chordVisibility || 'everywhere';
+                    const showChords = chordsVisibleForClients(chordVis);
+                    let cnt = pg.content ?? '';
+                    if (pg.type === 'text' && typeof cnt === 'string' && !showChords) {
+                      cnt = cnt.replace(/<chord\b[^>]*>.*?<\/chord>/gi, '');
+                    }
+                    let mergedCss = matchingForPreview.css;
+                    if (pg.css && typeof pg.css === 'object' && Object.keys(pg.css).length > 0) {
+                      mergedCss = { ...(mergedCss || {}), ...pg.css };
+                    }
+                    adminContent = {
+                      type: pg.type || 'text',
+                      content: cnt,
+                      guid: lastItem.guid,
+                      page: pageNum,
+                      duration: pg.duration ?? matchingForPreview.duration ?? null,
+                      background_color: matchingForPreview.background_color || settings.defaultBackgroundColor || '#000000',
+                      font_color: matchingForPreview.font_color || settings.defaultFontColor || '#FFFFFF',
+                      chord_font_color: settings.defaultChordFontColor || '#FFD700',
+                      css: mergedCss,
+                      chordVisibility: chordVis,
+                      chordsVisible: showChords,
+                      chordTransposition: locationState.chordTransposition ?? 0,
+                      contentVisible: false
+                    };
+                  }
+                }
+              }
+            }
             const adminLocState = locationStates.get(adminLocationId) || {};
             if (adminContent && ws.readyState === WebSocket.OPEN) {
               try {
                 const adminChordVisibility = adminLocState.chordVisibility || adminContent.chordVisibility || 'everywhere';
                 const adminClientsShowChords = chordsVisibleForClients(adminChordVisibility);
-                if (!adminClientsShowChords && adminContent.type === 'text') {
-                  // Re-fetch raw content from DB for the admin version
+                if (!contentVisible && adminContent.isBlankPage) {
+                  ws.send(JSON.stringify({ ...adminContent, contentVisible: false }));
+                } else if (!adminClientsShowChords && adminContent.type === 'text') {
                   const rawItemForAdmin = dbOps.getLibraryItem(adminContent.guid);
                   const formattedForAdmin = rawItemForAdmin ? dbOps.formatLibraryItem(rawItemForAdmin) : null;
                   if (formattedForAdmin) {
@@ -895,6 +1221,9 @@ function setupWebSocket(server, library) {
             return;
           }
           
+          // User changed library item selection - reset autoplay
+          stopAutoplayForLocation(locationId);
+          
           // Store location for this client if not already set
           if (!clientLocations.has(ws)) {
             clientLocations.set(ws, locationId);
@@ -1011,6 +1340,26 @@ function setupWebSocket(server, library) {
           
           if (sentCount > 0) {
             console.log(`Broadcasted UrlPlayPause message to ${sentCount} client(s) for location ${locationId}`);
+          }
+        }
+        
+        // Check if it's an "AutoplayStart" or "AutoplayStop" message
+        if (message.type === 'AutoplayStart' || message.type === 'AutoplayStop') {
+          const locationId = message.locationId ? parseInt(message.locationId, 10) : clientLocations.get(ws);
+          if (!locationId) {
+            console.warn('Received Autoplay message without locationId, ignoring');
+            return;
+          }
+          clientLocations.set(ws, locationId);
+          if (!adminClients.has(ws)) adminClients.add(ws);
+          if (message.type === 'AutoplayStart' && message.play === true) {
+            if (!getContentVisible(locationId)) {
+              console.log('Ignoring AutoplayStart: content is hidden for location', locationId);
+            } else {
+              startAutoplayForLocation(locationId, message.playlistPages);
+            }
+          } else if (message.type === 'AutoplayStop' || message.play === false) {
+            stopAutoplayForLocation(locationId);
           }
         }
         

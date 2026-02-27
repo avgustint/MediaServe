@@ -14,6 +14,7 @@ export interface GeneralSettings {
   defaultFontColor: string;
   defaultChordFontColor: string;
   defaultBlankPage: string | null;
+  autoplayHideDelaySeconds: number;
 }
 
 @Component({
@@ -28,7 +29,8 @@ export class GeneralSettingsComponent implements OnInit {
     defaultBackgroundColor: "#000000",
     defaultFontColor: "#FFFFFF",
     defaultChordFontColor: "#FFD700",
-    defaultBlankPage: null
+    defaultBlankPage: null,
+    autoplayHideDelaySeconds: 5
   };
 
   libraryItems: LibraryItem[] = [];
@@ -108,7 +110,8 @@ export class GeneralSettingsComponent implements OnInit {
           defaultBackgroundColor: settings.defaultBackgroundColor || "#000000",
           defaultFontColor: settings.defaultFontColor || "#FFFFFF",
           defaultChordFontColor: settings.defaultChordFontColor || "#FFD700",
-          defaultBlankPage: settings.defaultBlankPage || null
+          defaultBlankPage: settings.defaultBlankPage || null,
+          autoplayHideDelaySeconds: parseInt(settings.autoplayHideDelaySeconds || '5', 10) || 5
         };
         this.loadSelectedBlankPageItem();
         this.loading = false;
@@ -171,7 +174,8 @@ export class GeneralSettingsComponent implements OnInit {
           defaultBackgroundColor: updatedSettings.defaultBackgroundColor || "#000000",
           defaultFontColor: updatedSettings.defaultFontColor || "#FFFFFF",
           defaultChordFontColor: updatedSettings.defaultChordFontColor || "#FFD700",
-          defaultBlankPage: updatedSettings.defaultBlankPage || null
+          defaultBlankPage: updatedSettings.defaultBlankPage || null,
+          autoplayHideDelaySeconds: parseInt(updatedSettings.autoplayHideDelaySeconds || '5', 10) || 5
         };
         this.saving = false;
         // Show success message (you can add a success popup if needed)

@@ -108,6 +108,19 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
   private lastContentReceivedAt: number = 0;
   private static readonly REQUEST_CHORDS_DEBOUNCE_MS = 600;
 
+  // Autoplay state
+  autoplayPlaying: boolean = false;
+  autoplayEndAt: number | null = null;
+  autoplayTotalSeconds: number = 0;
+  autoplayRemainingSeconds: number = 0;
+  private autoplayTickInterval: ReturnType<typeof setInterval> | null = null;
+  /** When currentContent is null (e.g. loading), use this to keep button visible if item has duration */
+  private lastContentDurationForItem: number | null = null;
+  // Hide delay phase (after last page, before content is hidden)
+  autoplayHideDelayEndAt: number | null = null;
+  autoplayHideDelayTotalSeconds: number = 0;
+  autoplayHideDelayRemainingSeconds: number = 0;
+
 
   constructor(
     private websocketService: WebSocketService,
@@ -153,7 +166,7 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
           setTimeout(() => this.adjustTextSize(), 100);
         }
         if (storedContent.guid !== undefined) {
-          this.loadManualItemForPages(storedContent.guid);
+          this.loadManualItemForPagesIfNeeded(storedContent.guid);
         }
         // When chords visible locally but server sent display version (no chords), request content with chords
         const storedClientsHideChords = storedContent.chordVisibility !== undefined
@@ -184,6 +197,42 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
           if (message.contentVisible !== undefined) {
             this.contentVisible = message.contentVisible;
           }
+        }
+        return;
+      }
+
+      if (message.type === 'AutoplayStarted') {
+        const user = this.userService.getUser();
+        if (!message.locationId || message.locationId === user?.locationId) {
+          this.autoplayPlaying = true;
+          this.autoplayEndAt = message.endAt ?? null;
+          this.autoplayTotalSeconds = message.totalSeconds ?? 0;
+          this.updateAutoplayRemaining();
+          this.startAutoplayTick();
+        }
+        return;
+      }
+
+      if (message.type === 'AutoplayHideDelayStarted') {
+        const user = this.userService.getUser();
+        if (!message.locationId || message.locationId === user?.locationId) {
+          this.autoplayPlaying = false;
+          this.stopAutoplayTick();
+          this.autoplayEndAt = null;
+          this.autoplayTotalSeconds = 0;
+          this.autoplayRemainingSeconds = 0;
+          this.autoplayHideDelayEndAt = (message as { endAt?: number }).endAt ?? null;
+          this.autoplayHideDelayTotalSeconds = (message as { totalSeconds?: number }).totalSeconds ?? 0;
+          this.autoplayHideDelayRemainingSeconds = this.autoplayHideDelayTotalSeconds;
+          this.startAutoplayTick();
+        }
+        return;
+      }
+
+      if (message.type === 'AutoplayStopped') {
+        const user = this.userService.getUser();
+        if (!message.locationId || message.locationId === user?.locationId) {
+          this.resetAutoplayState();
         }
         return;
       }
@@ -246,6 +295,10 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
         
         // Update currentContent with the received message
         this.currentContent = { ...message };
+        const msgDuration = (message as { duration?: number | null }).duration;
+        if (message.guid !== undefined && message.guid === this.currentItemGuid) {
+          this.lastContentDurationForItem = (msgDuration != null && msgDuration > 0) ? msgDuration : null;
+        }
         
         // When content includes guid/page (e.g. on reconnect), track selection so subsequent
         // SelectLibraryItem sync won't clear the content we just received.
@@ -260,8 +313,9 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
         }
         
         // Load full item for page buttons (needed on refresh - manualItem/manualItemPages for getAvailablePages)
+        // Only load when we don't already have correct data; when item is from playlist, preserve playlist pages
         if (message.guid !== undefined) {
-          this.loadManualItemForPages(message.guid);
+          this.loadManualItemForPagesIfNeeded(message.guid);
         }
         
         // Chord display state: always sync from message when chordVisibility is present (multi-admin sync)
@@ -428,9 +482,74 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
     this.selectionSubscription?.unsubscribe();
     this.keyboardCommandSubscription?.unsubscribe();
     this.numberKeyQueueSubscription?.unsubscribe();
+    this.stopAutoplayTick();
     window.removeEventListener("resize", this.resizeHandler);
     window.removeEventListener("keydown", this.keyboardHandler, true);
     document.removeEventListener("keydown", this.keyboardHandler, true);
+  }
+
+  get showAutoplayButton(): boolean {
+    if (!this.contentVisible) return false;
+    const duration = this.currentContent
+      ? (this.currentContent as WebSocketMessage & { duration?: number | null }).duration
+      : this.lastContentDurationForItem;
+    return !!(duration != null && duration > 0);
+  }
+
+  /** Reset autoplay state - call when user manually changes page or item */
+  private resetAutoplayState(): void {
+    this.stopAutoplayTick();
+    this.autoplayPlaying = false;
+    this.autoplayEndAt = null;
+    this.autoplayTotalSeconds = 0;
+    this.autoplayRemainingSeconds = 0;
+    this.autoplayHideDelayEndAt = null;
+    this.autoplayHideDelayTotalSeconds = 0;
+    this.autoplayHideDelayRemainingSeconds = 0;
+  }
+
+  private updateAutoplayRemaining(): void {
+    if (this.autoplayEndAt != null) {
+      this.autoplayRemainingSeconds = Math.max(0, Math.ceil((this.autoplayEndAt - Date.now()) / 1000));
+    }
+    if (this.autoplayHideDelayEndAt != null) {
+      this.autoplayHideDelayRemainingSeconds = Math.max(0, Math.ceil((this.autoplayHideDelayEndAt - Date.now()) / 1000));
+    }
+  }
+
+  private startAutoplayTick(): void {
+    this.stopAutoplayTick();
+    this.autoplayTickInterval = setInterval(() => {
+      this.updateAutoplayRemaining();
+      this.cdr.markForCheck();
+    }, 200);
+  }
+
+  private stopAutoplayTick(): void {
+    if (this.autoplayTickInterval) {
+      clearInterval(this.autoplayTickInterval);
+      this.autoplayTickInterval = null;
+    }
+  }
+
+  onAutoplayButtonClick(): void {
+    const user = this.userService.getUser();
+    if (!user?.locationId) return;
+    if (!this.contentVisible && !this.autoplayPlaying) return; // Cannot start when hidden
+    const play = !this.autoplayPlaying;
+    const msg: Record<string, unknown> = {
+      type: play ? 'AutoplayStart' : 'AutoplayStop',
+      locationId: user.locationId,
+      play
+    };
+    // When item is from playlist with specific pages, send them so server uses only those pages
+    if (play && this.currentItemGuid) {
+      const pages = this.getAvailablePages();
+      if (pages.length > 0) {
+        msg['playlistPages'] = pages;
+      }
+    }
+    this.websocketService.send(JSON.stringify(msg));
   }
 
   /**
@@ -757,8 +876,19 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
     }
   }
   
-  /** Load full library item for page buttons (manualItem/manualItemPages) - used on refresh and when content received */
-  private loadManualItemForPages(guid: number): void {
+  /** Load item for page buttons (manualItem/manualItemPages). When item is selected from playlist tab with specific pages, use those; otherwise load full item with all pages. */
+  private loadManualItemForPagesIfNeeded(guid: number): void {
+    // Only use playlist pages when we're on playlist tab (item was selected from playlist)
+    if (this.activeTab === 'playlist') {
+      const playlistItem = this.playlistItems.find(i => i.guid === guid);
+      if (playlistItem?.pages && Array.isArray(playlistItem.pages) && playlistItem.pages.length > 0) {
+        this.manualItem = playlistItem;
+        this.manualItemPages = playlistItem.pages;
+        this.currentItemName = playlistItem.name;
+        return;
+      }
+    }
+    // Item from search/manual or playlist with all pages: load full item and use all pages
     this.playlistService.getLibraryItemByGuid(guid).subscribe({
       next: (fullItem) => {
         if (fullItem && fullItem.guid === this.currentItemGuid) {
@@ -829,18 +959,25 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
       this.originalContent = null;
       this.originalContentGuid = null;
       this.originalContentPage = null;
+      this.lastContentDurationForItem = null;
+      this.resetAutoplayState();
       // Restore chord settings from service (keep selection across items)
       this.chordTransposition = this.chordSettingsService.getChordTransposition();
       this.chordDisplayState = this.chordSettingsService.getChordDisplayState();
-      // Clear current content immediately to avoid showing old item while waiting for new one
-      this.currentContent = null;
+      // When fromSync, do NOT clear currentContent — content comes from Change broadcast and may
+      // have already arrived; clearing would wipe it and leave preview blank until next Change.
+      if (!fromSync) {
+        this.currentContent = null;
+      }
     } else if (isDifferentPage) {
       // Different page of the same item - reset originalContent for new page content
       this.originalContent = null;
       this.originalContentGuid = null;
       this.originalContentPage = null;
-      // Clear current content to avoid showing old page while waiting for new one
-      this.currentContent = null;
+      this.resetAutoplayState();
+      if (!fromSync) {
+        this.currentContent = null;
+      }
     }
     
     // Track manual selections to filter out stale sync messages
@@ -960,6 +1097,7 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
     if (!user?.locationId) return;
     if (this.visibilityToggleDisabled) return; // Debounce: prevent double-send
     this.visibilityToggleDisabled = true;
+    this.resetAutoplayState(); // Stop autoplay counters when visibility changes
     const visible = !this.contentVisible;
     const msg: any = {
       type: 'SetDisplayVisible',
@@ -1225,6 +1363,7 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
     
     // Handle manual/search tab - if manualItem matches current item
     if (this.manualItem && this.manualItem.guid === this.currentItemGuid) {
+      this.resetAutoplayState();
       this.currentPage = pageNum;
       const user = this.userService.getUser();
       const changeMessage: any = {

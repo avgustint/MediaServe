@@ -28,9 +28,11 @@ const dbOps = {
     const cssStr = item.css ? (typeof item.css === 'string' ? item.css : JSON.stringify(item.css)) : null;
 
     db.transaction(() => {
+      const durationVal = item.duration !== undefined && item.duration !== null && !isNaN(parseInt(item.duration, 10))
+        ? parseInt(item.duration, 10) : null;
       db.prepare(`
-        INSERT INTO library_items (guid, name, type, content, description, modified, background_color, font_color, author, css)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO library_items (guid, name, type, content, description, modified, background_color, font_color, author, css, duration)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         newGuid,
         item.name || '',
@@ -41,7 +43,8 @@ const dbOps = {
         item.background_color || null,
         item.font_color || null,
         item.author || null,
-        cssStr
+        cssStr,
+        durationVal
       );
 
       if (pageGuids.length > 0) {
@@ -86,9 +89,12 @@ const dbOps = {
     }
 
     db.transaction(() => {
+      const durationVal = item.duration !== undefined
+        ? (item.duration !== null && !isNaN(parseInt(item.duration, 10)) ? parseInt(item.duration, 10) : null)
+        : existingItem.duration;
       db.prepare(`
         UPDATE library_items
-        SET name = ?, type = ?, content = ?, description = ?, modified = ?, background_color = ?, font_color = ?, author = ?, css = ?
+        SET name = ?, type = ?, content = ?, description = ?, modified = ?, background_color = ?, font_color = ?, author = ?, css = ?, duration = ?
         WHERE guid = ?
       `).run(
         item.name !== undefined ? item.name : existingItem.name,
@@ -100,6 +106,7 @@ const dbOps = {
         item.font_color !== undefined ? item.font_color : existingItem.font_color,
         authorValue,
         cssValue,
+        durationVal,
         guid
       );
 
@@ -934,6 +941,7 @@ const dbOps = {
     let content;
 
     if (pages && pages.length > 0) {
+      const itemDuration = item.duration != null && !isNaN(parseInt(item.duration, 10)) ? parseInt(item.duration, 10) : null;
       content = pages.map((page, index) => {
         let pageCss = undefined;
         if (page.css) {
@@ -943,11 +951,13 @@ const dbOps = {
             pageCss = undefined;
           }
         }
+        const pageDuration = page.duration != null && !isNaN(parseInt(page.duration, 10)) ? parseInt(page.duration, 10) : null;
         return {
           page: index + 1,
           type: page.type || 'text',
           content: page.content || '',
-          css: pageCss
+          css: pageCss,
+          duration: pageDuration !== null ? pageDuration : itemDuration
         };
       });
     } else {
@@ -986,11 +996,13 @@ const dbOps = {
       }
     }
 
+    const itemDuration = item.duration != null && !isNaN(parseInt(item.duration, 10)) ? parseInt(item.duration, 10) : null;
     return {
       guid: item.guid,
       name: item.name,
       type: firstPageType,
       content: content,
+      duration: itemDuration,
       description: item.description || undefined,
       modified: item.modified || undefined,
       background_color: item.background_color || undefined,
@@ -1120,13 +1132,14 @@ const dbOps = {
   },
 
   // Page operations
-  createPage(content = '', type = 'text', css = null) {
+  createPage(content = '', type = 'text', css = null, duration = null) {
     const db = getDatabase();
     const maxGuid = db.prepare('SELECT MAX(guid) as maxGuid FROM pages').get()?.maxGuid || 0;
     const newGuid = maxGuid + 1;
     const pageType = ['text', 'image', 'url', 'video', 'iframe'].includes(type) ? type : 'text';
     const cssStr = css ? (typeof css === 'string' ? css : JSON.stringify(css)) : null;
-    db.prepare('INSERT INTO pages (guid, content, type, css) VALUES (?, ?, ?, ?)').run(newGuid, content || '', pageType, cssStr);
+    const durationVal = duration != null && !isNaN(parseInt(duration, 10)) ? parseInt(duration, 10) : null;
+    db.prepare('INSERT INTO pages (guid, content, type, css, duration) VALUES (?, ?, ?, ?, ?)').run(newGuid, content || '', pageType, cssStr, durationVal);
     return this.getPage(newGuid);
   },
 
@@ -1140,11 +1153,15 @@ const dbOps = {
     return db.prepare('SELECT * FROM pages ORDER BY guid').all();
   },
 
-  updatePage(guid, content, type, css) {
+  updatePage(guid, content, type, css, duration) {
     const db = getDatabase();
     db.prepare('UPDATE pages SET content = ? WHERE guid = ?').run(content || '', guid);
     const validType = type && ['text', 'image', 'url', 'video', 'iframe'].includes(type) ? type : 'text';
     db.prepare('UPDATE pages SET type = ? WHERE guid = ?').run(validType, guid);
+    if (duration !== undefined) {
+      const durationVal = duration != null && !isNaN(parseInt(duration, 10)) ? parseInt(duration, 10) : null;
+      db.prepare('UPDATE pages SET duration = ? WHERE guid = ?').run(durationVal, guid);
+    }
     if (css !== undefined) {
       const cssStr = css ? (typeof css === 'string' ? css : JSON.stringify(css)) : null;
       db.prepare('UPDATE pages SET css = ? WHERE guid = ?').run(cssStr, guid);
@@ -1179,7 +1196,7 @@ const dbOps = {
   getLibraryItemPages(libraryItemGuid) {
     const db = getDatabase();
     return db.prepare(`
-      SELECT p.guid, p.content, p.type, p.css, lip.order_number
+      SELECT p.guid, p.content, p.type, p.css, p.duration, lip.order_number
       FROM library_item_pages lip
       JOIN pages p ON lip.page_guid = p.guid
       WHERE lip.library_item_guid = ?

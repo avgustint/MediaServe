@@ -44,6 +44,9 @@ export interface TranslationKeys {
   clear: string;
   showContent: string;
   hideContent: string;
+  autoplayStart: string;
+  autoplayPause: string;
+  autoplayHidingOnScreenAfter: string;
   contentHiddenFromDisplay: string;
   previous: string;
   next: string;
@@ -174,6 +177,10 @@ export interface TranslationKeys {
   enterItemDescription: string;
   author: string;
   enterAuthor: string;
+  autoplayDurationSeconds: string;
+  autoplayDurationPlaceholder: string;
+  autoplayDurationHelp: string;
+  autoplayDurationPageHelp: string;
   enterPlaylistName: string;
   enterPlaylistDescription: string;
   enterUserName: string;
@@ -273,6 +280,8 @@ export interface TranslationKeys {
     defaultChordFontColor: string;
     defaultBlankPage: string;
     defaultBlankPageHelp: string;
+    autoplayHideDelaySeconds: string;
+    autoplayHideDelaySecondsHelp: string;
     backgroundColor: string;
     fontColor: string;
     backgroundColorHelp: string;
@@ -431,6 +440,9 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     clear: 'Clear',
     showContent: 'Show content',
     hideContent: 'Hide content',
+    autoplayStart: 'Start autoplay',
+    autoplayPause: 'Pause autoplay',
+    autoplayHidingOnScreenAfter: 'Hiding on screen after',
     contentHiddenFromDisplay: 'Hidden from display',
     previous: 'Previous',
     next: 'Next',
@@ -562,6 +574,10 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     enterItemDescription: 'Enter item description (optional)',
     author: 'Author',
     enterAuthor: 'Enter author (optional)',
+    autoplayDurationSeconds: 'Autoplay duration (seconds)',
+    autoplayDurationPlaceholder: 'Empty = no autoplay',
+    autoplayDurationHelp: 'Default duration per page in seconds. Leave empty for no autoplay. Can be overridden per page.',
+    autoplayDurationPageHelp: 'Override item default. Empty = use item default.',
     enterPlaylistName: 'Enter playlist name',
     enterPlaylistDescription: 'Enter playlist description (optional)',
     enterUserName: 'Enter user name',
@@ -660,6 +676,8 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     defaultChordFontColor: 'Default Chord Font Color',
     defaultBlankPage: 'Default Blank Page',
     defaultBlankPageHelp: 'Select a library item to display when no content is selected. Leave empty for no default.',
+    autoplayHideDelaySeconds: 'Autoplay hide delay (seconds)',
+    autoplayHideDelaySecondsHelp: 'Seconds to wait after last page before hiding content. Used when autoplay finishes.',
     backgroundColor: 'Background Color',
     fontColor: 'Font Color',
     backgroundColorHelp: 'Background color for this item. Leave empty to use default.',
@@ -816,6 +834,9 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     clear: 'Počisti',
     showContent: 'Pokaži vsebino',
     hideContent: 'Skrij vsebino',
+    autoplayStart: 'Zaženi avtopredvajanje',
+    autoplayPause: 'Ustavi avtopredvajanje',
+    autoplayHidingOnScreenAfter: 'Skrivanje na zaslonu čez',
     contentHiddenFromDisplay: 'Skrito na zaslonu',
     previous: 'Nazaj',
     next: 'Naprej',
@@ -947,6 +968,10 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     enterItemDescription: 'Vnesite opis postavke (neobvezno)',
     author: 'Avtor',
     enterAuthor: 'Vnesite avtorja (neobvezno)',
+    autoplayDurationSeconds: 'Trajanje avtopredvajanja (sekunde)',
+    autoplayDurationPlaceholder: 'Prazno = brez avtopredvajanja',
+    autoplayDurationHelp: 'Privzeto trajanje na stran v sekundah. Pustite prazno za brez avtopredvajanja. Lahko preglasite na strani.',
+    autoplayDurationPageHelp: 'Preglasi privzeto vrednost postavke. Prazno = uporabi privzeto.',
     enterPlaylistName: 'Vnesite ime seznama predvajanja',
     enterPlaylistDescription: 'Vnesite opis seznama predvajanja (neobvezno)',
     enterUserName: 'Vnesite uporabniško ime',
@@ -1045,6 +1070,8 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     defaultChordFontColor: 'Privzeta barva akordov',
     defaultBlankPage: 'Privzeta prazna stran',
     defaultBlankPageHelp: 'Izberite knjižnično postavko za prikaz, ko ni izbrane vsebine. Pustite prazno za brez privzete.',
+    autoplayHideDelaySeconds: 'Zakasnitev skrivanja avtopredvajanja (sekunde)',
+    autoplayHideDelaySecondsHelp: 'Sekunde čakanja po zadnji strani pred skritjem vsebine. Uporablja se ob koncu avtopredvajanja.',
     backgroundColor: 'Barva ozadja',
     fontColor: 'Barva pisave',
     backgroundColorHelp: 'Barva ozadja za to postavko. Pustite prazno za uporabo privzete.',
@@ -1201,6 +1228,9 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     clear: 'Cancella',
     showContent: 'Mostra contenuto',
     hideContent: 'Nascondi contenuto',
+    autoplayStart: 'Avvia autoplay',
+    autoplayPause: 'Pausa autoplay',
+    autoplayHidingOnScreenAfter: 'Nascondimento schermo tra',
     contentHiddenFromDisplay: 'Nascosto dal display',
     previous: 'Precedente',
     next: 'Successivo',
@@ -1332,6 +1362,10 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     enterItemDescription: 'Inserisci descrizione elemento (opzionale)',
     author: 'Autore',
     enterAuthor: 'Inserisci autore (opzionale)',
+    autoplayDurationSeconds: 'Durata autoplay (secondi)',
+    autoplayDurationPlaceholder: 'Vuoto = nessun autoplay',
+    autoplayDurationHelp: 'Durata predefinita per pagina in secondi. Lascia vuoto per nessun autoplay. Può essere sovrascritta per pagina.',
+    autoplayDurationPageHelp: 'Sovrascrivi default elemento. Vuoto = usa default elemento.',
     enterPlaylistName: 'Inserisci nome playlist',
     enterPlaylistDescription: 'Inserisci descrizione playlist (opzionale)',
     enterUserName: 'Inserisci nome utente',
@@ -1430,6 +1464,8 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     defaultChordFontColor: 'Colore del carattere degli accordi predefinito',
     defaultBlankPage: 'Pagina vuota predefinita',
     defaultBlankPageHelp: 'Seleziona un elemento della libreria da visualizzare quando non è selezionato alcun contenuto. Lascia vuoto per nessun default.',
+    autoplayHideDelaySeconds: 'Ritardo nascondimento autoplay (secondi)',
+    autoplayHideDelaySecondsHelp: 'Secondi di attesa dopo l\'ultima pagina prima di nascondere il contenuto. Usato alla fine dell\'autoplay.',
     backgroundColor: 'Colore di sfondo',
     fontColor: 'Colore del carattere',
     backgroundColorHelp: 'Colore di sfondo per questo elemento. Lascia vuoto per usare il default.',

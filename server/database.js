@@ -401,6 +401,20 @@ function createTables() {
     console.log('Added css column to pages table');
   }
 
+  // Migration: Add duration column to library_items (seconds, null = no autoplay)
+  const libraryTableInfo2 = db.prepare("PRAGMA table_info(library_items)").all();
+  if (!libraryTableInfo2.some(col => col.name === 'duration')) {
+    db.exec(`ALTER TABLE library_items ADD COLUMN duration INTEGER`);
+    console.log('Added duration column to library_items table');
+  }
+
+  // Migration: Add duration column to pages (seconds, overrides item duration when set)
+  const pagesTableInfo3 = db.prepare("PRAGMA table_info(pages)").all();
+  if (!pagesTableInfo3.some(col => col.name === 'duration')) {
+    db.exec(`ALTER TABLE pages ADD COLUMN duration INTEGER`);
+    console.log('Added duration column to pages table');
+  }
+
   // Library item pages junction table - links library items to pages with order
   db.exec(`
     CREATE TABLE IF NOT EXISTS library_item_pages (

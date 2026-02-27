@@ -1364,6 +1364,10 @@ function setupHttpEndpoints(data) {
           if (data.defaultBlankPage !== undefined) {
             dbOps.setSetting('defaultBlankPage', data.defaultBlankPage || '');
           }
+          if (data.autoplayHideDelaySeconds !== undefined) {
+            const val = data.autoplayHideDelaySeconds;
+            dbOps.setSetting('autoplayHideDelaySeconds', val === null || val === '' ? '5' : String(Math.max(0, parseInt(val, 10) || 5)));
+          }
 
           const allSettings = dbOps.getAllSettings();
           res.writeHead(200, { 'Content-Type': 'application/json' });
