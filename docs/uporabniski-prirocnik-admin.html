@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="sl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Uporabniški priročnik – MediaPlayer Admin</title>
+  <style>
+    @media print {
+      body { font-size: 11pt; }
+      .no-print { display: none !important; }
+      .page-break { page-break-before: always; }
+      img { max-width: 100% !important; }
+    }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      line-height: 1.6;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 40px;
+      color: #333;
+    }
+    h1 { color: #1976d2; font-size: 28px; border-bottom: 2px solid #1976d2; padding-bottom: 8px; }
+    h2 { color: #1565c0; font-size: 20px; margin-top: 32px; }
+    h3 { color: #424242; font-size: 16px; margin-top: 24px; }
+    .screenshot-placeholder {
+      border: 2px dashed #999;
+      background: #f5f5f5;
+      padding: 40px;
+      text-align: center;
+      margin: 16px 0;
+      color: #666;
+      font-style: italic;
+      min-height: 200px;
+    }
+    .screenshot-placeholder img { max-width: 100%; border: none; }
+    .toc { background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 24px 0; }
+    .toc ul { list-style: none; padding-left: 0; }
+    .toc li { padding: 4px 0; }
+    .toc a { color: #1565c0; text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+    .note { background: #e3f2fd; padding: 12px; border-left: 4px solid #1976d2; margin: 16px 0; }
+    ul { padding-left: 24px; }
+    .pdf-instructions {
+      background: #fff3e0;
+      padding: 16px;
+      border-radius: 8px;
+      margin-bottom: 24px;
+    }
+  </style>
+</head>
+<body>
+  <div class="no-print pdf-instructions">
+    <strong>Ustvarjanje PDF:</strong> Odprite to datoteko v brskalniku in uporabite <kbd>Ctrl+P</kbd> (ali <kbd>Cmd+P</kbd> na Macu). Izberite »Shrani kot PDF« kot cilj tiskanja. Za dodajanje posnetkov zaslona shranite slike v mapo <code>docs/screenshots/</code> in posodobite ustrezne vrstice v tem dokumentu.
+  </div>
+
+  <h1>Uporabniški priročnik – MediaPlayer Admin</h1>
+  <p><em>Različica dokumentacije: Januar 2026</em></p>
+
+  <h2>Kazalo</h2>
+  <nav class="toc">
+    <ul>
+      <li><a href="#uvod">1. Uvod</a></li>
+      <li><a href="#prijava">2. Prijava</a></li>
+      <li><a href="#glavna-navigacija">3. Glavna navigacija</a></li>
+      <li><a href="#projekcija">4. Projekcija (pregled vsebine)</a></li>
+      <li><a href="#urednik-knjiznice">5. Urejevalnik knjižnice</a></li>
+      <li><a href="#urejevalnik-seznamov">6. Urejevalnik seznamov predvajanja</a></li>
+      <li><a href="#zbirke-in-oznake">7. Zbirke in oznake</a></li>
+      <li><a href="#nastavitve">8. Nastavitve</a></li>
+      <li><a href="#televizijski-daljinec">9. Televizijski daljinec</a></li>
+      <li><a href="#uporabniski-profil">10. Uporabniški profil</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="uvod">1. Uvod</h2>
+  <p>MediaPlayer Admin je spletna aplikacija za upravljanje sistema MediaPlayer. Omogoča:</p>
+  <ul>
+    <li>Izbiranje in predvajanje vsebine (pesmi, slike, videoposnetki) na zaslonih za občinstvo</li>
+    <li>Urejanje knjižnice (dodajanje, urejanje, brisanje pesmi in drugih vsebin)</li>
+    <li>Upravljanje seznamov predvajanja</li>
+    <li>Upravljanje uporabnikov, vlog in lokacij</li>
+    <li>Sinhronizacijo med več administratorji v realnem času</li>
+  </ul>
+  <p>Aplikacija podpira angleščino, slovenščino in italijanščino. Jezika lahko spremenite v uporabniškem profilu.</p>
+
+  <h2 id="prijava">2. Prijava</h2>
+  <p>Za dostop do aplikacije se morate prijaviti z uporabniškim imenom in geslom. Ob prijavi izberite tudi <strong>lokacijo</strong> – to določa, na kateri zaslon ali skupino zaslonov boste upravljali vsebino. Priporočljivo je, da administratorji izberejo ustrezno lokacijo glede na prostor, kjer delajo.</p>
+  
+  <figure>
+    <img src="screenshots/01-prijava.png" alt="Prijava ali glavni pogled" style="max-width: 100%; border: 1px solid #ddd; border-radius: 4px;">
+    <figcaption>Slika 1: Prijavni zaslon (uporabniško ime, geslo, lokacija) ali glavni pogled po prijavi</figcaption>
+  </figure>
+
+  <h2 id="glavna-navigacija">3. Glavna navigacija</h2>
+  <p>Po prijavi se prikaže glavna vrstica z gumbi:</p>
+  <ul>
+    <li><strong>Projekcija</strong> (ikona TV) – glavni pogled za izbiranje vsebine</li>
+    <li><strong>Urejevalnik</strong> – knjižnica, seznami predvajanja, zbirke, oznake</li>
+    <li><strong>TV daljinec</strong> – vklop/izklop zaslona, glasnost (zahteva cec-client)</li>
+    <li><strong>Nastavitve</strong> – uporabniki, vloge, dovoljenja, lokacije, splošne nastavitve</li>
+    <li><strong>Uporabniški profil</strong> – vaše ime, e-pošta, geslo, jezik</li>
+  </ul>
+  <p>Levo od gumbov je prikazana povezanost s strežnikom (povezano / povezovanje / ni povezano). Če povezava izgine, uporabite gumb »Osveži«.</p>
+
+  <figure>
+    <img src="screenshots/03-projekcija.png" alt="Glavna navigacija in projekcija" style="max-width: 100%; border: 1px solid #ddd; border-radius: 4px;">
+    <figcaption>Slika 2: Glavna navigacija (gumbi na vrhu) in pogled projekcije</figcaption>
+  </figure>
+
+  <h2 id="projekcija">4. Projekcija (pregled vsebine)</h2>
+  <p>Projekcija je glavni operativni pogled. Na levi strani je stranski panel s tremi zavihki:</p>
+
+  <h3>4.1 Zavihek Seznam predvajanja</h3>
+  <p>Izberete seznam predvajanja (npr. »Nedeljska maša«) in nato kliknete pesem ali vsebino. Če ima pesem več strani, lahko izberete tudi konkretno stran. Za večstranične pesmi so na vrhu prikazane gumbi za izbiro strani.</p>
+
+  <h3>4.2 Zavihek Iskanje</h3>
+  <p>Polnobesedilno iskanje po knjižnici z naprednimi filtri (zbirka, oznake). Ko ne iščete, so prikazane nedavno izbrane postavke (zadnjih 20). Iskanje omogoča hitro iskanje pesmi po imenu ali vsebini.</p>
+
+  <h3>4.3 Zavihek Ročno / Številčnica</h3>
+  <p>Vnesete številko postavke (GUID) neposredno prek številčnice. Uporabno, če poznate številko pesmi. Pod številčnico so prikazane nedavno izbrane postavke za hiter dostop.</p>
+
+  <h3>4.4 Predogled vsebine</h3>
+  <p>V sredini se prikazuje v živo, kaj vidi občinstvo na zaslonu. Na voljo so:</p>
+  <ul>
+    <li><strong>Gumbi za strani</strong> – za večstranične pesmi (Nazaj / Naprej)</li>
+    <li><strong>Preklapljanje vidnosti</strong> – skrivanje vsebine z zaslona brez izgube izbire (npr. med pavzo)</li>
+    <li><strong>Celozaslonski način</strong> – predogled v celotnem zaslonu</li>
+    <li><strong>Upravljanje akordov</strong> – prikaz samo lokalno / povsod / skrij; transponiranje (+/− poltone)</li>
+    <li><strong>Avtopredvajanje</strong> – če ima pesem nastavljeno trajanje, se lahko avtomatsko preklapljajo strani; po zadnji strani se vsebina po nastavljivem zamiku skrije</li>
+  </ul>
+
+  <figure>
+    <img src="screenshots/03-projekcija.png" alt="Projekcija z predogledom" style="max-width: 100%; border: 1px solid #ddd; border-radius: 4px;">
+    <figcaption>Slika 3: Projekcija z izbranim seznamom predvajanja in predogledom vsebine</figcaption>
+  </figure>
+
+  <h3>4.5 Tipkovna navigacija</h3>
+  <p>Puščične tipke levo/desno (ali gor/dol) premikajo med stranmi. Tipka Enter potrdi izbiro. Tipka Escape skrije vsebino z zaslona.</p>
+
+  <h2 id="urednik-knjiznice">5. Urejevalnik knjižnice</h2>
+  <p>V zavihku »Knjižnica« urejate posamezne postavke (pesmi, slike, videoposnetke itd.).</p>
+
+  <h3>5.1 Vrste vsebine</h3>
+  <ul>
+    <li><strong>Besedilo</strong> – pesmi z akordi, opomba: akorde označite s sintakso &lt;chord&gt;Am&lt;/chord&gt;</li>
+    <li><strong>Slika</strong> – naložite sliko (PNG, JPG, itd.)</li>
+    <li><strong>URL</strong> – povezava do spletne strani (prikazana v iframe)</li>
+    <li><strong>Video</strong> – naložite videoposnetek ali vnesite URL videoposnetka</li>
+    <li><strong>iFrame</strong> – prilepite celotno vdelano kodo (npr. YouTube, Spotify)</li>
+  </ul>
+
+  <h3>5.2 Večstraničnost</h3>
+  <p>Za vsako postavko lahko dodate več strani. Strani lahko preuredite z vlečenjem in spuščanjem. Vsaka stran ima lahko svojo vrsto vsebine (npr. prva stran besedilo, druga slika).</p>
+
+  <h3>5.3 Avtopredvajanje</h3>
+  <p>Za postavko in posamezne strani lahko nastavite trajanje v sekundah. Če je trajanje nastavljeno, se v projekciji prikaže gumb za avtopredvajanje – ob aktivaciji se strani avtomatsko preklapljajo. Pustite prazno za ročno preklapljanje.</p>
+
+  <h3>5.4 Oblika in barve</h3>
+  <p>Za vsako postavko lahko nastavite barvo ozadja, barvo pisave in barvo akordov. Možna je tudi lastna CSS (npr. velikost pisave, odmiki).</p>
+
+  <h3>5.5 Oznake in zbirke</h3>
+  <p>Postavkam lahko dodelite oznake za kategorizacijo. Zbirke združujejo postavke po letu, založbi ali viru.</p>
+
+  <figure>
+    <img src="screenshots/04-knjiznica.png" alt="Urejevalnik knjižnice" style="max-width: 100%; border: 1px solid #ddd; border-radius: 4px;">
+    <figcaption>Slika 4: Urejevalnik knjižnice – seznam nedavno spremenjenih postavk</figcaption>
+  </figure>
+
+  <h2 id="urejevalnik-seznamov">6. Urejevalnik seznamov predvajanja</h2>
+  <p>V zavihku »Seznam predvajanja« ustvarjate in urejate sezname. Izberete ime, poizvedovanje po knjižnici (z možnimi filtri po zbirki in oznakah) ter dodajate postavke. Za vsako postavko lahko izberete, katere strani vključiti (privzeto vse). Vrstni red postavk lahko spremenite z vlečenjem in spuščanjem.</p>
+
+  <figure>
+    <img src="screenshots/04-knjiznica.png" alt="Urejevalnik – zavihki" style="max-width: 100%; border: 1px solid #ddd; border-radius: 4px;">
+    <figcaption>Slika 5: Urejevalnik – zavihki Knjižnica, Seznam predvajanja, Oznake, Zbirke</figcaption>
+  </figure>
+
+  <h2 id="zbirke-in-oznake">7. Zbirke in oznake</h2>
+  <h3>7.1 Zbirke</h3>
+  <p>Zbirke organizirajo knjižnične postavke po letu, založbi ali viru. Vsaka zbirka ima naslov, letnico in opcijske podatke (založnik, vir). Postavke iz zbirk so pri iskanju v urejevalniku seznamov dostopne prek filtra.</p>
+
+  <h3>7.2 Oznake</h3>
+  <p>Oznake so kategorije, ki jih dodelite postavkam (npr. »Božične«, »Slovenske«). Omogočajo hitro filtriranje pri iskanju in pri urejanju seznamov.</p>
+
+  <figure>
+    <img src="screenshots/04-knjiznica.png" alt="Urejevalnik zbirk in oznak" style="max-width: 100%; border: 1px solid #ddd; border-radius: 4px;">
+    <figcaption>Slika 6: Urejevalnik – prek zaviškov dostop do zbirk in oznak</figcaption>
+  </figure>
+
+  <h2 id="nastavitve">8. Nastavitve</h2>
+  <p>V nastavitvah upravljate sistem. Potrebna so ustrezna dovoljenja.</p>
+
+  <h3>8.1 Uporabniki</h3>
+  <p>Dodajanje, urejanje in brisanje uporabnikov. Vsak uporabnik ima vlogo, e-pošto in izbiro jezika (slovenščina, angleščina, italijanščina).</p>
+
+  <h3>8.2 Vloge in dovoljenja</h3>
+  <p>Vloge določajo, kaj sme uporabnik (npr. PogledProjekcija, PogledUrejevalnik, PogledNastavitve, UrejanjeKnjižnice). Dovoljenja dodelite posameznim vlogam.</p>
+
+  <h3>8.3 Lokacije</h3>
+  <p>Lokacije predstavljajo zaslone ali skupine zaslonov. Ob prijavi uporabnik izbere lokacijo; vsebina, ki jo izbere, se prikaže na zaslonih te lokacije.</p>
+
+  <h3>8.4 Splošne nastavitve</h3>
+  <ul>
+    <li><strong>Privzeta barva ozadja in pisave</strong> – za nove postavke</li>
+    <li><strong>Privzeta prazna stran</strong> – knjižnična postavka, ki se prikaže, ko je vsebina skrita</li>
+    <li><strong>Zakasnitev skrivanja avtopredvajanja</strong> – sekunde čakanja po zadnji strani pred skritjem vsebine</li>
+  </ul>
+
+  <figure>
+    <img src="screenshots/07-nastavitve.png" alt="Nastavitve" style="max-width: 100%; border: 1px solid #ddd; border-radius: 4px;">
+    <figcaption>Slika 7: Pogled nastavitev</figcaption>
+  </figure>
+
+  <h2 id="televizijski-daljinec">9. Televizijski daljinec</h2>
+  <p>Pogled »TV daljinec« omogoča vklop in izklop zaslona ter regulacijo glasnosti prek HDMI CEC. Za delovanje mora biti na strežniku nameščen <code>cec-client</code> (paket cec-utils). Gumbi so prevedeni v izbranem jeziku.</p>
+
+  <figure>
+    <img src="screenshots/08-daljinec.png" alt="Televizijski daljinec" style="max-width: 100%; border: 1px solid #ddd; border-radius: 4px;">
+    <figcaption>Slika 8: Televizijski daljinec – vklop, izklop, glasnost</figcaption>
+  </figure>
+
+  <h2 id="uporabniski-profil">10. Uporabniški profil</h2>
+  <p>V profilu lahko spremenite svoje ime, e-pošto in geslo. Pomembna je izbira jezika – vpliva na vse besedilo v aplikaciji (slovenščina, angleščina, italijanščina).</p>
+
+  <figure>
+    <img src="screenshots/09-profil.png" alt="Uporabniški profil" style="max-width: 100%; border: 1px solid #ddd; border-radius: 4px;">
+    <figcaption>Slika 9: Uporabniški profil z izbiro jezika</figcaption>
+  </figure>
+
+  <h2>Dodatne funkcionalnosti</h2>
+  <ul>
+    <li><strong>Sinhronizacija med več uporabniki</strong> – če več administratorjev uporablja aplikacijo hkrati, se izbire (seznam, pesem, stran, vidnost) sinhronizirajo v realnem času.</li>
+    <li><strong>Odzivni vmesnik</strong> – aplikacija deluje na namizju, tabličnem računalniku in mobilnem telefonu.</li>
+    <li><strong>Samodejna prijava</strong> – za namestitve v kiosk načinu je možna konfiguracija samodejne prijave.</li>
+  </ul>
+
+  <p class="note"><strong>Pomembno:</strong> Za tehnično pomoč ali vprašanja obrnite na skrbnika sistema.</p>
+
+  <hr>
+  <p><small>© 2026 MediaPlayer Admin. Aplikacijo je mogoče prosto uporabljati v nekomercialne namene.</small></p>
+</body>
+</html>
