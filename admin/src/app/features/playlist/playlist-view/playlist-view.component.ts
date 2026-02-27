@@ -10,6 +10,8 @@ import { SearchComponent } from "../search/search.component";
 import { TranslatePipe } from "../../../shared/pipes/translation.pipe";
 import { FormatTextPipe } from "../../../shared/pipes/format-text.pipe";
 import { UserService } from "../../../core/services/user.service";
+import { AuthService } from "../../../core/services/auth.service";
+import { SettingsService } from "../../settings/services/settings.service";
 import { KeyboardCommandService } from "../../../core/services/keyboard-command.service";
 import { RecentItemsService } from "../services/recent-items.service";
 import { environment } from "../../../../environments/environment";
@@ -72,6 +74,7 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
 
   // Dev mode flag - show chord controls only in development
   readonly isDevMode: boolean = !environment.production;
+  readonly Math = Math;
 
   // Chord display state: 'local' (only on admin), 'everywhere' (all clients), 'hidden' (no chords)
   // Default: 'hidden' (chords hidden by default)
@@ -113,6 +116,8 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
   autoplayEndAt: number | null = null;
   autoplayTotalSeconds: number = 0;
   autoplayRemainingSeconds: number = 0;
+  /** Continuous progress 0–1 for ring animation (avoids delay from discrete seconds) */
+  autoplayProgress: number = 1;
   private autoplayTickInterval: ReturnType<typeof setInterval> | null = null;
   /** When currentContent is null (e.g. loading), use this to keep button visible if item has duration */
   private lastContentDurationForItem: number | null = null;
@@ -120,7 +125,12 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
   autoplayHideDelayEndAt: number | null = null;
   autoplayHideDelayTotalSeconds: number = 0;
   autoplayHideDelayRemainingSeconds: number = 0;
+  /** Continuous progress 0–1 for hide delay ring */
+  autoplayHideDelayProgress: number = 1;
 
+  /** Auto-hide: hide content after N seconds of no activity (from settings, 0 = disabled) */
+  autoHideTimeoutSeconds: number = 0;
+  private autoHideTimerId: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     private websocketService: WebSocketService,
@@ -130,7 +140,9 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
     private chordSettingsService: ChordSettingsService,
     private keyboardCommandService: KeyboardCommandService,
     private recentItemsService: RecentItemsService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private authService: AuthService,
+    private settingsService: SettingsService
   ) {}
 
   ngOnInit(): void {
@@ -147,7 +159,19 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
     // Restore contentVisible state from service (survives component destruction during navigation)
     this.websocketService.contentVisible$.pipe(take(1)).subscribe((visible) => {
       this.contentVisible = visible;
+      this.resetAutoHideTimer();
     });
+
+    // Load general settings for auto-hide timeout
+    const username = this.authService.getStoredUsername();
+    if (username) {
+      this.settingsService.getGeneralSettings(username).subscribe({
+        next: (settings) => {
+          this.autoHideTimeoutSeconds = parseInt(settings.autoHideTimeoutSeconds || '0', 10) || 0;
+          this.resetAutoHideTimer();
+        }
+      });
+    }
 
     // Apply last content if we missed it (e.g. mounted after reconnect - Subject doesn't replay)
     this.lastContentSubscription = this.websocketService.lastContent$.pipe(
@@ -424,6 +448,8 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
           }, 100);
         }
 
+        // Reset auto-hide timer when content changes (e.g. autoplay advancing pages)
+        this.resetAutoHideTimer();
       }
 
       // If message is empty object, it's a clear/blank display (legacy or no defaultBlankPage)
@@ -483,6 +509,7 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
     this.keyboardCommandSubscription?.unsubscribe();
     this.numberKeyQueueSubscription?.unsubscribe();
     this.stopAutoplayTick();
+    this.clearAutoHideTimer();
     window.removeEventListener("resize", this.resizeHandler);
     window.removeEventListener("keydown", this.keyboardHandler, true);
     document.removeEventListener("keydown", this.keyboardHandler, true);
@@ -503,17 +530,23 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
     this.autoplayEndAt = null;
     this.autoplayTotalSeconds = 0;
     this.autoplayRemainingSeconds = 0;
+    this.autoplayProgress = 1;
     this.autoplayHideDelayEndAt = null;
     this.autoplayHideDelayTotalSeconds = 0;
     this.autoplayHideDelayRemainingSeconds = 0;
+    this.autoplayHideDelayProgress = 1;
   }
 
   private updateAutoplayRemaining(): void {
-    if (this.autoplayEndAt != null) {
-      this.autoplayRemainingSeconds = Math.max(0, Math.ceil((this.autoplayEndAt - Date.now()) / 1000));
+    if (this.autoplayEndAt != null && this.autoplayTotalSeconds > 0) {
+      const msLeft = this.autoplayEndAt - Date.now();
+      this.autoplayRemainingSeconds = Math.max(0, Math.ceil(msLeft / 1000));
+      this.autoplayProgress = Math.max(0, Math.min(1, msLeft / (this.autoplayTotalSeconds * 1000)));
     }
-    if (this.autoplayHideDelayEndAt != null) {
-      this.autoplayHideDelayRemainingSeconds = Math.max(0, Math.ceil((this.autoplayHideDelayEndAt - Date.now()) / 1000));
+    if (this.autoplayHideDelayEndAt != null && this.autoplayHideDelayTotalSeconds > 0) {
+      const msLeft = this.autoplayHideDelayEndAt - Date.now();
+      this.autoplayHideDelayRemainingSeconds = Math.max(0, Math.ceil(msLeft / 1000));
+      this.autoplayHideDelayProgress = Math.max(0, Math.min(1, msLeft / (this.autoplayHideDelayTotalSeconds * 1000)));
     }
   }
 
@@ -1022,6 +1055,7 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
     }
     
     this.isReceivingSelection = false;
+    this.resetAutoHideTimer();
   }
 
   onPlaylistItemPageClick(event: { item: LibraryItem; page: number }): void {
@@ -1091,6 +1125,31 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
     });
   }
 
+  private clearAutoHideTimer(): void {
+    if (this.autoHideTimerId != null) {
+      clearTimeout(this.autoHideTimerId);
+      this.autoHideTimerId = null;
+    }
+  }
+
+  /** Reset auto-hide timer. Call on: item selection, page change, visibility change. */
+  private resetAutoHideTimer(): void {
+    this.clearAutoHideTimer();
+    const user = this.userService.getUser();
+    if (
+      this.autoHideTimeoutSeconds > 0 &&
+      this.contentVisible &&
+      user?.locationId
+    ) {
+      this.autoHideTimerId = setTimeout(() => {
+        this.autoHideTimerId = null;
+        if (this.contentVisible) {
+          this.onVisibilityToggleClick();
+        }
+      }, this.autoHideTimeoutSeconds * 1000);
+    }
+  }
+
   /** Toggle display visibility: green (visible) = show last item, red (hidden) = show blank page */
   onVisibilityToggleClick(): void {
     const user = this.userService.getUser();
@@ -1106,6 +1165,7 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
     };
     this.websocketService.send(JSON.stringify(msg));
     this.contentVisible = visible;
+    this.resetAutoHideTimer();
     // Re-enable after 400ms to allow server response; prevents duplicate sends from double-click
     setTimeout(() => {
       this.visibilityToggleDisabled = false;
@@ -1256,6 +1316,7 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
             changeMessage.locationId = user.locationId;
           }
           this.websocketService.send(JSON.stringify(changeMessage));
+          this.resetAutoHideTimer();
           return;
         }
       }
@@ -1328,6 +1389,7 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
             changeMessage.locationId = user.locationId;
           }
           this.websocketService.send(JSON.stringify(changeMessage));
+          this.resetAutoHideTimer();
           return;
         }
       }

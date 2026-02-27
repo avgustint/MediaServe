@@ -750,7 +750,7 @@ function setupWebSocket(server, library) {
           // Persist to DB and in-memory cache
           setContentVisible(locationId, visible);
           
-          // Notify all admin clients of the new visibility state (so they update their toggle button)
+          // Notify all clients (admin and display) of the new visibility state
           const visibilityStateMsg = JSON.stringify({
             type: 'DisplayVisibleState',
             contentVisible: visible,
@@ -758,7 +758,7 @@ function setupWebSocket(server, library) {
           });
           clients.forEach((client) => {
             const clientLocationId = clientLocations.get(client);
-            if (client.readyState === WebSocket.OPEN && clientLocationId === locationId && adminClients.has(client)) {
+            if (client.readyState === WebSocket.OPEN && clientLocationId === locationId) {
               try { client.send(visibilityStateMsg); } catch (e) { /* ignore */ }
             }
           });

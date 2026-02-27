@@ -299,6 +299,8 @@ export interface TranslationKeys {
     defaultBlankPageHelp: string;
     autoplayHideDelaySeconds: string;
     autoplayHideDelaySecondsHelp: string;
+    autoHideTimeoutSeconds: string;
+    autoHideTimeoutSecondsHelp: string;
     backgroundColor: string;
     fontColor: string;
     backgroundColorHelp: string;
@@ -712,6 +714,8 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     defaultBlankPageHelp: 'Select a library item to display when no content is selected. Leave empty for no default.',
     autoplayHideDelaySeconds: 'Autoplay hide delay (seconds)',
     autoplayHideDelaySecondsHelp: 'Seconds to wait after last page before hiding content. Used when autoplay finishes.',
+    autoHideTimeoutSeconds: 'Auto hide after timeout (seconds)',
+    autoHideTimeoutSecondsHelp: 'Automatically hide content from screen after this many seconds of no activity (no item selection, page change, or visibility change). 0 = disabled.',
     backgroundColor: 'Background Color',
     fontColor: 'Font Color',
     backgroundColorHelp: 'Background color for this item. Leave empty to use default.',
@@ -1123,6 +1127,8 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     defaultBlankPageHelp: 'Izberite knjižnično postavko za prikaz, ko ni izbrane vsebine. Pustite prazno za brez privzete.',
     autoplayHideDelaySeconds: 'Zakasnitev skrivanja avtopredvajanja (sekunde)',
     autoplayHideDelaySecondsHelp: 'Sekunde čakanja po zadnji strani pred skritjem vsebine. Uporablja se ob koncu avtopredvajanja.',
+    autoHideTimeoutSeconds: 'Samodejno skrivanje po časovni omejitvi (sekunde)',
+    autoHideTimeoutSecondsHelp: 'Samodejno skrije vsebino z zaslona po toliko sekundah brez dejavnosti (brez izbire postavke, spremembe strani ali vidnosti). 0 = onemogočeno.',
     backgroundColor: 'Barva ozadja',
     fontColor: 'Barva pisave',
     backgroundColorHelp: 'Barva ozadja za to postavko. Pustite prazno za uporabo privzete.',
@@ -1534,6 +1540,8 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     defaultBlankPageHelp: 'Seleziona un elemento della libreria da visualizzare quando non è selezionato alcun contenuto. Lascia vuoto per nessun default.',
     autoplayHideDelaySeconds: 'Ritardo nascondimento autoplay (secondi)',
     autoplayHideDelaySecondsHelp: 'Secondi di attesa dopo l\'ultima pagina prima di nascondere il contenuto. Usato alla fine dell\'autoplay.',
+    autoHideTimeoutSeconds: 'Nascondimento automatico dopo timeout (secondi)',
+    autoHideTimeoutSecondsHelp: 'Nasconde automaticamente il contenuto dallo schermo dopo questi secondi senza attività (nessuna selezione, cambio pagina o visibilità). 0 = disabilitato.',
     backgroundColor: 'Colore di sfondo',
     fontColor: 'Colore del carattere',
     backgroundColorHelp: 'Colore di sfondo per questo elemento. Lascia vuoto per usare il default.',

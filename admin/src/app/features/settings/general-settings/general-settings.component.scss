@@ -279,7 +279,8 @@
   }
 }
 
-.form-group-autoplay-hide-delay .autoplay-hide-delay-input {
+.form-group-autoplay-hide-delay .autoplay-hide-delay-input,
+.form-group-auto-hide-timeout .auto-hide-timeout-input {
   padding: 8px 12px;
   border: 1px solid #ddd;
   border-radius: 4px;

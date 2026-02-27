@@ -36,6 +36,10 @@ router.put('/', authMiddleware, requirePermission('EditGeneralSettings'), asyncH
     const val = req.body.autoplayHideDelaySeconds;
     dbOps.setSetting('autoplayHideDelaySeconds', val === null || val === '' ? '5' : String(Math.max(0, parseInt(val, 10) || 5)));
   }
+  if (req.body.autoHideTimeoutSeconds !== undefined) {
+    const val = req.body.autoHideTimeoutSeconds;
+    dbOps.setSetting('autoHideTimeoutSeconds', val === null || val === '' ? '0' : String(Math.max(0, parseInt(val, 10) || 0)));
+  }
 
   const allSettings = dbOps.getAllSettings();
   res.json(allSettings);

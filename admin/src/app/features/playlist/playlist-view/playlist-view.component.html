@@ -197,12 +197,19 @@
         <!-- Autoplay countdown overlay - center -->
         <div *ngIf="autoplayPlaying" class="autoplay-countdown-overlay">
           <div class="autoplay-countdown-content">
-            <div class="autoplay-countdown-time">{{ autoplayRemainingSeconds }}</div>
-            <div class="autoplay-countdown-progress">
-              <div
-                class="autoplay-countdown-progress-bar"
-                [style.width.%]="autoplayTotalSeconds > 0 ? (100 * autoplayRemainingSeconds / autoplayTotalSeconds) : 100"
-              ></div>
+            <div
+              class="autoplay-countdown-ring"
+              [class.countdown-snap]="autoplayProgress >= 0.999"
+            >
+              <svg class="autoplay-countdown-svg" viewBox="0 0 120 120">
+                <circle class="autoplay-countdown-ring-track" cx="60" cy="60" r="52" />
+                <circle
+                  class="autoplay-countdown-ring-fill"
+                  cx="60" cy="60" r="52"
+                  [attr.stroke-dasharray]="(2 * Math.PI * 52 * autoplayProgress) + ' ' + (2 * Math.PI * 52)"
+                />
+              </svg>
+              <div class="autoplay-countdown-time">{{ autoplayRemainingSeconds }}</div>
             </div>
           </div>
         </div>
@@ -211,12 +218,19 @@
         <div *ngIf="autoplayHideDelayEndAt != null" class="autoplay-countdown-overlay autoplay-hide-delay-overlay">
           <div class="autoplay-countdown-content">
             <div class="autoplay-hide-delay-label">{{ 'autoplayHidingOnScreenAfter' | translate }}</div>
-            <div class="autoplay-countdown-time">{{ autoplayHideDelayRemainingSeconds }}</div>
-            <div class="autoplay-countdown-progress">
-              <div
-                class="autoplay-countdown-progress-bar"
-                [style.width.%]="autoplayHideDelayTotalSeconds > 0 ? (100 * autoplayHideDelayRemainingSeconds / autoplayHideDelayTotalSeconds) : 100"
-              ></div>
+            <div
+              class="autoplay-countdown-ring"
+              [class.countdown-snap]="autoplayHideDelayProgress >= 0.999"
+            >
+              <svg class="autoplay-countdown-svg" viewBox="0 0 120 120">
+                <circle class="autoplay-countdown-ring-track" cx="60" cy="60" r="52" />
+                <circle
+                  class="autoplay-countdown-ring-fill"
+                  cx="60" cy="60" r="52"
+                  [attr.stroke-dasharray]="(2 * Math.PI * 52 * autoplayHideDelayProgress) + ' ' + (2 * Math.PI * 52)"
+                />
+              </svg>
+              <div class="autoplay-countdown-time">{{ autoplayHideDelayRemainingSeconds }}</div>
             </div>
           </div>
         </div>

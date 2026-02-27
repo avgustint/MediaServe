@@ -156,6 +156,21 @@
       <p class="form-help">{{ 'autoplayHideDelaySecondsHelp' | translate }}</p>
     </div>
 
+    <div class="form-group form-group-auto-hide-timeout">
+      <label for="autoHideTimeoutSeconds">{{ 'autoHideTimeoutSeconds' | translate }}</label>
+      <input
+        type="number"
+        id="autoHideTimeoutSeconds"
+        class="auto-hide-timeout-input"
+        [(ngModel)]="settings.autoHideTimeoutSeconds"
+        min="0"
+        max="3600"
+        step="1"
+        [disabled]="!hasEditPermission()"
+      />
+      <p class="form-help">{{ 'autoHideTimeoutSecondsHelp' | translate }}</p>
+    </div>
+
     <div class="form-actions" *ngIf="hasEditPermission()">
       <button class="btn-save" (click)="saveSettings()" [disabled]="saving">
         <i class="fas fa-save"></i>
