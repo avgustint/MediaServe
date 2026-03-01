@@ -8,9 +8,10 @@ Complete guide for deploying MediaServer to Raspberry Pi with custom hostname, a
 - **Client Server (port 5001)**: Simple HTTP server serving client display app
 - **Chromium Kiosk**: Opens the client app in fullscreen on the Pi's display
   - Admin app is NOT shown on the Pi display -- access it from another device at `http://mediaplayer.local:5000` or `http://<pi-ip>:5000`
-- **Hostname**: `mediaplayer.local`
+- **Hostname**: `mediaplayer.local` (local network) or public IP (e.g. home deployment)
   - From Raspberry Pi: `http://localhost:5000`
-  - From other devices: `http://mediaplayer.local:5000` (requires Avahi) or `http://<pi-ip>:5000`
+  - From other devices (LAN): `http://mediaplayer.local:5000` (requires Avahi) or `http://<pi-ip>:5000`
+  - **Home deployment (public IP 93.103.9.191)**: `http://93.103.9.191:5000` (admin), `http://93.103.9.191:5001` (client)
 
 ## Prerequisites
 
@@ -55,10 +56,11 @@ npm --version
 ## Step 3: Install Chromium and Tools
 
 ```bash
-sudo apt install -y chromium wmctrl xdotool
+sudo apt install -y chromium wmctrl xdotool cec-utils
 ```
 
 - `wmctrl` and `xdotool`: Used by the kiosk startup script to keep the client window in foreground
+- `cec-utils`: HDMI CEC support for TV remote control (power on/off, volume) via the admin app
 
 ## Step 4: Configure Hostname
 
@@ -107,6 +109,11 @@ sudo /home/avgustin/Desktop/MediaServer/deployment/raspberry-pi/fix-local-hostna
    ```bash
    cd /path/to/MediaServer
    npm run build -- --profile raspberry-pi
+   ```
+
+   For **home deployment** (public IP 93.103.9.191):
+   ```bash
+   npm run build -- --profile raspberry-home
    ```
 
 2. **Configure auto-login** (optional) -- edit `build.config.js` before building:

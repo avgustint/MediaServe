@@ -227,6 +227,19 @@ export interface TranslationKeys {
   modified: string;
   selectPlaylist: string;
   noPlaylistsFound: string;
+  favorites: string;
+  lists: string;
+  addToFavorites: string;
+  removeFromFavorites: string;
+  addToList: string;
+  removeFromList: string;
+  selectList: string;
+  addNewList: string;
+  enterListName: string;
+  listNameExists: string;
+  noListsFound: string;
+  searchFavorites: string;
+  searchListItems: string;
   libraryItems: string;
   nameAndEmailAndUsernameRequired: string;
   pleaseSelectValidLibraryItem: string;
@@ -369,6 +382,17 @@ export interface TranslationKeys {
     enterCollectionNumber: string;
     enterCollectionPage: string;
     libraryItemsCount: string;
+    
+    // Lists (Editor)
+    deleteList: string;
+    deleteListConfirm: string;
+    addItemToList: string;
+    removeItemFromList: string;
+    listSaved: string;
+    listDeleted: string;
+    listItems: string;
+    noItemsInList: string;
+    editList: string;
     
     // Locations
     locations: string;
@@ -643,6 +667,19 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     modified: 'Modified:',
     selectPlaylist: 'Select a playlist',
     noPlaylistsFound: 'No playlists found',
+    favorites: 'Favorites',
+    lists: 'Lists',
+    addToFavorites: 'Add to Favorites',
+    removeFromFavorites: 'Remove from Favorites',
+    addToList: 'Add to {{name}}',
+    removeFromList: 'Remove from {{name}}',
+    selectList: 'Select list',
+    addNewList: 'Add new list',
+    enterListName: 'Enter list name',
+    listNameExists: 'List with this name already exists',
+    noListsFound: 'No lists found',
+    searchFavorites: 'Search favorites...',
+    searchListItems: 'Search list items...',
     libraryItems: 'Library Items',
     nameAndEmailAndUsernameRequired: 'Name, Email, and Username are required.',
     pleaseSelectValidLibraryItem: 'Please select a valid library item',
@@ -785,6 +822,17 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     enterCollectionPage: 'Enter collection page (optional)',
     libraryItemsCount: 'Library Items',
     
+    // Lists (Editor)
+    deleteList: 'Delete List',
+    deleteListConfirm: 'Are you sure you want to delete list',
+    addItemToList: 'Add Item to List',
+    removeItemFromList: 'Remove Item from List',
+    listSaved: 'List saved successfully',
+    listDeleted: 'List deleted successfully',
+    listItems: 'List Items',
+    noItemsInList: 'No items in list',
+    editList: 'Edit List',
+    
     // Locations
     locations: 'Locations',
     location: 'Location',
@@ -842,7 +890,7 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     
     // App Navigation
     mediaPlayerAdmin: 'Medijski upravljalnik',
-    playlist: 'Seznam predvajanja',
+    playlist: 'Spored',
     projection: 'Projekcija',
     editor: 'Urejevalnik',
     settings: 'Nastavitve',
@@ -885,11 +933,11 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     
     // Editor
     library: 'Knjižnica',
-    playlistEditor: 'Seznam predvajanja',
+    playlistEditor: 'Spored',
     searchLibraryItems: 'Iskanje pesmi...',
-    searchPlaylists: 'Iskanje seznamov predvajanja...',
+    searchPlaylists: 'Iskanje sporedov...',
     addNewLibraryItem: 'Dodaj novo postavko',
-    addNewPlaylist: 'Dodaj nov seznam predvajanja',
+    addNewPlaylist: 'Dodaj nov spored',
     save: 'Shrani',
     cancel: 'Prekliči',
     delete: 'Izbriši',
@@ -923,13 +971,13 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     confirmDeleteMessage: 'Ali ste prepričani, da želite izbrisati to postavko? To dejanje ni mogoče razveljaviti.',
     libraryItemDeleted: 'Knjižnična postavka je bila uspešno izbrisana',
     libraryItemAdded: 'Knjižnična postavka je bila uspešno dodana',
-    playlistDeleted: 'Seznam predvajanja je bil uspešno izbrisan',
-    playlistSaved: 'Seznam predvajanja je bil uspešno shranjen',
+    playlistDeleted: 'Spored je bil uspešno izbrisan',
+    playlistSaved: 'Spored je bil uspešno shranjen',
     errorDeletingItem: 'Napaka pri brisanju postavke. Poskusite znova.',
-    errorSavingPlaylist: 'Napaka pri shranjevanju seznama predvajanja. Poskusite znova.',
+    errorSavingPlaylist: 'Napaka pri shranjevanju sporeda. Poskusite znova.',
     editPages: 'Uredi strani',
     allPagesSelected: 'Vse strani izbrane',
-    itemUsedInPlaylists: 'Postavka se uporablja v seznamih predvajanja',
+    itemUsedInPlaylists: 'Postavka se uporablja v sporedih',
     cannotDeleteItem: 'Te postavke ni mogoče izbrisati',
     rolePermissionsUpdated: 'Dovoljenja vlog so bila uspešno posodobljena!',
     
@@ -989,9 +1037,9 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     errorLoadingSettings: 'Napaka pri nalaganju nastavitev',
     noPermissionToEditSettings: 'Nimate dovoljenja za urejanje nastavitev',
     errorSavingSettings: 'Napaka pri shranjevanju nastavitev',
-    errorDeletingPlaylist: 'Napaka pri brisanju seznama predvajanja. Poskusite znova.',
-    errorCreatingPlaylist: 'Napaka pri ustvarjanju seznama predvajanja. Poskusite znova.',
-    errorUpdatingPlaylist: 'Napaka pri posodabljanju seznama predvajanja. Poskusite znova.',
+    errorDeletingPlaylist: 'Napaka pri brisanju sporeda. Poskusite znova.',
+    errorCreatingPlaylist: 'Napaka pri ustvarjanju sporeda. Poskusite znova.',
+    errorUpdatingPlaylist: 'Napaka pri posodabljanju sporeda. Poskusite znova.',
     
     // Additional UI Elements
     waitingForContent: 'Čakanje na vsebino iz WebSocket...',
@@ -1027,8 +1075,8 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     autoplayDurationPlaceholder: 'Prazno = brez avtopredvajanja',
     autoplayDurationHelp: 'Privzeto trajanje na stran v sekundah. Pustite prazno za brez avtopredvajanja. Lahko preglasite na strani.',
     autoplayDurationPageHelp: 'Preglasi privzeto vrednost postavke. Prazno = uporabi privzeto.',
-    enterPlaylistName: 'Vnesite ime seznama predvajanja',
-    enterPlaylistDescription: 'Vnesite opis seznama predvajanja (neobvezno)',
+    enterPlaylistName: 'Vnesite ime sporeda',
+    enterPlaylistDescription: 'Vnesite opis sporeda (neobvezno)',
     enterUserName: 'Vnesite uporabniško ime',
     enterUserEmail: 'Vnesite e-poštni naslov',
     enterUserUsername: 'Vnesite uporabniško ime',
@@ -1039,31 +1087,44 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     pagesLeaveEmpty: 'Strani (pustite prazno za vse strani):',
     selectAll: 'Izberi vse',
     clearAllPages: 'Počisti (vse strani)',
-    noItemsInPlaylist: 'Ni postavk v seznamu predvajanja. Dodajte knjižnične postavke zgoraj.',
+    noItemsInPlaylist: 'Ni postavk v sporedu. Dodajte knjižnične postavke zgoraj.',
     noItemsInCollection: 'Ni postavk v zbirki.',
-    addItemToPlaylist: 'Dodaj postavko v seznam predvajanja',
-    fromPlaylist: 'iz seznama predvajanja',
+    addItemToPlaylist: 'Dodaj postavko v spored',
+    fromPlaylist: 'iz sporeda',
     all: 'Vse',
     back: 'Nazaj',
     moveUp: 'Premakni navzgor',
     moveDown: 'Premakni navzdol',
     remove: 'Odstrani',
     deleteUser: 'Izbriši uporabnika',
-    deletePlaylist: 'Izbriši seznam predvajanja',
+    deletePlaylist: 'Izbriši spored',
     deleteItem: 'Izbriši postavko',
     recentlyModified: 'Nedavno spremenjeno (zadnjih 50)',
     recentlySelected: 'Nedavno izbrano',
     modified: 'Spremenjeno:',
-    selectPlaylist: 'Izberite seznam predvajanja',
-    noPlaylistsFound: 'Ni najdenih seznamov predvajanja',
+    selectPlaylist: 'Izberite spored',
+    noPlaylistsFound: 'Ni najdenih sporedov',
+    favorites: 'Priljubljene',
+    lists: 'Seznami',
+    addToFavorites: 'Dodaj med priljubljene',
+    removeFromFavorites: 'Odstrani iz priljubljenih',
+    addToList: 'Dodaj v {{name}}',
+    removeFromList: 'Odstrani iz {{name}}',
+    selectList: 'Izberi seznam',
+    addNewList: 'Dodaj nov seznam',
+    enterListName: 'Vnesite ime seznama',
+    listNameExists: 'Seznam s tem imenom že obstaja',
+    noListsFound: 'Ni najdenih seznamov',
+    searchFavorites: 'Iskanje priljubljenih...',
+    searchListItems: 'Iskanje postavk v seznamu...',
     libraryItems: 'Knjižnične postavke',
     nameAndEmailAndUsernameRequired: 'Ime, E-pošta in Uporabniško ime so obvezni.',
     pleaseSelectValidLibraryItem: 'Prosimo, izberite veljavno knjižnično postavko',
-    pleaseEnterNameForPlaylist: 'Prosimo, vnesite ime za seznam predvajanja',
-    itemUsedInPlaylistsDetail: 'Postavka se uporablja v naslednjih seznamih predvajanja:',
-    loadingPlaylist: 'Nalaganje seznama predvajanja...',
+    pleaseEnterNameForPlaylist: 'Prosimo, vnesite ime za spored',
+    itemUsedInPlaylistsDetail: 'Postavka se uporablja v naslednjih sporedih:',
+    loadingPlaylist: 'Nalaganje sporeda...',
     editLibraryItem: 'Uredi knjižnično postavko',
-    editPlaylist: 'Uredi seznam predvajanja',
+    editPlaylist: 'Uredi spored',
     updated: 'Posodobljeno',
     selected: 'Izbrano',
     descriptionOptional: 'Opis (neobvezno)',
@@ -1197,6 +1258,17 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     enterCollectionNumber: 'Vnesite številko v zbirki (neobvezno)',
     enterCollectionPage: 'Vnesite stran v zbirki (neobvezno)',
     libraryItemsCount: 'Knjižnične postavke',
+    
+    // Lists (Editor)
+    deleteList: 'Izbriši seznam',
+    deleteListConfirm: 'Ali ste prepričani, da želite izbrisati seznam',
+    addItemToList: 'Dodaj postavko v seznam',
+    removeItemFromList: 'Odstrani postavko iz seznama',
+    listSaved: 'Seznam je bil uspešno shranjen',
+    listDeleted: 'Seznam je bil uspešno izbrisan',
+    listItems: 'Postavke v seznamu',
+    noItemsInList: 'V seznamu ni postavk',
+    editList: 'Uredi seznam',
     
     // Locations
     locations: 'Lokacije',
@@ -1469,6 +1541,19 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     modified: 'Modificato:',
     selectPlaylist: 'Seleziona una playlist',
     noPlaylistsFound: 'Nessuna playlist trovata',
+    favorites: 'Preferiti',
+    lists: 'Elenchi',
+    addToFavorites: 'Aggiungi ai preferiti',
+    removeFromFavorites: 'Rimuovi dai preferiti',
+    addToList: 'Aggiungi a {{name}}',
+    removeFromList: 'Rimuovi da {{name}}',
+    selectList: 'Seleziona elenco',
+    addNewList: 'Aggiungi nuovo elenco',
+    enterListName: 'Inserisci nome elenco',
+    listNameExists: 'Un elenco con questo nome esiste già',
+    noListsFound: 'Nessun elenco trovato',
+    searchFavorites: 'Cerca preferiti...',
+    searchListItems: 'Cerca elementi elenco...',
     libraryItems: 'Elementi biblioteca',
     nameAndEmailAndUsernameRequired: 'Nome, Email e Nome utente sono obbligatori.',
     pleaseSelectValidLibraryItem: 'Seleziona un elemento biblioteca valido',
@@ -1610,6 +1695,17 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     enterCollectionNumber: 'Inserisci numero collezione (opzionale)',
     enterCollectionPage: 'Inserisci pagina collezione (opzionale)',
     libraryItemsCount: 'Elementi biblioteca',
+    
+    // Lists (Editor)
+    deleteList: 'Elimina Elenco',
+    deleteListConfirm: 'Sei sicuro di voler eliminare elenco',
+    addItemToList: 'Aggiungi Elemento all\'Elenco',
+    removeItemFromList: 'Rimuovi Elemento dall\'Elenco',
+    listSaved: 'Elenco salvato con successo',
+    listDeleted: 'Elenco eliminato con successo',
+    listItems: 'Elementi Elenco',
+    noItemsInList: 'Nessun elemento nell\'elenco',
+    editList: 'Modifica Elenco',
     
     // Locations
     locations: 'Posizioni',

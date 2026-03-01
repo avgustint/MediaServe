@@ -65,8 +65,18 @@ else
 fi
 echo ""
 
-# Step 2: Enable MediaServer services
-echo -e "${GREEN}Step 2: Enabling MediaServer services...${NC}"
+# Step 2: Install cec-utils (HDMI CEC for TV remote control)
+echo -e "${GREEN}Step 2: Installing cec-utils (HDMI CEC)...${NC}"
+if command -v cec-client &>/dev/null; then
+    echo -e "${GREEN}✓ cec-utils already installed${NC}"
+else
+    echo "Installing cec-utils for TV remote control (power, volume)..."
+    sudo apt-get update -qq && sudo apt-get install -y cec-utils || echo -e "${YELLOW}Warning: Could not install cec-utils. TV remote control will not work.${NC}"
+fi
+echo ""
+
+# Step 3: Enable MediaServer services
+echo -e "${GREEN}Step 3: Enabling MediaServer services...${NC}"
 echo "Enabling mediaserver, client-server, and kiosk services..."
 sudo systemctl enable mediaserver.service
 sudo systemctl enable client-server.service
@@ -74,14 +84,14 @@ sudo systemctl enable kiosk.service
 echo -e "${GREEN}✓ All services enabled${NC}"
 echo ""
 
-# Step 3: Reload systemd
-echo -e "${GREEN}Step 3: Reloading systemd daemon...${NC}"
+# Step 4: Reload systemd
+echo -e "${GREEN}Step 4: Reloading systemd daemon...${NC}"
 sudo systemctl daemon-reload
 echo -e "${GREEN}✓ Systemd reloaded${NC}"
 echo ""
 
-# Step 4: Restart services
-echo -e "${GREEN}Step 4: Restarting services...${NC}"
+# Step 5: Restart services
+echo -e "${GREEN}Step 5: Restarting services...${NC}"
 echo "Restarting mediaserver..."
 sudo systemctl restart mediaserver.service || echo -e "${YELLOW}Warning: mediaserver restart failed (may not be installed yet)${NC}"
 
@@ -94,8 +104,8 @@ sudo systemctl restart kiosk.service || echo -e "${YELLOW}Warning: kiosk restart
 echo -e "${GREEN}✓ Services restarted${NC}"
 echo ""
 
-# Step 5: Check service status
-echo -e "${GREEN}Step 5: Checking service status...${NC}"
+# Step 6: Check service status
+echo -e "${GREEN}Step 6: Checking service status...${NC}"
 echo ""
 echo -e "${BLUE}--- mediaserver.service ---${NC}"
 sudo systemctl status mediaserver.service --no-pager -l || echo -e "${RED}mediaserver.service not found or failed${NC}"

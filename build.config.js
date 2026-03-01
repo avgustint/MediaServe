@@ -110,6 +110,33 @@ const configs = {
       // Set to 0 or null to disable auto-selection (will show location selector if no URL param or localStorage)
       autoLoginLocationId: 1  // Location ID to automatically select (0 = disabled)
     }
+  },
+
+  /**
+   * Home Raspberry Pi deployment (public IP 93.103.9.191)
+   * Same ports 5000/5001 as raspberry-pi profile.
+   * Access: http://93.103.9.191:5000 (admin), http://93.103.9.191:5001 (client)
+   */
+  'raspberry-home': {
+    server: {
+      port: 5000,
+      nodeEnv: 'production',
+      corsOrigin: null, // uses cors-allowed-hosts.js (includes 93.103.9.191)
+      corsCredentials: false
+    },
+    admin: {
+      apiUrl: 'http://93.103.9.191:5000',
+      wsUrl: 'ws://93.103.9.191:5000',
+      autoLoginUsername: '',
+      autoLoginPassword: '',
+      autoLoginLocationId: 0,
+      autoLoginTimeout: 0
+    },
+    client: {
+      apiUrl: 'http://93.103.9.191:5000',
+      wsUrl: 'ws://93.103.9.191:5000',
+      autoLoginLocationId: 0
+    }
   }
 };
 

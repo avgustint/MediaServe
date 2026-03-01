@@ -91,6 +91,7 @@
   cursor: pointer;
   border-bottom: 1px solid #f0f0f0;
   transition: background-color 0.2s;
+  min-width: 0;
 
   &:hover {
     background-color: #f8f9fa;
@@ -105,6 +106,10 @@
   font-weight: 500;
   color: #333;
   margin-bottom: 0.25rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 
 .search-result-description {
@@ -347,10 +352,10 @@
 }
 
 .item-guid-badge {
-  background-color: #007bff;
+  background-color: #8827ac;
   color: white;
   padding: 1rem 1.5rem;
-  border-radius: 6px;
+  border-radius: 4px;
   font-size: 1.5rem;
   font-weight: bold;
   font-family: "Courier New", monospace;

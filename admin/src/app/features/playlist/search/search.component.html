@@ -129,7 +129,10 @@
             {{ item.description }}
           </div>
           <div class="search-result-footer">
-            <div class="search-result-type">{{ item.type }}</div>
+            <div class="search-result-meta">
+              <span class="type-badge">{{ getTranslatedType(item.type) }}</span>
+              <span class="tag-badge" *ngFor="let tag of item.tags">{{ tag.name }}</span>
+            </div>
             <div class="item-guid-badge">{{ item.guid }}</div>
           </div>
         </div>

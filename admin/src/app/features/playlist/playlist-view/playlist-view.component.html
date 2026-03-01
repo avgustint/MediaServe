@@ -58,16 +58,57 @@
         </div>
       </div>
       <div class="tab-content">
-        <app-playlist-list
-          *ngIf="activeTab === 'playlist'"
-          [selectedPlaylistGuid]="selectedPlaylistGuid"
-          [currentItemGuid]="currentItemGuid"
-          [currentPage]="currentPage"
-          (playlistSelected)="onPlaylistSelected($event)"
-          (playlistItemClick)="onPlaylistItemClick($event)"
-          (playlistItemPageClick)="onPlaylistItemPageClick($event)"
-          (playlistItemsLoaded)="onPlaylistItemsLoaded($event)"
-        ></app-playlist-list>
+        <!-- Playlist tab: sub-tabs Favorites, Lists, Playlists -->
+        <div *ngIf="activeTab === 'playlist'" class="playlist-sub-tabs-container">
+          <div class="playlist-sub-tabs">
+            <button
+              class="sub-tab-button"
+              [class.active]="playlistSubTab === 'favorites'"
+              (click)="playlistSubTab = 'favorites'"
+            >
+              <i class="fas fa-heart"></i>
+              {{ 'favorites' | translate }}
+            </button>
+            <button
+              class="sub-tab-button"
+              [class.active]="playlistSubTab === 'lists'"
+              (click)="playlistSubTab = 'lists'"
+            >
+              <i class="fas fa-list"></i>
+              {{ 'lists' | translate }}
+            </button>
+            <button
+              class="sub-tab-button"
+              [class.active]="playlistSubTab === 'playlists'"
+              (click)="playlistSubTab = 'playlists'"
+            >
+              <i class="fas fa-clock"></i>
+              {{ 'playlist' | translate }}
+            </button>
+          </div>
+          <div class="playlist-sub-tab-content">
+            <app-favorites-tab
+              *ngIf="playlistSubTab === 'favorites'"
+              [refresh$]="listRefresh$"
+              (itemClick)="onManualItemSelected($event.item, $event.page)"
+            ></app-favorites-tab>
+            <app-lists-tab
+              *ngIf="playlistSubTab === 'lists'"
+              [refresh$]="listRefresh$"
+              (itemClick)="onManualItemSelected($event.item, $event.page)"
+            ></app-lists-tab>
+            <app-playlist-list
+              *ngIf="playlistSubTab === 'playlists'"
+              [selectedPlaylistGuid]="selectedPlaylistGuid"
+              [currentItemGuid]="currentItemGuid"
+              [currentPage]="currentPage"
+              (playlistSelected)="onPlaylistSelected($event)"
+              (playlistItemClick)="onPlaylistItemClick($event)"
+              (playlistItemPageClick)="onPlaylistItemPageClick($event)"
+              (playlistItemsLoaded)="onPlaylistItemsLoaded($event)"
+            ></app-playlist-list>
+          </div>
+        </div>
         <app-search
           *ngIf="activeTab === 'search'"
           (itemClick)="onManualItemSelected($event.item, $event.page)"
@@ -80,6 +121,14 @@
     </div>
     <div class="content-area-wrapper">
       <div class="content-area" [class.fullscreen]="isFullscreen">
+        <!-- List actions button (add to Favorites, lists) -->
+        <app-list-actions
+          *ngIf="currentContent && currentItemGuid"
+          [currentItemGuid]="currentItemGuid"
+          (listItemAdded)="onListItemAdded()"
+          (listItemRemoved)="onListItemRemoved()"
+        ></app-list-actions>
+
         <!-- Fullscreen button (only shown when not in fullscreen) -->
         <button 
           type="button"

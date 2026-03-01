@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
@@ -26,6 +26,10 @@ export class NavbarComponent implements OnInit, OnDestroy {
 
   readonly appVersion = environment.version;
 
+  /** Current time display (hh:mm:ss), updated every second */
+  currentTimeDisplay: string = '';
+  private clockInterval: ReturnType<typeof setInterval> | null = null;
+
   private userSubscription?: Subscription;
   private connectionStatusSubscription?: Subscription;
 
@@ -34,7 +38,8 @@ export class NavbarComponent implements OnInit, OnDestroy {
     private authService: AuthService,
     private userService: UserService,
     private websocketService: WebSocketService,
-    private translationService: TranslationService
+    private translationService: TranslationService,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
@@ -45,11 +50,29 @@ export class NavbarComponent implements OnInit, OnDestroy {
     this.connectionStatusSubscription = this.websocketService.connectionStatus$.subscribe(status => {
       this.connectionStatus = status;
     });
+
+    this.updateClockDisplay();
+    this.clockInterval = setInterval(() => {
+      this.updateClockDisplay();
+      this.cdr.markForCheck();
+    }, 1000);
+  }
+
+  private updateClockDisplay(): void {
+    const now = new Date();
+    const h = now.getHours().toString().padStart(2, '0');
+    const m = now.getMinutes().toString().padStart(2, '0');
+    const s = now.getSeconds().toString().padStart(2, '0');
+    this.currentTimeDisplay = `${h}:${m}:${s}`;
   }
 
   ngOnDestroy(): void {
     this.userSubscription?.unsubscribe();
     this.connectionStatusSubscription?.unsubscribe();
+    if (this.clockInterval) {
+      clearInterval(this.clockInterval);
+      this.clockInterval = null;
+    }
   }
 
   isAuthenticated(): boolean {

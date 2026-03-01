@@ -7,6 +7,9 @@ import { ChordSettingsService } from "../services/chord-settings.service";
 import { PlaylistListComponent } from "../playlist-list/playlist-list.component";
 import { ManualComponent } from "../manual/manual.component";
 import { SearchComponent } from "../search/search.component";
+import { ListActionsComponent } from "../list-actions/list-actions.component";
+import { FavoritesTabComponent } from "../favorites-tab/favorites-tab.component";
+import { ListsTabComponent } from "../lists-tab/lists-tab.component";
 import { TranslatePipe } from "../../../shared/pipes/translation.pipe";
 import { FormatTextPipe } from "../../../shared/pipes/format-text.pipe";
 import { UserService } from "../../../core/services/user.service";
@@ -15,13 +18,13 @@ import { SettingsService } from "../../settings/services/settings.service";
 import { KeyboardCommandService } from "../../../core/services/keyboard-command.service";
 import { RecentItemsService } from "../services/recent-items.service";
 import { environment } from "../../../../environments/environment";
-import { Subscription } from "rxjs";
+import { Subscription, Subject } from "rxjs";
 import { filter, take } from "rxjs/operators";
 
 @Component({
   selector: "app-playlist-view",
   standalone: true,
-  imports: [CommonModule, PlaylistListComponent, ManualComponent, SearchComponent, TranslatePipe, FormatTextPipe],
+  imports: [CommonModule, PlaylistListComponent, ManualComponent, SearchComponent, ListActionsComponent, FavoritesTabComponent, ListsTabComponent, TranslatePipe, FormatTextPipe],
   templateUrl: "./playlist-view.component.html",
   styleUrls: ["./playlist-view.component.scss"]
 })
@@ -40,6 +43,7 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
   private numberKeyQueueSubscription?: Subscription;
   private pendingNumberKeys: string[] = [];
   activeTab: "playlist" | "search" | "manual" = "manual";
+  playlistSubTab: "favorites" | "lists" | "playlists" = "playlists";
   selectedPlaylistGuid?: number;
   
   // Current item tracking
@@ -132,6 +136,9 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
   autoHideTimeoutSeconds: number = 0;
   private autoHideTimerId: ReturnType<typeof setTimeout> | null = null;
 
+  /** Emits when list item added/removed - Favorites/Lists tabs can refresh */
+  listRefresh$ = new Subject<void>();
+
   constructor(
     private websocketService: WebSocketService,
     private sanitizer: DomSanitizer,
@@ -143,7 +150,10 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
     private cdr: ChangeDetectorRef,
     private authService: AuthService,
     private settingsService: SettingsService
-  ) {}
+  ) {
+    this._cachedSafeUrl = this.sanitizer.bypassSecurityTrustResourceUrl('about:blank');
+    this._cachedSafeIframeHtml = this.sanitizer.bypassSecurityTrustHtml('');
+  }
 
   ngOnInit(): void {
     // Load saved playlist guid from localStorage
@@ -718,13 +728,20 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
     return "";
   }
 
+  /** Cached SafeResourceUrl for URL iframe - prevents endless reloads from getter returning new object each CD cycle */
+  private _cachedUrlContent: string = '';
+  private _cachedSafeUrl!: SafeResourceUrl;
+
   get safeUrl(): SafeResourceUrl {
-    if (this.currentContent?.type === "url" && this.currentContent.content) {
-      const url = this.currentContent.content as string;
-      const urlWithParams = this.addParamsToUrl(url);
-      return this.sanitizer.bypassSecurityTrustResourceUrl(urlWithParams);
+    const url = this.currentContent?.type === "url" && this.currentContent?.content
+      ? (this.currentContent.content as string)
+      : '';
+    const urlWithParams = url ? this.addParamsToUrl(url) : 'about:blank';
+    if (urlWithParams !== this._cachedUrlContent) {
+      this._cachedUrlContent = urlWithParams;
+      this._cachedSafeUrl = this.sanitizer.bypassSecurityTrustResourceUrl(urlWithParams || 'about:blank');
     }
-    return this.sanitizer.bypassSecurityTrustResourceUrl("about:blank");
+    return this._cachedSafeUrl;
   }
 
   get videoSrc(): SafeResourceUrl {
@@ -742,11 +759,19 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
     return this.sanitizer.bypassSecurityTrustResourceUrl("about:blank");
   }
 
+  /** Cached SafeHtml for iframe embed - prevents endless re-renders from getter returning new object each CD cycle */
+  private _cachedIframeContent: string = '';
+  private _cachedSafeIframeHtml!: SafeHtml;
+
   get safeIframeHtml(): SafeHtml {
-    if (this.currentContent?.type === "iframe" && this.currentContent.content) {
-      return this.sanitizer.bypassSecurityTrustHtml(this.currentContent.content as string);
+    const content = this.currentContent?.type === "iframe" && this.currentContent?.content
+      ? (this.currentContent.content as string)
+      : '';
+    if (content !== this._cachedIframeContent) {
+      this._cachedIframeContent = content;
+      this._cachedSafeIframeHtml = this.sanitizer.bypassSecurityTrustHtml(content || '');
     }
-    return this.sanitizer.bypassSecurityTrustHtml("");
+    return this._cachedSafeIframeHtml;
   }
 
   private addParamsToUrl(url: string): string {
@@ -1418,6 +1443,14 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
     }
     
     return [];
+  }
+
+  onListItemAdded(): void {
+    this.listRefresh$.next();
+  }
+
+  onListItemRemoved(): void {
+    this.listRefresh$.next();
   }
 
   onPageButtonClick(pageNum: number): void {

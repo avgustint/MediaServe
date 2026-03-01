@@ -141,21 +141,6 @@
       <p class="form-help">{{ 'defaultBlankPageHelp' | translate }}</p>
     </div>
 
-    <div class="form-group form-group-autoplay-hide-delay">
-      <label for="autoplayHideDelaySeconds">{{ 'autoplayHideDelaySeconds' | translate }}</label>
-      <input
-        type="number"
-        id="autoplayHideDelaySeconds"
-        class="autoplay-hide-delay-input"
-        [(ngModel)]="settings.autoplayHideDelaySeconds"
-        min="0"
-        max="60"
-        step="1"
-        [disabled]="!hasEditPermission()"
-      />
-      <p class="form-help">{{ 'autoplayHideDelaySecondsHelp' | translate }}</p>
-    </div>
-
     <div class="form-group form-group-auto-hide-timeout">
       <label for="autoHideTimeoutSeconds">{{ 'autoHideTimeoutSeconds' | translate }}</label>
       <input
@@ -169,6 +154,21 @@
         [disabled]="!hasEditPermission()"
       />
       <p class="form-help">{{ 'autoHideTimeoutSecondsHelp' | translate }}</p>
+    </div>
+
+    <div class="form-group form-group-autoplay-hide-delay">
+      <label for="autoplayHideDelaySeconds">{{ 'autoplayHideDelaySeconds' | translate }}</label>
+      <input
+        type="number"
+        id="autoplayHideDelaySeconds"
+        class="autoplay-hide-delay-input"
+        [(ngModel)]="settings.autoplayHideDelaySeconds"
+        min="0"
+        max="60"
+        step="1"
+        [disabled]="!hasEditPermission()"
+      />
+      <p class="form-help">{{ 'autoplayHideDelaySecondsHelp' | translate }}</p>
     </div>
 
     <div class="form-actions" *ngIf="hasEditPermission()">

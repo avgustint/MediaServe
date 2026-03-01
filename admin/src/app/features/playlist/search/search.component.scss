@@ -285,12 +285,13 @@
 }
 
 .search-result-item {
-  padding: 0.75rem;
+  padding: 0.2rem 0.75rem 0.4rem;
   background-color: #fff;
   border: 1px solid #ddd;
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.2s;
+  min-width: 0;
   
   &:hover {
     background-color: #f5f5f5;
@@ -300,14 +301,18 @@
 
 .search-result-name {
   font-weight: 500;
-  margin-bottom: 0.25rem;
+  font-size: 1.3rem;
   color: #333;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 
 .search-result-description {
   font-size: 0.875rem;
   color: #666;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.25rem;
 }
 
 .search-result-footer {
@@ -344,12 +349,30 @@
 }
 
 .item-guid-badge {
-  background-color: #667eea;
+  background-color: #8827ac;
   color: white;
+  padding: 0.125rem 0.5rem;
+  border-radius: 4px;
+  font-size: 1.2rem;
+  font-weight: bold;
+}
+
+.search-result-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+  flex: 1;
+}
+
+.type-badge {
+  background-color: #f0e6ff;
+  color: #6b4caf;
   padding: 0.125rem 0.5rem;
   border-radius: 12px;
   font-size: 0.75rem;
   font-weight: 500;
+  white-space: nowrap;
 }
 
 .search-result-type {

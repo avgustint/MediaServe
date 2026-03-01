@@ -1,0 +1,93 @@
+<div class="list-actions-container" *ngIf="currentItemGuid">
+  <button
+    type="button"
+    class="list-actions-button"
+    [class.fullscreen-mode]="false"
+    (click)="openDropdown()"
+    [title]="'addToFavorites' | translate"
+    [attr.aria-label]="'addToFavorites' | translate"
+  >
+    <i class="fas fa-list"></i>
+  </button>
+
+  <div class="list-actions-dropdown" *ngIf="dropdownOpen">
+    <button
+      class="dropdown-item"
+      (click)="onAddToFavorites()"
+    >
+      <i class="fas" [ngClass]="isInFavorites ? 'fa-heart' : 'fa-heart'"></i>
+      <span>{{ isInFavorites ? ('removeFromFavorites' | translate) : ('addToFavorites' | translate) }}</span>
+    </button>
+    <button
+      class="dropdown-item"
+      (click)="onAddToLastList()"
+      *ngIf="lastUsedList"
+    >
+      <i class="fas fa-bookmark"></i>
+      <span>{{ addToLastListLabel }}</span>
+    </button>
+    <button class="dropdown-item" (click)="onSelectList()">
+      <i class="fas fa-list-ul"></i>
+      <span>{{ 'selectList' | translate }}</span>
+    </button>
+    <button class="dropdown-item" (click)="onAddNewList()">
+      <i class="fas fa-plus"></i>
+      <span>{{ 'addNewList' | translate }}</span>
+    </button>
+  </div>
+</div>
+
+<!-- List selector overlay -->
+<div class="list-overlay" *ngIf="showListSelector" (click)="onListSelectorClose()">
+  <div class="list-overlay-content" (click)="$event.stopPropagation()">
+    <div class="list-overlay-header">
+      <h3>{{ 'selectList' | translate }}</h3>
+      <button class="close-btn" (click)="onListSelectorClose()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="list-overlay-body">
+      <div
+        *ngFor="let list of customLists()"
+        class="list-select-item"
+        (click)="onListSelectorSelect(list)"
+      >
+        <i class="fas fa-list"></i>
+        <span>{{ list.name }}</span>
+      </div>
+      <div *ngIf="customLists().length === 0" class="no-lists">
+        {{ 'noListsFound' | translate }}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- New list overlay -->
+<div class="list-overlay" *ngIf="showNewListForm" (click)="onNewListCancel()">
+  <div class="list-overlay-content" (click)="$event.stopPropagation()">
+    <div class="list-overlay-header">
+      <h3>{{ 'addNewList' | translate }}</h3>
+      <button class="close-btn" (click)="onNewListCancel()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="list-overlay-body">
+      <div class="form-group">
+        <label for="newListName">{{ 'enterListName' | translate }}</label>
+        <input
+          id="newListName"
+          type="text"
+          pInputText
+          [(ngModel)]="newListName"
+          [placeholder]="'enterListName' | translate"
+          (keyup.enter)="onCreateNewList()"
+        />
+        <div *ngIf="newListError" class="error-msg">{{ newListError }}</div>
+      </div>
+      <div class="form-actions">
+        <button class="btn-save" (click)="onCreateNewList()" [disabled]="loading">
+          {{ 'save' | translate }}
+        </button>
+        <button class="btn-cancel" (click)="onNewListCancel()">
+          {{ 'cancel' | translate }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

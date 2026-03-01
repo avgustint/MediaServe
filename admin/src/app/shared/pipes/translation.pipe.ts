@@ -9,8 +9,8 @@ import { TranslationService, TranslationKeys } from '../../core/services/transla
 export class TranslatePipe implements PipeTransform {
   constructor(private translationService: TranslationService) {}
 
-  transform(key: keyof TranslationKeys): string {
-    return this.translationService.translate(key);
+  transform(key: keyof TranslationKeys | string): string {
+    return this.translationService.translate(key as keyof TranslationKeys);
   }
 }
 

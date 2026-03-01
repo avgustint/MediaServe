@@ -65,6 +65,10 @@ export class SearchComponent implements OnInit, OnDestroy, AfterViewInit {
     return !this.showSearchResults && this.searchTerm.trim().length === 0 && !this.hasActiveFilters() && this.recentItems.length > 0;
   }
 
+  getTranslatedType(type: string): string {
+    return this.translationService.translate(type as any);
+  }
+
   ngOnInit(): void {
     this.recentItemsSubscription = this.recentItemsService.recentItems$.subscribe(items => {
       this.recentItems = items;

@@ -475,6 +475,32 @@ function createTables() {
     )
   `);
 
+  // Lists table - user-created lists (Favorites, custom lists)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS lists (
+      guid INTEGER PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      created_at TEXT NOT NULL,
+      created_by_user_guid INTEGER NOT NULL,
+      is_favorites INTEGER NOT NULL DEFAULT 0,
+      UNIQUE(created_by_user_guid, name),
+      FOREIGN KEY (created_by_user_guid) REFERENCES users(guid)
+    )
+  `);
+
+  // List items junction table - library items in each list
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS list_items (
+      list_guid INTEGER NOT NULL,
+      library_item_guid INTEGER NOT NULL,
+      added_at TEXT,
+      PRIMARY KEY (list_guid, library_item_guid),
+      FOREIGN KEY (list_guid) REFERENCES lists(guid) ON DELETE CASCADE,
+      FOREIGN KEY (library_item_guid) REFERENCES library_items(guid) ON DELETE CASCADE
+    )
+  `);
+
   // Settings table for general settings
   db.exec(`
     CREATE TABLE IF NOT EXISTS settings (
@@ -674,6 +700,25 @@ function createTables() {
       });
     }
 
+    // Add ManageLists permission and assign to all roles except User
+    const manageListsPerm = dbOps.getPermissionByName('ManageLists');
+    if (!manageListsPerm) {
+      const newManageListsPerm = dbOps.createPermission({
+        name: 'ManageLists',
+        description: 'Permission to manage lists (create, edit, delete, add/remove items)'
+      });
+      const allRolesForLists = dbOps.getAllRoles();
+      const userRoleForLists = allRolesForLists.find(role => role.name.toLowerCase() === 'user');
+      for (const role of allRolesForLists) {
+        if (userRoleForLists && role.guid === userRoleForLists.guid) continue;
+        const currentPerms = dbOps.getRolePermissions(role.guid);
+        if (!currentPerms.includes(newManageListsPerm.guid)) {
+          dbOps.updateRolePermissions(role.guid, [...currentPerms, newManageListsPerm.guid]);
+        }
+      }
+      console.log('ManageLists permission created and assigned to all roles except user role');
+    }
+
     // Assign permissions to admin role only
     const allRoles = dbOps.getAllRoles();
     const adminRole = allRoles.find(role => role.is_admin === 1);
@@ -692,6 +737,7 @@ function createTables() {
         'ManagePages',
         'ManageLibrary',
         'ManagePlaylists',
+        'ManageLists',
         'ManageLocations'
       ];
       
@@ -734,6 +780,9 @@ function createTables() {
     CREATE INDEX IF NOT EXISTS idx_library_item_tags_tag ON library_item_tags(tag_guid);
     CREATE INDEX IF NOT EXISTS idx_collection_items_collection ON collection_items(collection_guid);
     CREATE INDEX IF NOT EXISTS idx_collection_items_library ON collection_items(library_item_guid);
+    CREATE INDEX IF NOT EXISTS idx_lists_created_by ON lists(created_by_user_guid);
+    CREATE INDEX IF NOT EXISTS idx_list_items_list ON list_items(list_guid);
+    CREATE INDEX IF NOT EXISTS idx_list_items_library ON list_items(library_item_guid);
   `);
 }
 

@@ -37,11 +37,12 @@ router.get('/', authMiddleware, requireAdmin, asyncHandler(async (req, res) => {
  * Create user
  */
 router.post('/', authMiddleware, requireAdmin, asyncHandler(async (req, res) => {
+  // Email is already base64-encoded from frontend; store as-is
   const userData = {
     ...req.body,
     name: sanitizeString(req.body.name || ''),
     username: sanitizeString(req.body.username || ''),
-    email: req.body.email ? Buffer.from(req.body.email).toString('base64') : ''
+    email: req.body.email || ''
   };
   
   // Hash password if provided
@@ -136,10 +137,7 @@ router.put('/:guid', validateGuid, authMiddleware, asyncHandler(async (req, res)
     updateData.password = await hashPassword(updateData.password);
   }
   
-  // Encode email if provided
-  if (updateData.email !== undefined) {
-    updateData.email = Buffer.from(updateData.email).toString('base64');
-  }
+  // Email is already base64-encoded from frontend; use as-is (do not re-encode)
   
   // Sanitize string fields
   if (updateData.name !== undefined) {

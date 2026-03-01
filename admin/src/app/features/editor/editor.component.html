@@ -10,6 +10,14 @@
         {{ 'library' | translate }}
       </button>
       <button
+        *ngIf="hasListsEditorPermission()"
+        class="tab-button"
+        [class.active]="activeTab === 'lists'"
+        (click)="switchTab('lists')"
+      >
+        {{ 'lists' | translate }}
+      </button>
+      <button
         *ngIf="hasPlaylistEditorPermission()"
         class="tab-button"
         [class.active]="activeTab === 'playlist'"
@@ -37,6 +45,7 @@
   </div>
   <div class="editor-content">
     <app-library-editor *ngIf="activeTab === 'library' && hasLibraryEditorPermission()"></app-library-editor>
+    <app-lists-editor *ngIf="activeTab === 'lists' && hasListsEditorPermission()"></app-lists-editor>
     <app-playlist-editor *ngIf="activeTab === 'playlist' && hasPlaylistEditorPermission()"></app-playlist-editor>
     <app-tags-editor *ngIf="activeTab === 'tags' && hasTagsEditorPermission()"></app-tags-editor>
     <app-collections-editor *ngIf="activeTab === 'collections' && hasCollectionsEditorPermission()"></app-collections-editor>

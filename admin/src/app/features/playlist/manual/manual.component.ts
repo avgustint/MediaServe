@@ -154,6 +154,10 @@ export class ManualComponent implements OnInit, OnDestroy {
   }
 
 
+  getTranslatedType(type: string): string {
+    return this.translationService.translate(type as any);
+  }
+
   onRecentItemSelect(recentItem: RecentItem): void {
     this.loadLibraryItem(recentItem.guid);
   }

@@ -145,8 +145,14 @@
 }
 
 .tag-name {
+  display: inline-block;
+  background-color: #e3f2fd;
+  color: #1976d2;
+  padding: 0.35rem 0.75rem;
+  border-radius: 12px;
+  font-size: 1rem;
   font-weight: 500;
-  color: #333;
+  white-space: nowrap;
   margin-bottom: 0.25rem;
 }
 

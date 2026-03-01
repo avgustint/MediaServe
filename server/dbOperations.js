@@ -1476,6 +1476,142 @@ const dbOps = {
     const db = getDatabase();
     const result = db.prepare('DELETE FROM locations WHERE guid = ?').run(guid);
     return result.changes > 0;
+  },
+
+  // List operations (user-created lists: Favorites, custom lists)
+  getAllLists(userGuid) {
+    const db = getDatabase();
+    return db.prepare('SELECT * FROM lists WHERE created_by_user_guid = ? ORDER BY is_favorites DESC, name').all(userGuid);
+  },
+
+  getList(guid) {
+    const db = getDatabase();
+    return db.prepare('SELECT * FROM lists WHERE guid = ?').get(guid);
+  },
+
+  getFavoritesList(userGuid) {
+    const db = getDatabase();
+    return db.prepare('SELECT * FROM lists WHERE created_by_user_guid = ? AND is_favorites = 1').get(userGuid);
+  },
+
+  createList(list) {
+    const db = getDatabase();
+    const maxGuid = db.prepare('SELECT MAX(guid) as maxGuid FROM lists').get()?.maxGuid || 0;
+    const newGuid = maxGuid + 1;
+    const now = new Date().toISOString();
+
+    db.prepare(`
+      INSERT INTO lists (guid, name, description, created_at, created_by_user_guid, is_favorites)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(
+      newGuid,
+      list.name || '',
+      list.description || null,
+      now,
+      list.created_by_user_guid,
+      list.is_favorites || 0
+    );
+
+    return this.getList(newGuid);
+  },
+
+  getOrCreateFavoritesList(userGuid) {
+    let list = this.getFavoritesList(userGuid);
+    if (!list) {
+      list = this.createList({
+        name: 'Favorites',
+        description: 'Favorite library items',
+        created_by_user_guid: userGuid,
+        is_favorites: 1
+      });
+    }
+    return list;
+  },
+
+  listNameExists(userGuid, name, excludeGuid) {
+    const db = getDatabase();
+    const stmt = excludeGuid
+      ? db.prepare('SELECT 1 FROM lists WHERE created_by_user_guid = ? AND LOWER(TRIM(name)) = LOWER(TRIM(?)) AND guid != ?')
+      : db.prepare('SELECT 1 FROM lists WHERE created_by_user_guid = ? AND LOWER(TRIM(name)) = LOWER(TRIM(?))');
+    const result = excludeGuid ? stmt.get(userGuid, name, excludeGuid) : stmt.get(userGuid, name);
+    return !!result;
+  },
+
+  updateList(guid, list) {
+    const db = getDatabase();
+    const existing = this.getList(guid);
+    if (!existing) return null;
+
+    db.prepare(`
+      UPDATE lists SET name = ?, description = ?
+      WHERE guid = ?
+    `).run(
+      list.name !== undefined ? list.name : existing.name,
+      list.description !== undefined ? list.description : existing.description,
+      guid
+    );
+    return this.getList(guid);
+  },
+
+  deleteList(guid) {
+    const db = getDatabase();
+    const result = db.prepare('DELETE FROM lists WHERE guid = ? AND is_favorites = 0').run(guid);
+    return result.changes > 0;
+  },
+
+  getListItems(listGuid) {
+    const db = getDatabase();
+    const rows = db.prepare(`
+      SELECT lib.guid, lib.name, lib.type, lib.description, lib.duration, li.added_at
+      FROM list_items li
+      JOIN library_items lib ON lib.guid = li.library_item_guid
+      WHERE li.list_guid = ?
+      ORDER BY li.added_at DESC
+    `).all(listGuid);
+    return rows.map(r => {
+      const tags = this.getLibraryItemTags(r.guid);
+      return {
+        guid: r.guid,
+        name: r.name,
+        type: r.type || 'text',
+        description: r.description || undefined,
+        duration: r.duration ?? null,
+        tags: tags.length > 0 ? tags : undefined
+      };
+    });
+  },
+
+  addItemToList(listGuid, libraryItemGuid) {
+    const db = getDatabase();
+    const now = new Date().toISOString();
+    try {
+      db.prepare(`
+        INSERT INTO list_items (list_guid, library_item_guid, added_at)
+        VALUES (?, ?, ?)
+      `).run(listGuid, libraryItemGuid, now);
+      return 'added';
+    } catch (e) {
+      if (e.message && e.message.includes('UNIQUE constraint')) {
+        db.prepare(`
+          UPDATE list_items SET added_at = ?
+          WHERE list_guid = ? AND library_item_guid = ?
+        `).run(now, listGuid, libraryItemGuid);
+        return 'updated';
+      }
+      throw e;
+    }
+  },
+
+  removeItemFromList(listGuid, libraryItemGuid) {
+    const db = getDatabase();
+    const result = db.prepare('DELETE FROM list_items WHERE list_guid = ? AND library_item_guid = ?').run(listGuid, libraryItemGuid);
+    return result.changes > 0;
+  },
+
+  isItemInList(listGuid, libraryItemGuid) {
+    const db = getDatabase();
+    const row = db.prepare('SELECT 1 FROM list_items WHERE list_guid = ? AND library_item_guid = ?').get(listGuid, libraryItemGuid);
+    return !!row;
   }
 };
 

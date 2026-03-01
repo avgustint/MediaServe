@@ -334,6 +334,17 @@ input[pInputText],
   }
 }
 
+/* Prevent iOS zoom on input/textarea focus (sticky zoom when keyboard dismisses) */
+@media (max-width: 768px) {
+  input[pInputText],
+  .p-inputtext,
+  textarea[pInputTextarea],
+  .p-inputtextarea,
+  .p-inputnumber .p-inputnumber-input {
+    font-size: 16px !important;
+  }
+}
+
 // Unified PrimeNG InputTextarea Styling
 textarea[pInputTextarea],
 .p-inputtextarea {

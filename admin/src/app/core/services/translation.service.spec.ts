@@ -41,7 +41,7 @@ describe('TranslationService', () => {
 
   it('should translate keys for sl-SI', () => {
     service.setLocale('sl-SI');
-    expect(service.translate('playlist')).toBe('Seznam predvajanja');
+    expect(service.translate('playlist')).toBe('Spored');
   });
 
   it('should return key when translation missing', () => {

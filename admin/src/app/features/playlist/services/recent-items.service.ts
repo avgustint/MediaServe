@@ -6,6 +6,7 @@ export interface RecentItem {
   name: string;
   type: string;
   description?: string;
+  tags?: Array<{ guid: number; name: string }>;
   selectedAt: number;
 }
 
@@ -17,13 +18,15 @@ export class RecentItemsService {
   private recentItemsSubject = new BehaviorSubject<RecentItem[]>(this.loadFromStorage());
   public recentItems$ = this.recentItemsSubject.asObservable();
 
-  addItem(item: { guid: number; name: string; type: string; description?: string }): void {
+  addItem(item: { guid: number; name: string; type: string; description?: string; tags?: Array<{ guid: number; name: string; description?: string }> }): void {
     let items = this.recentItemsSubject.value.filter(i => i.guid !== item.guid);
+    const tags = item.tags?.map(t => ({ guid: t.guid, name: t.name }));
     items.unshift({
       guid: item.guid,
       name: item.name,
       type: item.type,
       description: item.description,
+      tags,
       selectedAt: Date.now()
     });
     if (items.length > MAX_ITEMS) {

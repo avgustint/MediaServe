@@ -6,24 +6,32 @@
  * Validate GUID parameter
  */
 function validateGuid(req, res, next) {
-  // Check for guid, id, or libraryItemGuid parameters
-  const guidValue = req.params.guid || req.params.id || req.params.libraryItemGuid;
-  const guid = parseInt(guidValue, 10);
-  
-  if (isNaN(guid) || guid <= 0) {
-    return res.status(400).json({
-      success: false,
-      message: 'Invalid GUID'
-    });
-  }
-  
-  // Update the appropriate parameter
-  if (req.params.guid) {
+  // Validate main guid (from :guid or :id param)
+  const guidValue = req.params.guid || req.params.id;
+  if (guidValue !== undefined && guidValue !== null) {
+    const guid = parseInt(guidValue, 10);
+    if (isNaN(guid) || guid <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid GUID'
+      });
+    }
     req.params.guid = guid;
   }
-  if (req.params.libraryItemGuid) {
-    req.params.libraryItemGuid = guid;
+
+  // Validate libraryItemGuid separately (routes like /:guid/items/:libraryItemGuid)
+  const libraryItemGuidValue = req.params.libraryItemGuid;
+  if (libraryItemGuidValue !== undefined && libraryItemGuidValue !== null) {
+    const libraryItemGuid = parseInt(libraryItemGuidValue, 10);
+    if (isNaN(libraryItemGuid) || libraryItemGuid <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid libraryItemGuid'
+      });
+    }
+    req.params.libraryItemGuid = libraryItemGuid;
   }
+
   next();
 }
 

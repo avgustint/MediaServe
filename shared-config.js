@@ -7,7 +7,7 @@
  * - 'production' or 'raspberry': Raspberry Pi deployment (default mediaplayer.local:5000)
  *
  * CORS: Allowed hosts in cors-allowed-hosts.js (mediaplayer.local, localhost, 127.0.0.1,
- * 192.168.0.100, 100.84.31.66). Angular apps use dynamic hostname when accessed from any of these.
+ * 192.168.0.100, 100.84.31.66, 93.103.9.191). Angular apps use dynamic hostname when accessed from any of these.
  */
 
 // Determine deployment target

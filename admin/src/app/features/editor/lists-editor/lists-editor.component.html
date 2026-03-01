@@ -1,0 +1,176 @@
+<div class="lists-editor-container">
+  <div class="actions-section">
+    <button class="add-button" (click)="addNewList()" *ngIf="!editingList && !isNewList && !viewingList && hasManageListsPermission">
+      {{ 'addNewList' | translate }}
+    </button>
+    <button class="back-button" (click)="backToListList()" *ngIf="viewingList || editingList || isNewList">
+      <i class="fas fa-arrow-left"></i>
+      <span>{{ 'back' | translate }}</span>
+    </button>
+  </div>
+
+  <div class="content-wrapper">
+    <div class="lists-list-section" *ngIf="!editingList && !isNewList && !viewingList">
+      <div class="lists-list">
+        <div
+          *ngFor="let list of displayedLists"
+          class="list-item"
+          [class.clickable]="hasManageListsPermission"
+          (click)="hasManageListsPermission && selectList(list)"
+        >
+          <div class="list-info">
+            <div class="list-name">
+              <span *ngIf="list.is_favorites === 1" class="favorites-badge">{{ 'favorites' | translate }}</span>
+              {{ list.name }}
+            </div>
+            <div class="list-description" *ngIf="list.description">
+              {{ list.description }}
+            </div>
+          </div>
+          <button
+            *ngIf="hasManageListsPermission && list.is_favorites === 0"
+            class="delete-button"
+            (click)="deleteList(list); $event.stopPropagation()"
+            [title]="'deleteList' | translate"
+          >
+            <i class="fas fa-trash"></i>
+          </button>
+        </div>
+      </div>
+      <div *ngIf="displayedLists.length === 0" class="no-items">
+        {{ 'noListsFound' | translate }}
+      </div>
+    </div>
+
+    <!-- List Detail View -->
+    <div class="list-detail-section" *ngIf="viewingList && !editingList && !isNewList">
+      <div class="detail-header">
+        <div class="detail-header-content">
+          <h2>{{ viewingList.name }}</h2>
+          <div class="detail-actions">
+            <button class="edit-button" (click)="editListDetails()" *ngIf="hasManageListsPermission">
+              <i class="fas fa-edit"></i>
+              <span>{{ 'edit' | translate }}</span>
+            </button>
+          </div>
+        </div>
+        <div class="list-description-info" *ngIf="viewingList.description">
+          {{ viewingList.description }}
+        </div>
+      </div>
+
+      <div class="list-items-section">
+        <div class="items-header">
+          <h3>{{ 'listItems' | translate }}</h3>
+          <button class="add-item-button" (click)="openAddItemModal()" *ngIf="hasManageListsPermission">
+            <i class="fas fa-plus"></i>
+            <span>{{ 'addItemToList' | translate }}</span>
+          </button>
+        </div>
+
+        <div class="items-list" *ngIf="!loadingItems">
+          <div *ngIf="listItems.length === 0" class="no-items">
+            {{ 'noItemsInList' | translate }}
+          </div>
+          <div *ngFor="let item of listItems" class="list-item-row">
+            <div class="item-info">
+              <div class="item-name">{{ item.name }}</div>
+              <div class="item-details">
+                <span class="item-type">{{ 'typeColon' | translate }} {{ item.type }}</span>
+                <span class="item-guid-badge">{{ item.guid }}</span>
+              </div>
+            </div>
+            <button
+              *ngIf="hasManageListsPermission"
+              class="remove-item-button"
+              (click)="removeItemFromList(item)"
+              [title]="'removeItemFromList' | translate"
+            >
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+        </div>
+        <div *ngIf="loadingItems" class="loading-items">
+          {{ 'loading' | translate }}...
+        </div>
+      </div>
+    </div>
+
+    <!-- List Edit Form -->
+    <div class="list-form-section" *ngIf="editingList || isNewList">
+      <div class="form-header">
+        <h3>{{ (isNewList ? 'addNewList' : 'editList') | translate }}</h3>
+      </div>
+      <div class="form-content">
+        <div class="form-group">
+          <label>{{ 'name' | translate }} *</label>
+          <input
+            type="text"
+            pInputText
+            [(ngModel)]="listName"
+            [placeholder]="'enterListName' | translate"
+            styleClass="w-full"
+          />
+        </div>
+
+        <div class="form-group">
+          <label>{{ 'description' | translate }}</label>
+          <input
+            type="text"
+            pInputText
+            [(ngModel)]="listDescription"
+            [placeholder]="'descriptionOptional' | translate"
+            styleClass="w-full"
+          />
+        </div>
+
+        <div class="form-actions">
+          <button class="btn-save" (click)="saveList()" [disabled]="!listName || listName.trim().length === 0">
+            <i class="fas fa-check"></i>
+            <span>{{ 'save' | translate }}</span>
+          </button>
+          <button class="btn-cancel" (click)="cancelEdit()">
+            <i class="fas fa-times"></i>
+            <span>{{ 'cancel' | translate }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <app-error-popup *ngIf="showError" [message]="errorMessage" (close)="closeErrorPopup()"></app-error-popup>
+
+  <app-toast
+    [message]="toastMessage"
+    [type]="toastType"
+    [show]="showToast"
+    (close)="closeToast()"
+  ></app-toast>
+
+  <app-confirm-dialog
+    [show]="showConfirmDialog"
+    [title]="confirmDialogTitle"
+    [message]="confirmDialogMessage"
+    (confirm)="onConfirmDialogAction()"
+    (cancel)="closeConfirmDialog()"
+    (close)="closeConfirmDialog()"
+  ></app-confirm-dialog>
+
+  <!-- Add Item Modal -->
+  <div class="modal-overlay" *ngIf="showAddItemModal" (click)="closeAddItemModal()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>{{ 'addItemToList' | translate }}</h3>
+        <button class="modal-close" (click)="closeAddItemModal()">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <app-search
+          #libraryItemSearch
+          (itemClick)="onLibraryItemSelected($event)"
+        ></app-search>
+      </div>
+    </div>
+  </div>
+</div>

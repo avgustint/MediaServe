@@ -22,6 +22,7 @@ const pagesRoutes = require('./routes/pages');
 const tagsRoutes = require('./routes/tags');
 const collectionsRoutes = require('./routes/collections');
 const locationsRoutes = require('./routes/locations');
+const listsRoutes = require('./routes/lists');
 const { router: keyboardRoutes } = require('./routes/keyboard');
 
 // Create Express app
@@ -111,6 +112,7 @@ app.use('/pages', pagesRoutes);
 app.use('/tags', tagsRoutes);
 app.use('/collections', collectionsRoutes);
 app.use('/locations', locationsRoutes);
+app.use('/lists', listsRoutes);
 app.use('/api/keyboard', keyboardRoutes);
 
 // Health check endpoint

@@ -13,8 +13,8 @@ export class ConfirmDialogComponent {
   @Input() title: string = "Confirm";
   @Input() message: string = "";
   @Input() show: boolean = false;
-  @Input() confirmText: string = "Confirm";
-  @Input() cancelText: string = "Cancel";
+  @Input() confirmText: string = "confirm";
+  @Input() cancelText: string = "cancel";
   @Input() confirmColor: string = "danger"; // "danger" or "primary"
   @Output() confirm = new EventEmitter<void>();
   @Output() cancel = new EventEmitter<void>();

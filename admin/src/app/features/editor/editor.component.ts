@@ -4,18 +4,19 @@ import { LibraryEditorComponent } from "./library-editor/library-editor.componen
 import { PlaylistEditorComponent } from "./playlist-editor/playlist-editor.component";
 import { TagsEditorComponent } from "./tags-editor/tags-editor.component";
 import { CollectionsEditorComponent } from "./collections-editor/collections-editor.component";
+import { ListsEditorComponent } from "./lists-editor/lists-editor.component";
 import { TranslatePipe } from "../../shared/pipes/translation.pipe";
 import { UserService } from "../../core/services/user.service";
 
 @Component({
   selector: "app-editor",
   standalone: true,
-  imports: [CommonModule, LibraryEditorComponent, PlaylistEditorComponent, TagsEditorComponent, CollectionsEditorComponent, TranslatePipe],
+  imports: [CommonModule, LibraryEditorComponent, PlaylistEditorComponent, TagsEditorComponent, CollectionsEditorComponent, ListsEditorComponent, TranslatePipe],
   templateUrl: "./editor.component.html",
   styleUrls: ["./editor.component.scss"]
 })
 export class EditorComponent implements OnInit {
-  activeTab: "library" | "playlist" | "tags" | "collections" | null = null;
+  activeTab: "library" | "playlist" | "tags" | "collections" | "lists" | null = null;
 
   constructor(private userService: UserService) {}
 
@@ -23,6 +24,8 @@ export class EditorComponent implements OnInit {
     // Set default active tab based on available permissions
     if (this.hasLibraryEditorPermission()) {
       this.activeTab = "library";
+    } else if (this.hasListsEditorPermission()) {
+      this.activeTab = "lists";
     } else if (this.hasPlaylistEditorPermission()) {
       this.activeTab = "playlist";
     } else if (this.hasTagsEditorPermission()) {
@@ -52,7 +55,11 @@ export class EditorComponent implements OnInit {
     return this.userService.hasPermission('ViewCollections') || this.userService.hasPermission('ManageCollections');
   }
 
-  switchTab(tab: "library" | "playlist" | "tags" | "collections"): void {
+  hasListsEditorPermission(): boolean {
+    return this.userService.hasPermission('ManageLists');
+  }
+
+  switchTab(tab: "library" | "playlist" | "tags" | "collections" | "lists"): void {
     this.activeTab = tab;
   }
 }

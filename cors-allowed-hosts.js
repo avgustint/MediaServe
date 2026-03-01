@@ -6,14 +6,15 @@
  * - scripts/build.js (production via build.config.js)
  *
  * Default: mediaplayer.local (mDNS on Raspberry Pi).
- * Also supports: localhost, 127.0.0.1, fixed LAN IP, Tailscale IP.
+ * Also supports: localhost, 127.0.0.1, fixed LAN IP, Tailscale IP, public IP (home).
  */
 const CORS_ALLOWED_HOSTS = [
   'localhost',
   '127.0.0.1',
   'mediaplayer.local',
   '192.168.0.100',
-  '100.84.31.66'
+  '100.84.31.66',
+  '93.103.9.191'  // Home Raspberry Pi (public IP), ports 5000/5001
 ];
 
 /**

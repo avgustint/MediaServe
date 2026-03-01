@@ -1,0 +1,51 @@
+<div class="lists-tab-container">
+  <div class="list-selector-section" *ngIf="lists.length > 0">
+    <label>{{ 'selectList' | translate }}</label>
+    <p-select
+      [(ngModel)]="selectedList"
+      [options]="lists"
+      optionLabel="name"
+      dataKey="guid"
+      [placeholder]="'selectList' | translate"
+      styleClass="w-full"
+      [appendTo]="'body'"
+      (onChange)="onListChange($event)"
+    />
+  </div>
+  <div class="search-section" *ngIf="selectedList">
+    <div class="search-input-wrapper">
+      <input
+        type="text"
+        pInputText
+        class="search-input"
+        [(ngModel)]="searchTerm"
+        (input)="onSearchChange()"
+        [placeholder]="'searchListItems' | translate"
+        styleClass="w-full"
+      />
+      <button *ngIf="searchTerm" class="clear-search-btn" (click)="searchTerm = ''; onSearchChange()" [title]="'clearSearch' | translate">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+  </div>
+  <div class="items-container" *ngIf="selectedList">
+    <div *ngIf="loading" class="loading-msg">{{ 'loadingPlaylist' | translate }}</div>
+    <div *ngIf="!loading && filteredItems.length === 0" class="no-items">{{ 'noResults' | translate }}</div>
+    <div
+      *ngFor="let item of filteredItems"
+      class="search-result-item"
+      (click)="onItemClick(item)"
+    >
+      <div class="search-result-name">{{ item.name }}</div>
+      <div class="search-result-description" *ngIf="item.description">{{ item.description }}</div>
+      <div class="search-result-footer">
+        <div class="search-result-meta">
+          <span class="type-badge">{{ getTranslatedType(item.type) }}</span>
+          <span class="tag-badge" *ngFor="let tag of item.tags">{{ tag.name }}</span>
+        </div>
+        <div class="item-guid-badge">{{ item.guid }}</div>
+      </div>
+    </div>
+  </div>
+  <div *ngIf="lists.length === 0 && !loading" class="no-lists">{{ 'noListsFound' | translate }}</div>
+</div>

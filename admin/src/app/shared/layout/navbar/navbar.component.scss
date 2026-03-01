@@ -117,7 +117,7 @@
   align-self: flex-start;
 
   &.connected {
-    background-color: rgba(0, 255, 0, 0.7);
+    background-color: rgb(9 184 9);
   }
 
   &.connecting {
@@ -127,6 +127,20 @@
   &.disconnected {
     background-color: rgba(255, 0, 0, 0.7);
   }
+}
+
+.current-time-display {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: white;
+  padding-right: 1rem;
+  margin-right: 0.5rem;
+  border-right: 1px solid rgba(255, 255, 255, 0.35);
+  min-width: 5.5rem;
+  text-align: right;
+  user-select: none;
+  flex-shrink: 0;
 }
 
 .nav-buttons {
@@ -367,12 +381,24 @@
   .navbar {
     padding: 0.75rem;
   }
+
+  .current-time-display {
+    font-size: 1.2rem;
+    border-right: none;
+    padding-right: 0;
+    margin-right: 0;
+  }
 }
 
 
 @media (max-width: 480px) {
   .nav-brand {
     font-size: 0.9rem;
+  }
+
+  .current-time-display {
+    font-size: 1.1rem;
+    min-width: 5rem;
   }
 
   .connection-status {
