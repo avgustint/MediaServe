@@ -222,13 +222,27 @@
 
         <!-- Video Content -->
         <div *ngIf="currentContent?.type === 'video'" class="content-container video-container" [ngStyle]="videoContainerStyle">
-          <video #videoElement [src]="videoSrc" class="display-video" controls></video>
+          <video #videoElement [src]="videoSrc" class="display-video" controls [muted]="true"></video>
         </div>
 
         <!-- No content message -->
         <div *ngIf="!currentContent" class="content-container no-content">
           <div class="waiting-message">{{ 'waitingForContent' | translate }}</div>
         </div>
+
+        <!-- Play/Pause button for URL/iframe/video - controls media playback on client displays -->
+        <button
+          *ngIf="showUrlPlayPauseButton"
+          type="button"
+          class="url-play-pause-button"
+          [class.adjacent-to-autoplay]="showAutoplayButton"
+          [class.playing]="urlVideoPlaying"
+          (click)="onUrlPlayPauseClick()"
+          [attr.title]="urlVideoPlaying ? ('pause' | translate) : ('play' | translate)"
+          [attr.aria-label]="urlVideoPlaying ? ('pause' | translate) : ('play' | translate)"
+        >
+          <i class="fas" [class.fa-play]="!urlVideoPlaying" [class.fa-pause]="urlVideoPlaying"></i>
+        </button>
 
         <!-- Autoplay button - bottom right, only when item has duration -->
         <button

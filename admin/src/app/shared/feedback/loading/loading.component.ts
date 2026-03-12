@@ -10,6 +10,12 @@ import { CommonModule } from '@angular/common';
       <div class="loading-spinner">
         <div class="spinner"></div>
         <p *ngIf="message" class="loading-message">{{ message }}</p>
+        <div *ngIf="progressTotal > 0" class="progress-bar-container">
+          <div class="progress-bar-track">
+            <div class="progress-bar-fill" [style.width.%]="progressPercent"></div>
+          </div>
+          <span class="progress-bar-label">{{ progressCurrent }}/{{ progressTotal }}</span>
+        </div>
       </div>
     </div>
   `,
@@ -53,10 +59,44 @@ import { CommonModule } from '@angular/common';
       margin: 0;
       color: #333;
     }
+
+    .progress-bar-container {
+      margin-top: 1rem;
+      width: 100%;
+      min-width: 200px;
+    }
+
+    .progress-bar-track {
+      height: 8px;
+      background: #e9ecef;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      background: #3498db;
+      border-radius: 4px;
+      transition: width 0.2s ease;
+    }
+
+    .progress-bar-label {
+      display: block;
+      margin-top: 0.25rem;
+      font-size: 0.75rem;
+      color: #666;
+    }
   `]
 })
 export class LoadingComponent {
   @Input() isLoading: boolean = false;
   @Input() message: string = '';
+  @Input() progressCurrent: number = 0;
+  @Input() progressTotal: number = 0;
+
+  get progressPercent(): number {
+    if (this.progressTotal <= 0) return 0;
+    return Math.min(100, Math.round((this.progressCurrent / this.progressTotal) * 100));
+  }
 }
 

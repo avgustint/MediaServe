@@ -45,6 +45,18 @@ if (!fs.existsSync(videosDir)) {
 // Load initial data (for WebSocket)
 const data = loadData();
 
+// Clean up orphan pages on startup (pages created but never linked to a library item, e.g. after cancelled save)
+try {
+  const dbOps = require('./dbOperations');
+  const orphanCount = dbOps.getOrphanPageCount();
+  if (orphanCount > 0) {
+    const deleted = dbOps.cleanupOrphanPages();
+    console.log(`Cleaned up ${deleted} orphan page(s) on startup`);
+  }
+} catch (err) {
+  console.warn('Could not run orphan page cleanup on startup:', err.message);
+}
+
 // Serve admin app static files (before API routes to allow Angular routes to work)
 const adminAppPath = path.join(__dirname, '../admin/dist/media-player-admin/browser');
 app.use(express.static(adminAppPath));

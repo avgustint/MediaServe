@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild, ElementRef, QueryList, ViewChildren, AfterViewInit } from "@angular/core";
+import { Component, OnInit, ViewChild, ElementRef, QueryList, ViewChildren, AfterViewInit, ChangeDetectorRef } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { HttpClient, HttpHeaders } from "@angular/common/http";
@@ -8,12 +8,14 @@ import { PagesService, Page } from "../services/pages.service";
 import { TagsService, Tag } from "../services/tags.service";
 import { UserService } from "../../../core/services/user.service";
 import { ErrorPopupComponent } from "../../../shared/feedback/error-popup/error-popup.component";
+import { LoadingComponent } from "../../../shared/feedback/loading/loading.component";
 import { ConfirmDialogComponent } from "../../../shared/feedback/confirm-dialog/confirm-dialog.component";
 import { TranslatePipe } from "../../../shared/pipes/translation.pipe";
 import { LocalizedDatePipe } from "../../../shared/pipes/localized-date.pipe";
 import { TranslationService } from "../../../core/services/translation.service";
 import { environment } from "../../../../environments/environment";
-import { debounceTime, distinctUntilChanged, Subject, switchMap, of, forkJoin } from "rxjs";
+import { debounceTime, distinctUntilChanged, Subject, switchMap, of, concat } from "rxjs";
+import { map, tap, toArray } from "rxjs/operators";
 import { InputTextModule } from "primeng/inputtext";
 import { TextareaModule } from "primeng/textarea";
 import { SelectModule } from "primeng/select";
@@ -26,7 +28,7 @@ import { ToggleSwitchModule } from "primeng/toggleswitch";
 @Component({
   selector: "app-library-editor",
   standalone: true,
-  imports: [CommonModule, FormsModule, ErrorPopupComponent, ConfirmDialogComponent, TranslatePipe, LocalizedDatePipe, InputTextModule, TextareaModule, SelectModule, MultiSelectModule, ButtonModule, DialogModule, TabsModule, ToggleSwitchModule],
+  imports: [CommonModule, FormsModule, ErrorPopupComponent, ConfirmDialogComponent, LoadingComponent, TranslatePipe, LocalizedDatePipe, InputTextModule, TextareaModule, SelectModule, MultiSelectModule, ButtonModule, DialogModule, TabsModule, ToggleSwitchModule],
   templateUrl: "./library-editor.component.html",
   styleUrls: ["./library-editor.component.scss"]
 })
@@ -124,6 +126,12 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
   pageToRemoveGuid: number | string | null = null; // Store the pageGuid to identify the correct page
   pageToRemoveOrderNumber: number = -1; // Store the orderNumber which is unique for each page reference
 
+  // Save progress - shown throughout entire save (create pages + save item)
+  isSaving: boolean = false;
+  saveProgressMessage: string = '';
+  saveProgressCurrent: number = 0;
+  saveProgressTotal: number = 0;
+
   constructor(
     private playlistService: PlaylistService,
     private pagesService: PagesService,
@@ -131,7 +139,8 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
     private userService: UserService,
     private translationService: TranslationService,
     private http: HttpClient,
-    private sanitizer: DomSanitizer
+    private sanitizer: DomSanitizer,
+    private cdr: ChangeDetectorRef
   ) {}
 
   hasManageLibraryPermission(): boolean {
@@ -1417,11 +1426,29 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
     });
 
     if (temporalPagesWithOrder.length > 0) {
-      const createObservables = temporalPagesWithOrder.map(({ page }) =>
-        this.pagesService.createPage(page.content || '', page.type || 'text', page.css, page.duration ?? undefined)
+      this.isSaving = true;
+      const totalPages = temporalPagesWithOrder.length;
+      this.saveProgressCurrent = 0;
+      this.saveProgressTotal = totalPages + 1; // +1 for final library item save phase
+      this.saveProgressMessage = this.translationService.translate('saving') + ' ' +
+        '0/' + totalPages + ' ' + (this.translationService.translate('pages') || 'pages');
+      this.cdr.markForCheck();
+
+      const createObservables = temporalPagesWithOrder.map(({ page }, index) =>
+        this.pagesService.createPage(page.content || '', page.type || 'text', page.css, page.duration ?? undefined).pipe(
+          tap(() => {
+            this.saveProgressCurrent = index + 1;
+            this.saveProgressMessage = this.translationService.translate('saving') + ' ' +
+              (index + 1) + '/' + totalPages + ' ' + (this.translationService.translate('pages') || 'pages');
+            this.cdr.markForCheck();
+          })
+        )
       );
-      forkJoin(createObservables).subscribe({
+      concat(...createObservables).pipe(toArray()).subscribe({
         next: (newPages) => {
+          this.saveProgressCurrent = totalPages;
+          this.saveProgressMessage = this.translationService.translate('saving') + '...';
+          this.cdr.markForCheck();
           newPages.forEach((newPage, index) => {
             if (typeof newPage.guid === 'number') {
               pageGuids.push({
@@ -1441,6 +1468,7 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
         },
         error: (error) => {
           console.error("Error creating temporal pages:", error);
+          this.clearSavingState();
           this.showErrorPopup(this.translationService.translate('errorCreatingPages'));
         }
       });
@@ -1455,21 +1483,42 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
       this.selectedTagGuids = [];
       itemData.tagGuids = [];
     }
+    this.isSaving = true;
+    this.saveProgressCurrent = 0;
+    this.saveProgressTotal = 1;
+    this.saveProgressMessage = this.translationService.translate('saving') + '...';
     this.proceedWithSave(itemData);
   }
   
+  private clearSavingState(): void {
+    this.isSaving = false;
+    this.saveProgressMessage = '';
+    this.saveProgressCurrent = 0;
+    this.saveProgressTotal = 0;
+    this.cdr.markForCheck();
+  }
+
   proceedWithSave(itemData: any): void {
+    // Phase 2: saving library item - update progress to show we're in final step
+    const temporalCount = this.saveProgressTotal > 1 ? this.saveProgressTotal - 1 : 0;
+    if (temporalCount > 0) {
+      this.saveProgressCurrent = temporalCount;
+      this.saveProgressMessage = this.translationService.translate('saving') + '...';
+      this.cdr.markForCheck();
+    }
     if (this.isNewItem) {
       // Create new item
       this.playlistService.createLibraryItem(itemData).subscribe({
         next: (newItem) => {
           console.log("Library item created:", newItem);
+          this.clearSavingState();
           this.cancelEdit();
           // Refresh the recently modified items list to show the new item on top
           this.loadRecentItems();
         },
         error: (error) => {
           console.error("Error creating library item:", error);
+          this.clearSavingState();
           this.showErrorPopup(this.translationService.translate('errorCreatingLibraryItem'));
         }
       });
@@ -1504,11 +1553,13 @@ export class LibraryEditorComponent implements OnInit, AfterViewInit {
       this.playlistService.updateLibraryItem(updatedItem).subscribe({
         next: (result) => {
           console.log("Library item updated:", result);
+          this.clearSavingState();
           this.loadRecentItems();
           this.cancelEdit();
         },
         error: (error) => {
           console.error("Error updating library item:", error);
+          this.clearSavingState();
           this.showErrorPopup(this.translationService.translate('errorUpdatingLibraryItem'));
         }
       });

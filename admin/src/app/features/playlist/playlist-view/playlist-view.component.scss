@@ -658,6 +658,29 @@
   }
 }
 
+.url-play-pause-button {
+  position: absolute;
+  bottom: 1rem;
+  right: 1rem;
+  &.adjacent-to-autoplay {
+    right: 4.75rem;
+  }
+  z-index: 90;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  width: 56px;
+  height: 56px;
+  cursor: pointer;
+  font-size: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  &.playing { background: rgba(40, 167, 69, 0.8); border-color: rgba(255,255,255,0.5); }
+}
+
 .autoplay-button {
   position: absolute;
   bottom: 1rem;

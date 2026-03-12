@@ -1,4 +1,11 @@
 <div class="library-editor-container">
+  <!-- Loading overlay at root - stays visible during entire save (including when edit-section might flicker) -->
+  <app-loading
+    [isLoading]="isSaving"
+    [message]="saveProgressMessage"
+    [progressCurrent]="saveProgressCurrent"
+    [progressTotal]="saveProgressTotal"
+  ></app-loading>
   <div class="search-section">
     <div class="search-input-wrapper">
       <input
@@ -261,11 +268,11 @@
       </div>
 
       <div class="form-actions">
-        <button class="btn-save" (click)="saveItem()" *ngIf="hasManageLibraryPermission()">
+        <button class="btn-save" (click)="saveItem()" *ngIf="hasManageLibraryPermission()" [disabled]="isSaving">
           <i class="fas fa-check"></i>
-          <span>{{ 'save' | translate }}</span>
+          <span>{{ isSaving ? ('saving' | translate) : ('save' | translate) }}</span>
         </button>
-        <button class="btn-cancel" (click)="cancelEdit()">
+        <button class="btn-cancel" (click)="cancelEdit()" [disabled]="isSaving">
           <i class="fas fa-times"></i>
           <span>{{ 'cancel' | translate }}</span>
         </button>
@@ -273,6 +280,7 @@
           *ngIf="!isNewItem && editingItem && hasDeletePermission()" 
           class="delete-button" 
           (click)="deleteItem()"
+          [disabled]="isSaving"
         >
           {{ 'delete' | translate }}
         </button>

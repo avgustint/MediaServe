@@ -1204,6 +1204,48 @@ const dbOps = {
     `).all(libraryItemGuid);
   },
 
+  /**
+   * Get count of orphan pages (pages not linked to any library item).
+   * Orphans can occur when createPage succeeds but createLibraryItem/updateLibraryItem fails,
+   * or when user cancels during save.
+   */
+  getOrphanPageCount() {
+    const db = getDatabase();
+    const row = db.prepare(`
+      SELECT COUNT(*) as count FROM pages p
+      WHERE NOT EXISTS (
+        SELECT 1 FROM library_item_pages lip WHERE lip.page_guid = p.guid
+      )
+    `).get();
+    return row ? row.count : 0;
+  },
+
+  /**
+   * Delete orphan pages (pages not linked to any library item).
+   * Returns number of pages deleted.
+   */
+  cleanupOrphanPages() {
+    const db = getDatabase();
+    const orphans = db.prepare(`
+      SELECT p.guid FROM pages p
+      WHERE NOT EXISTS (
+        SELECT 1 FROM library_item_pages lip WHERE lip.page_guid = p.guid
+      )
+    `).all();
+    if (orphans.length === 0) {
+      return 0;
+    }
+    const deleteStmt = db.prepare('DELETE FROM pages WHERE guid = ?');
+    let deleted = 0;
+    db.transaction(() => {
+      orphans.forEach((row) => {
+        const result = deleteStmt.run(row.guid);
+        if (result.changes > 0) deleted++;
+      });
+    })();
+    return deleted;
+  },
+
   // Tag operations
   createTag(tag) {
     const db = getDatabase();

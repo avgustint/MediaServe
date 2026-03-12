@@ -100,6 +100,13 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
         return;
       }
 
+      // Handle UrlPlayPause for video, url (iframe), and iframe content
+      const urlPlayPauseMsg = message as { type?: string; play?: boolean };
+      if (urlPlayPauseMsg.type === 'UrlPlayPause' && urlPlayPauseMsg.play !== undefined) {
+        this.handleUrlPlayPause(urlPlayPauseMsg.play);
+        return;
+      }
+
       // Always update chord visibility first (before updating content)
       // Prefer chordVisibility (3-state): show only when 'everywhere'
       // Fall back to chordsVisible for legacy messages
@@ -523,35 +530,111 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
     }
   }
 
-  get safeUrl(): SafeResourceUrl {
-    if (this.currentContent?.type === "url" && this.currentContent.content) {
-      const url = this.currentContent.content as string;
-      const urlWithAutoplay = this.addAutoplayToEmbedUrl(url);
-      return this.sanitizer.bypassSecurityTrustResourceUrl(urlWithAutoplay);
+  private handleUrlPlayPause(play: boolean): void {
+    if (!this.currentContent) return;
+
+    if (this.currentContent.type === 'video') {
+      const video = this.videoElement?.nativeElement;
+      if (video) {
+        play ? video.play() : video.pause();
+      }
+      return;
     }
-    return this.sanitizer.bypassSecurityTrustResourceUrl("about:blank");
+
+    if (this.currentContent.type === 'url') {
+      const iframe = this.urlIframe?.nativeElement;
+      if (iframe?.contentWindow) {
+        this.sendYouTubePostMessage(iframe, play ? 'playVideo' : 'pauseVideo');
+      }
+      return;
+    }
+
+    if (this.currentContent.type === 'iframe') {
+      const wrapper = document.querySelector('.iframe-embed-wrapper');
+      const iframes = wrapper?.querySelectorAll('iframe');
+      iframes?.forEach((iframe: Element) => {
+        const el = iframe as HTMLIFrameElement;
+        if (el.contentWindow && this.isYouTubeIframe(el)) {
+          this.sendYouTubePostMessage(el, play ? 'playVideo' : 'pauseVideo');
+        }
+      });
+    }
+  }
+
+  private isYouTubeIframe(iframe: HTMLIFrameElement): boolean {
+    const src = iframe.src || '';
+    return src.includes('youtube.com') || src.includes('youtu.be');
+  }
+
+  private sendYouTubePostMessage(iframe: HTMLIFrameElement, func: 'playVideo' | 'pauseVideo'): void {
+    const msg = JSON.stringify({ event: 'command', func, args: '' });
+    iframe.contentWindow!.postMessage(msg, 'https://www.youtube.com');
+  }
+
+  /** Cached to prevent iframe/video reload on change detection */
+  private _cachedUrlContent: string | null = null;
+  private _cachedSafeUrl!: SafeResourceUrl;
+  private _cachedVideoUrlContent: string | null = null;
+  private _cachedVideoSrc!: SafeResourceUrl;
+
+  get safeUrl(): SafeResourceUrl {
+    const url = this.currentContent?.type === "url" && this.currentContent.content
+      ? (this.currentContent.content as string)
+      : '';
+    const urlWithAutoplay = url ? this.addAutoplayToEmbedUrl(url) : 'about:blank';
+    if (this._cachedUrlContent !== urlWithAutoplay) {
+      this._cachedUrlContent = urlWithAutoplay;
+      this._cachedSafeUrl = this.sanitizer.bypassSecurityTrustResourceUrl(urlWithAutoplay);
+    }
+    return this._cachedSafeUrl;
   }
 
   get videoSrc(): SafeResourceUrl {
-    if (this.currentContent?.type === "video" && this.currentContent.content) {
-      const videoUrl = this.currentContent.content as string;
-      // If it's already a full URL, use it; otherwise construct from runtime server URL
+    const videoUrl = this.currentContent?.type === "video" && this.currentContent.content
+      ? (this.currentContent.content as string)
+      : '';
+    let fullUrl = '';
+    if (videoUrl) {
       if (videoUrl.startsWith('http://') || videoUrl.startsWith('https://')) {
-        return this.sanitizer.bypassSecurityTrustResourceUrl(videoUrl);
+        fullUrl = videoUrl;
       } else {
-        // Relative path - construct full URL using runtime method
-        const fullUrl = `${this.getServerBaseUrl()}${videoUrl.startsWith('/') ? videoUrl : '/' + videoUrl}`;
-        return this.sanitizer.bypassSecurityTrustResourceUrl(fullUrl);
+        fullUrl = `${this.getServerBaseUrl()}${videoUrl.startsWith('/') ? videoUrl : '/' + videoUrl}`;
       }
     }
-    return this.sanitizer.bypassSecurityTrustResourceUrl("about:blank");
+    if (this._cachedVideoUrlContent !== fullUrl) {
+      this._cachedVideoUrlContent = fullUrl;
+      this._cachedVideoSrc = fullUrl
+        ? this.sanitizer.bypassSecurityTrustResourceUrl(fullUrl)
+        : this.sanitizer.bypassSecurityTrustResourceUrl('about:blank');
+    }
+    return this._cachedVideoSrc;
   }
 
+  /** Cached to prevent iframe reload on change detection (getter returns new SafeHtml each time otherwise) */
+  private _cachedIframeContent: string | null = null;
+  private _cachedSafeIframeHtml!: SafeHtml;
+
   get safeIframeHtml(): SafeHtml {
-    if (this.currentContent?.type === "iframe" && this.currentContent.content) {
-      return this.sanitizer.bypassSecurityTrustHtml(this.currentContent.content as string);
+    const content = this.currentContent?.type === "iframe" && this.currentContent.content
+      ? (this.currentContent.content as string)
+      : '';
+    let html = content;
+    if (html) {
+      // Inject enablejsapi=1 into YouTube iframe src for play/pause control
+      html = html.replace(
+        /src="([^"]*youtube\.com[^"]*|[^"]*youtu\.be[^"]*)"/gi,
+        (match, url) => {
+          if (url.includes('enablejsapi=')) return match;
+          const sep = url.includes('?') ? '&' : '?';
+          return `src="${url}${sep}enablejsapi=1"`;
+        }
+      );
     }
-    return this.sanitizer.bypassSecurityTrustHtml("");
+    if (this._cachedIframeContent !== html) {
+      this._cachedIframeContent = html;
+      this._cachedSafeIframeHtml = this.sanitizer.bypassSecurityTrustHtml(html || '');
+    }
+    return this._cachedSafeIframeHtml;
   }
 
   get text(): string {

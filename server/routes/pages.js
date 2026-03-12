@@ -55,6 +55,25 @@ router.get('/library-item/:libraryItemGuid', (req, res, next) => {
 }));
 
 /**
+ * GET /pages/orphans
+ * Get count of orphan pages (pages not linked to any library item).
+ * Orphans can occur when createPage succeeds but createLibraryItem/updateLibraryItem fails or is cancelled.
+ */
+router.get('/orphans', authMiddleware, requirePermission('ManagePages'), asyncHandler(async (req, res) => {
+  const count = dbOps.getOrphanPageCount();
+  res.json({ count });
+}));
+
+/**
+ * POST /pages/orphans/cleanup
+ * Delete orphan pages and return how many were removed.
+ */
+router.post('/orphans/cleanup', authMiddleware, requirePermission('ManagePages'), asyncHandler(async (req, res) => {
+  const deleted = dbOps.cleanupOrphanPages();
+  res.json({ deleted });
+}));
+
+/**
  * GET /pages/:guid
  * Get single page
  */

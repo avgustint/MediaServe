@@ -115,6 +115,9 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
   private lastContentReceivedAt: number = 0;
   private static readonly REQUEST_CHORDS_DEBOUNCE_MS = 600;
 
+  // Url/iframe/video play/pause state (sent to clients)
+  urlVideoPlaying: boolean = false;
+
   // Autoplay state
   autoplayPlaying: boolean = false;
   autoplayEndAt: number | null = null;
@@ -190,6 +193,9 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
     ).subscribe((storedContent) => {
       if (!this.currentContent) {
         this.currentContent = { ...storedContent };
+        if (storedContent.type === 'url' || storedContent.type === 'iframe' || storedContent.type === 'video') {
+          this.urlVideoPlaying = false;
+        }
         if (storedContent.guid !== undefined) this.currentItemGuid = storedContent.guid;
         if (storedContent.page !== undefined) this.currentPage = storedContent.page;
         this.chordDisplayState = this.chordSettingsService.getChordDisplayState();
@@ -271,6 +277,16 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
         return;
       }
 
+      if (message.type === 'UrlPlayPause' && (message as { play?: boolean }).play !== undefined) {
+        const user = this.userService.getUser();
+        if (!message.locationId || message.locationId === user?.locationId) {
+          this.urlVideoPlaying = (message as { play: boolean }).play;
+          this.handleUrlPlayPauseLocally(this.urlVideoPlaying);
+          this.cdr.markForCheck();
+        }
+        return;
+      }
+
       if (message.type === 'SelectLibraryItem' && message.guid !== undefined) {
         // Only process if locationId matches (or if no locationId in message)
         const user = this.userService.getUser();
@@ -329,6 +345,9 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
         
         // Update currentContent with the received message
         this.currentContent = { ...message };
+        if (message.type === 'url' || message.type === 'iframe' || message.type === 'video') {
+          this.urlVideoPlaying = false;
+        }
         const msgDuration = (message as { duration?: number | null }).duration;
         if (message.guid !== undefined && message.guid === this.currentItemGuid) {
           this.lastContentDurationForItem = (msgDuration != null && msgDuration > 0) ? msgDuration : null;
@@ -533,6 +552,12 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
     return !!(duration != null && duration > 0);
   }
 
+  get showUrlPlayPauseButton(): boolean {
+    if (!this.contentVisible) return false;
+    const t = this.currentContent?.type;
+    return t === 'url' || t === 'iframe' || t === 'video';
+  }
+
   /** Reset autoplay state - call when user manually changes page or item */
   private resetAutoplayState(): void {
     this.stopAutoplayTick();
@@ -573,6 +598,57 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
       clearInterval(this.autoplayTickInterval);
       this.autoplayTickInterval = null;
     }
+  }
+
+  onUrlPlayPauseClick(): void {
+    const user = this.userService.getUser();
+    if (!user?.locationId) return;
+    this.urlVideoPlaying = !this.urlVideoPlaying;
+    this.websocketService.send(JSON.stringify({
+      type: 'UrlPlayPause',
+      play: this.urlVideoPlaying,
+      locationId: user.locationId
+    }));
+    this.handleUrlPlayPauseLocally(this.urlVideoPlaying);
+    this.cdr.markForCheck();
+  }
+
+  private handleUrlPlayPauseLocally(play: boolean): void {
+    if (!this.currentContent) return;
+    if (this.currentContent.type === 'video') {
+      const video = this.videoElement?.nativeElement as HTMLVideoElement;
+      if (video) {
+        video.muted = true;
+        play ? video.play() : video.pause();
+      }
+      return;
+    }
+    if (this.currentContent.type === 'url') {
+      const iframe = this.urlIframe?.nativeElement;
+      if (iframe?.contentWindow) {
+        this.sendYouTubePostMessage(iframe, play ? 'playVideo' : 'pauseVideo');
+      }
+      return;
+    }
+    if (this.currentContent.type === 'iframe') {
+      const wrapper = document.querySelector('.iframe-embed-wrapper');
+      wrapper?.querySelectorAll('iframe').forEach((iframe: Element) => {
+        const el = iframe as HTMLIFrameElement;
+        if (el.contentWindow && this.isYouTubeIframe(el)) {
+          this.sendYouTubePostMessage(el, play ? 'playVideo' : 'pauseVideo');
+        }
+      });
+    }
+  }
+
+  private isYouTubeIframe(iframe: HTMLIFrameElement): boolean {
+    const src = iframe.src || '';
+    return src.includes('youtube.com') || src.includes('youtu.be');
+  }
+
+  private sendYouTubePostMessage(iframe: HTMLIFrameElement, func: 'playVideo' | 'pauseVideo'): void {
+    const msg = JSON.stringify({ event: 'command', func, args: '' });
+    iframe.contentWindow!.postMessage(msg, 'https://www.youtube.com');
   }
 
   onAutoplayButtonClick(): void {
@@ -744,19 +820,29 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
     return this._cachedSafeUrl;
   }
 
+  /** Cached SafeResourceUrl for video - prevents reload/blink on change detection */
+  private _cachedVideoUrlContent: string = '';
+  private _cachedVideoSrc!: SafeResourceUrl;
+
   get videoSrc(): SafeResourceUrl {
-    if (this.currentContent?.type === "video" && this.currentContent.content) {
-      const videoUrl = this.currentContent.content as string;
-      // If it's already a full URL, use it; otherwise construct from environment.apiUrl
+    const videoUrl = this.currentContent?.type === "video" && this.currentContent.content
+      ? (this.currentContent.content as string)
+      : '';
+    let fullUrl = '';
+    if (videoUrl) {
       if (videoUrl.startsWith('http://') || videoUrl.startsWith('https://')) {
-        return this.sanitizer.bypassSecurityTrustResourceUrl(videoUrl);
+        fullUrl = videoUrl;
       } else {
-        // Relative path - construct full URL
-        const fullUrl = `${environment.apiUrl}${videoUrl.startsWith('/') ? videoUrl : '/' + videoUrl}`;
-        return this.sanitizer.bypassSecurityTrustResourceUrl(fullUrl);
+        fullUrl = `${environment.apiUrl}${videoUrl.startsWith('/') ? videoUrl : '/' + videoUrl}`;
       }
     }
-    return this.sanitizer.bypassSecurityTrustResourceUrl("about:blank");
+    if (fullUrl !== this._cachedVideoUrlContent) {
+      this._cachedVideoUrlContent = fullUrl;
+      this._cachedVideoSrc = fullUrl
+        ? this.sanitizer.bypassSecurityTrustResourceUrl(fullUrl)
+        : this.sanitizer.bypassSecurityTrustResourceUrl('about:blank');
+    }
+    return this._cachedVideoSrc;
   }
 
   /** Cached SafeHtml for iframe embed - prevents endless re-renders from getter returning new object each CD cycle */
@@ -764,9 +850,31 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
   private _cachedSafeIframeHtml!: SafeHtml;
 
   get safeIframeHtml(): SafeHtml {
-    const content = this.currentContent?.type === "iframe" && this.currentContent?.content
+    let content = this.currentContent?.type === "iframe" && this.currentContent?.content
       ? (this.currentContent.content as string)
       : '';
+    // Inject enablejsapi=1, mute=1, autoplay=0 into YouTube iframe src (admin preview - no auto start, muted)
+    if (content) {
+      content = content.replace(
+        /src="([^"]*youtube\.com[^"]*|[^"]*youtu\.be[^"]*)"/gi,
+        (match, url) => {
+          let modified = url;
+          if (!modified.includes('enablejsapi=')) {
+            const sep = modified.includes('?') ? '&' : '?';
+            modified = `${modified}${sep}enablejsapi=1`;
+          }
+          modified = modified.replace(/mute=[^&]*/gi, 'mute=1');
+          if (!modified.includes('mute=')) {
+            modified = `${modified}${modified.includes('?') ? '&' : '?'}mute=1`;
+          }
+          modified = modified.replace(/autoplay=[^&]*/gi, 'autoplay=0');
+          if (!modified.includes('autoplay=')) {
+            modified = `${modified}${modified.includes('?') ? '&' : '?'}autoplay=0`;
+          }
+          return `src="${modified}"`;
+        }
+      );
+    }
     if (content !== this._cachedIframeContent) {
       this._cachedIframeContent = content;
       this._cachedSafeIframeHtml = this.sanitizer.bypassSecurityTrustHtml(content || '');
@@ -778,11 +886,13 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
     try {
       const urlObj = new URL(url);
       
-      // For YouTube, add enablejsapi=1 for postMessage API to work
+      // For YouTube: enablejsapi, mute=1, autoplay=0 (admin preview - no auto start, no audio)
       if (url.includes('youtube.com') || url.includes('youtu.be')) {
         if (!urlObj.searchParams.has('enablejsapi')) {
           urlObj.searchParams.set('enablejsapi', '1');
         }
+        urlObj.searchParams.set('mute', '1');
+        urlObj.searchParams.set('autoplay', '0');
       }
       
       return urlObj.toString();
@@ -790,11 +900,18 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
       // If URL parsing fails, try simple string manipulation
       let modifiedUrl = url;
       
-      // For YouTube, add enablejsapi=1
       if (url.includes('youtube.com') || url.includes('youtu.be')) {
-        if (!url.includes('enablejsapi=')) {
-          const separator = url.includes('?') ? '&' : '?';
-          modifiedUrl = `${url}${separator}enablejsapi=1`;
+        if (!modifiedUrl.includes('enablejsapi=')) {
+          const separator = modifiedUrl.includes('?') ? '&' : '?';
+          modifiedUrl = `${modifiedUrl}${separator}enablejsapi=1`;
+        }
+        modifiedUrl = modifiedUrl.replace(/mute=[^&]*/gi, 'mute=1');
+        if (!modifiedUrl.includes('mute=')) {
+          modifiedUrl = `${modifiedUrl}${modifiedUrl.includes('?') ? '&' : '?'}mute=1`;
+        }
+        modifiedUrl = modifiedUrl.replace(/autoplay=[^&]*/gi, 'autoplay=0');
+        if (!modifiedUrl.includes('autoplay=')) {
+          modifiedUrl = `${modifiedUrl}${modifiedUrl.includes('?') ? '&' : '?'}autoplay=0`;
         }
       }
       
