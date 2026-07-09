@@ -76,8 +76,6 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
   // Fullscreen state
   isFullscreen: boolean = false;
 
-  // Dev mode flag - show chord controls only in development
-  readonly isDevMode: boolean = !environment.production;
   readonly Math = Math;
 
   // Chord display state: 'local' (only on admin), 'everywhere' (all clients), 'hidden' (no chords)
@@ -1794,7 +1792,15 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
     }
   }
 
+  /** Permission to show chord visibility / transposition controls in playlist view */
+  hasToggleChordDisplayPermission(): boolean {
+    return this.userService.hasPermission('ToggleChordDisplay');
+  }
+
   toggleChordDisplay(): void {
+    if (!this.hasToggleChordDisplayPermission()) {
+      return;
+    }
     // Cycle through the three states: everywhere -> local -> hidden -> everywhere
     if (this.chordDisplayState === 'everywhere') {
       this.chordDisplayState = 'local';
@@ -1899,6 +1905,9 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   increaseChordTransposition(): void {
+    if (!this.hasToggleChordDisplayPermission()) {
+      return;
+    }
     const current = this.chordTransposition || 0;
     this.chordTransposition = (12 + current + 1) % 12;
     this.chordSettingsService.setChordTransposition(this.chordTransposition);
@@ -1908,6 +1917,9 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   decreaseChordTransposition(): void {
+    if (!this.hasToggleChordDisplayPermission()) {
+      return;
+    }
     const current = this.chordTransposition || 0;
     this.chordTransposition = (12 + current - 1) % 12;
     this.chordSettingsService.setChordTransposition(this.chordTransposition);
@@ -1917,6 +1929,9 @@ export class PlaylistViewComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   resetChordTransposition(): void {
+    if (!this.hasToggleChordDisplayPermission()) {
+      return;
+    }
     this.chordTransposition = 0;
     this.chordSettingsService.resetChordTransposition();
     this.applyChordTranspositionToContent();

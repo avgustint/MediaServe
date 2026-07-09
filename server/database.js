@@ -700,23 +700,41 @@ function createTables() {
       });
     }
 
-    // Add ManageLists permission and assign to all roles except User
-    const manageListsPerm = dbOps.getPermissionByName('ManageLists');
+    // Add ManageLists permission and assign to all roles
+    let manageListsPerm = dbOps.getPermissionByName('ManageLists');
     if (!manageListsPerm) {
-      const newManageListsPerm = dbOps.createPermission({
+      manageListsPerm = dbOps.createPermission({
         name: 'ManageLists',
         description: 'Permission to manage lists (create, edit, delete, add/remove items)'
       });
-      const allRolesForLists = dbOps.getAllRoles();
-      const userRoleForLists = allRolesForLists.find(role => role.name.toLowerCase() === 'user');
-      for (const role of allRolesForLists) {
-        if (userRoleForLists && role.guid === userRoleForLists.guid) continue;
+      console.log('ManageLists permission created');
+    }
+    const allRolesForLists = dbOps.getAllRoles();
+    for (const role of allRolesForLists) {
+      const currentPerms = dbOps.getRolePermissions(role.guid);
+      if (!currentPerms.includes(manageListsPerm.guid)) {
+        dbOps.updateRolePermissions(role.guid, [...currentPerms, manageListsPerm.guid]);
+      }
+    }
+    console.log('ManageLists permission assigned to all roles');
+
+    // ToggleChordDisplay: chord toggle / transposition in playlist view; all roles except User (guid=4)
+    const toggleChordDisplayPerm = dbOps.getPermissionByName('ToggleChordDisplay');
+    if (!toggleChordDisplayPerm) {
+      const newToggleChordPerm = dbOps.createPermission({
+        name: 'ToggleChordDisplay',
+        description: 'Permission to toggle chord visibility and transpose chords in the playlist view'
+      });
+      const allRolesForChord = dbOps.getAllRoles();
+      const USER_ROLE_GUID = 4;
+      for (const role of allRolesForChord) {
+        if (role.guid === USER_ROLE_GUID) continue;
         const currentPerms = dbOps.getRolePermissions(role.guid);
-        if (!currentPerms.includes(newManageListsPerm.guid)) {
-          dbOps.updateRolePermissions(role.guid, [...currentPerms, newManageListsPerm.guid]);
+        if (!currentPerms.includes(newToggleChordPerm.guid)) {
+          dbOps.updateRolePermissions(role.guid, [...currentPerms, newToggleChordPerm.guid]);
         }
       }
-      console.log('ManageLists permission created and assigned to all roles except user role');
+      console.log('ToggleChordDisplay permission created and assigned to all roles except User (guid=4)');
     }
 
     // Assign permissions to admin role only
@@ -738,7 +756,8 @@ function createTables() {
         'ManageLibrary',
         'ManagePlaylists',
         'ManageLists',
-        'ManageLocations'
+        'ManageLocations',
+        'ToggleChordDisplay'
       ];
       
       const currentPermissions = dbOps.getRolePermissions(adminRole.guid);

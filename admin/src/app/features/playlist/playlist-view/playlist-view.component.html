@@ -153,9 +153,9 @@
           <i class="fas fa-compress"></i>
         </button>
 
-        <!-- Chord display toggle and transposition buttons -->
+        <!-- Chord display toggle and transposition buttons (ToggleChordDisplay permission) -->
         <button 
-          *ngIf="currentContent?.type === 'text'" 
+          *ngIf="currentContent?.type === 'text' && hasToggleChordDisplayPermission()" 
           class="chord-display-button" 
           [class.fullscreen-mode]="isFullscreen"
           (click)="toggleChordDisplay()"
@@ -166,7 +166,7 @@
         </button>
 
         <button 
-          *ngIf="currentContent?.type === 'text' && chordsVisible" 
+          *ngIf="currentContent?.type === 'text' && chordsVisible && hasToggleChordDisplayPermission()" 
           class="chord-size-decrease-button" 
           [class.fullscreen-mode]="isFullscreen"
           (click)="decreaseChordTransposition()"
@@ -177,7 +177,7 @@
         </button>
 
         <button 
-          *ngIf="currentContent?.type === 'text' && chordsVisible" 
+          *ngIf="currentContent?.type === 'text' && chordsVisible && hasToggleChordDisplayPermission()" 
           class="chord-size-increase-button" 
           [class.fullscreen-mode]="isFullscreen"
           (click)="increaseChordTransposition()"
@@ -188,7 +188,7 @@
         </button>
 
         <button 
-          *ngIf="currentContent?.type === 'text' && chordsVisible" 
+          *ngIf="currentContent?.type === 'text' && chordsVisible && hasToggleChordDisplayPermission()" 
           class="chord-size-reset-button" 
           [class.fullscreen-mode]="isFullscreen"
           [class.disabled]="chordTransposition === 0"

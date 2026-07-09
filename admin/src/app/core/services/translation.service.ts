@@ -386,6 +386,7 @@ export interface TranslationKeys {
     // Lists (Editor)
     deleteList: string;
     deleteListConfirm: string;
+    deleteListItemsRemovedWarning: string;
     addItemToList: string;
     removeItemFromList: string;
     listSaved: string;
@@ -825,6 +826,7 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     // Lists (Editor)
     deleteList: 'Delete List',
     deleteListConfirm: 'Are you sure you want to delete list',
+    deleteListItemsRemovedWarning: 'All items in the list will be removed.',
     addItemToList: 'Add Item to List',
     removeItemFromList: 'Remove Item from List',
     listSaved: 'List saved successfully',
@@ -1262,6 +1264,7 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     // Lists (Editor)
     deleteList: 'Izbriši seznam',
     deleteListConfirm: 'Ali ste prepričani, da želite izbrisati seznam',
+    deleteListItemsRemovedWarning: 'Vse postavke v seznamu bodo odstranjene.',
     addItemToList: 'Dodaj postavko v seznam',
     removeItemFromList: 'Odstrani postavko iz seznama',
     listSaved: 'Seznam je bil uspešno shranjen',
@@ -1699,6 +1702,7 @@ const translations: Record<SupportedLocale, TranslationKeys> = {
     // Lists (Editor)
     deleteList: 'Elimina Elenco',
     deleteListConfirm: 'Sei sicuro di voler eliminare elenco',
+    deleteListItemsRemovedWarning: 'Tutti gli elementi nell\'elenco verranno rimossi.',
     addItemToList: 'Aggiungi Elemento all\'Elenco',
     removeItemFromList: 'Rimuovi Elemento dall\'Elenco',
     listSaved: 'Elenco salvato con successo',

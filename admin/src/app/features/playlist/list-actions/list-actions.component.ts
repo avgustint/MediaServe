@@ -4,14 +4,17 @@ import { FormsModule } from "@angular/forms";
 import { TranslatePipe } from "../../../shared/pipes/translation.pipe";
 import { TranslationService } from "../../../core/services/translation.service";
 import { ListsService, List } from "../services/lists.service";
+import { UserService } from "../../../core/services/user.service";
 import { forkJoin, of } from "rxjs";
 import { switchMap, catchError } from "rxjs/operators";
 import { InputTextModule } from "primeng/inputtext";
+import { ConfirmDialogComponent } from "../../../shared/feedback/confirm-dialog/confirm-dialog.component";
+import { HttpErrorResponse } from "@angular/common/http";
 
 @Component({
   selector: "app-list-actions",
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslatePipe, InputTextModule],
+  imports: [CommonModule, FormsModule, TranslatePipe, InputTextModule, ConfirmDialogComponent],
   templateUrl: "./list-actions.component.html",
   styleUrls: ["./list-actions.component.scss"]
 })
@@ -33,13 +36,25 @@ export class ListActionsComponent implements OnInit, OnDestroy, OnChanges {
   isInLastList = false;
 
   loading = false;
+  hasManageListsPermission = false;
+
+  editingListGuid: number | null = null;
+  editingListName = "";
+  editingListError = "";
+
+  showConfirmDialog = false;
+  confirmDialogTitle = "";
+  confirmDialogMessage = "";
+  listToDelete: List | null = null;
 
   constructor(
     private listsService: ListsService,
+    private userService: UserService,
     private translationService: TranslationService
   ) {}
 
   ngOnInit(): void {
+    this.hasManageListsPermission = this.userService.hasPermission("ManageLists");
     this.loadLists();
   }
 
@@ -126,6 +141,8 @@ export class ListActionsComponent implements OnInit, OnDestroy, OnChanges {
     this.showNewListForm = false;
     this.newListName = "";
     this.newListError = "";
+    this.cancelListRename();
+    this.closeConfirmDialog();
   }
 
   onAddToFavorites(): void {
@@ -215,6 +232,100 @@ export class ListActionsComponent implements OnInit, OnDestroy, OnChanges {
 
   onListSelectorClose(): void {
     this.showListSelector = false;
+    this.cancelListRename();
+  }
+
+  isEditingList(list: List): boolean {
+    return this.editingListGuid === list.guid;
+  }
+
+  onStartEditList(list: List, event: MouseEvent): void {
+    event.stopPropagation();
+    this.editingListGuid = list.guid;
+    this.editingListName = list.name;
+    this.editingListError = "";
+  }
+
+  cancelListRename(): void {
+    this.editingListGuid = null;
+    this.editingListName = "";
+    this.editingListError = "";
+  }
+
+  confirmListRename(event?: Event): void {
+    event?.stopPropagation();
+    if (this.editingListGuid === null) return;
+
+    const name = this.editingListName.trim();
+    if (!name) {
+      this.editingListError = this.translationService.translate("fieldRequired");
+      return;
+    }
+    const nameLower = name.toLowerCase();
+    if (this.lists.some(l => l.guid !== this.editingListGuid && l.name.toLowerCase() === nameLower)) {
+      this.editingListError = this.translationService.translate("listNameExists");
+      return;
+    }
+
+    const guid = this.editingListGuid;
+    const list = this.lists.find(l => l.guid === guid);
+    if (!list || list.name === name) {
+      this.cancelListRename();
+      return;
+    }
+
+    this.loading = true;
+    this.listsService.updateList(guid, { name }).subscribe({
+      next: () => {
+        if (this.lastUsedList?.guid === guid) {
+          this.lastUsedList = { ...this.lastUsedList, name };
+        }
+        this.loadLists();
+        this.cancelListRename();
+        this.loading = false;
+      },
+      error: (err: HttpErrorResponse) => {
+        this.editingListError = err.error?.message || this.translationService.translate("errorOccurred");
+        this.loading = false;
+      }
+    });
+  }
+
+  onDeleteListClick(list: List, event: MouseEvent): void {
+    event.stopPropagation();
+    this.listToDelete = list;
+    this.confirmDialogTitle = this.translationService.translate("deleteList");
+    this.confirmDialogMessage = `${this.translationService.translate("deleteListConfirm")} "${list.name}"? ${this.translationService.translate("deleteListItemsRemovedWarning")} ${this.translationService.translate("thisActionCannotBeUndone")}`;
+    this.showConfirmDialog = true;
+  }
+
+  onConfirmDeleteList(): void {
+    if (!this.listToDelete) return;
+
+    const guid = this.listToDelete.guid;
+    this.loading = true;
+    this.listsService.deleteList(guid).subscribe({
+      next: () => {
+        if (this.listsService.getLastUsedListGuid() === guid) {
+          this.listsService.clearLastUsedListGuid();
+          this.lastUsedList = null;
+        }
+        this.loadLists();
+        this.closeConfirmDialog();
+        this.loading = false;
+      },
+      error: () => {
+        this.closeConfirmDialog();
+        this.loading = false;
+      }
+    });
+  }
+
+  closeConfirmDialog(): void {
+    this.showConfirmDialog = false;
+    this.listToDelete = null;
+    this.confirmDialogTitle = "";
+    this.confirmDialogMessage = "";
   }
 
   onCreateNewList(): void {

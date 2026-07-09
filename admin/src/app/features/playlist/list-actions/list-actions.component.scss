@@ -138,16 +138,81 @@
   border-radius: 8px;
   margin-bottom: 4px;
 
-  &:hover {
+  &:hover:not(.editing) {
     background: rgba(255, 255, 255, 0.08);
   }
 
-  i {
-    color: #888;
+  &.editing {
+    cursor: default;
+    background: rgba(255, 255, 255, 0.05);
   }
 
-  span {
+  .list-icon {
+    color: #888;
+    flex-shrink: 0;
+  }
+}
+
+.list-select-main {
+  flex: 1;
+  min-width: 0;
+
+  .list-name {
     color: #e0e0e0;
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.list-rename-field {
+  input {
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(0, 0, 0, 0.3);
+    color: #fff;
+  }
+}
+
+.list-select-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.list-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #aaa;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  &.list-action-btn-danger:hover:not(:disabled) {
+    color: #e57373;
+  }
+
+  &.list-action-btn-success:hover:not(:disabled) {
+    color: #81c784;
   }
 }
 

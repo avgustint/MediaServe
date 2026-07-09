@@ -72,4 +72,8 @@ export class ListsService {
   setLastUsedListGuid(guid: number): void {
     localStorage.setItem(this.LAST_LIST_KEY, String(guid));
   }
+
+  clearLastUsedListGuid(): void {
+    localStorage.removeItem(this.LAST_LIST_KEY);
+  }
 }
